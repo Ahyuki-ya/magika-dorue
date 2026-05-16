@@ -262,11 +262,12 @@
         }
         #levelPanelBackdrop.open { display: block; }
         #levelPanelFAB { display: none; }
+        #levelPanelToggleBtn { display: none; }
 
         @media (max-width: 640px) {
             #gameScreen {
                 flex-direction: column; align-items: center;
-                overflow-y: auto; padding-bottom: 80px;
+                overflow: hidden; padding-bottom: 0;
             }
             #levelPanel {
                 position: fixed; left: 0; right: 0; bottom: 0;
@@ -884,9 +885,24 @@
     // ページ読み込み時にスタート画面へ表示
     updateStartScreenCarryOver();
 
+    function adjustMobileScale() {
+        const gc = document.getElementById('gameCenter');
+        if (!gc) return;
+        if (window.innerWidth < 640) {
+            const scale = window.innerWidth / 640;
+            gc.style.transformOrigin = 'top center';
+            gc.style.transform = `scale(${scale.toFixed(4)})`;
+        } else {
+            gc.style.transform = '';
+            gc.style.transformOrigin = '';
+        }
+    }
+    window.addEventListener('resize', adjustMobileScale);
+
     function enterGameScreen() {
         document.getElementById('startScreen').style.display = 'none';
         document.getElementById('gameScreen').style.display = 'flex';
+        adjustMobileScale();
         
         generateMap();
         maxDepth = 0;
@@ -1002,21 +1018,29 @@
         }
     }
 
-    canvas.addEventListener('mousedown', (e) => { 
-        if (isPlacingCastle) { placeCastle(e); } 
-        else { isDragging = true; dig(e); }
+    // canvas座標変換ヘルパー（CSS transform スケールに対応）
+    function canvasOffset(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = canvas.width / rect.width;
+        const sy = canvas.height / rect.height;
+        return {
+            offsetX: (clientX - rect.left) * sx,
+            offsetY: (clientY - rect.top) * sy
+        };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        const pos = canvasOffset(e.clientX, e.clientY);
+        if (isPlacingCastle) { placeCastle(pos); }
+        else { isDragging = true; dig(pos); }
     });
-    canvas.addEventListener('mousemove', (e) => { if (isDragging && !isPlacingCastle) dig(e); });
+    canvas.addEventListener('mousemove', (e) => { if (isDragging && !isPlacingCastle) dig(canvasOffset(e.clientX, e.clientY)); });
     window.addEventListener('mouseup', () => { isDragging = false; });
     canvas.addEventListener('mouseleave', () => { isDragging = false; });
 
     // タッチ操作：canvas座標に変換するヘルパー
     function touchToCanvasOffset(touch) {
-        const rect = canvas.getBoundingClientRect();
-        return {
-            offsetX: touch.clientX - rect.left,
-            offsetY: touch.clientY - rect.top
-        };
+        return canvasOffset(touch.clientX, touch.clientY);
     }
 
     canvas.addEventListener('touchstart', (e) => {

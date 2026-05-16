@@ -2,7 +2,8 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Magika・Dorue γ版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Magika・Dorue</title>
     <style>
         body {
             font-family: 'Courier New', Courier, monospace;
@@ -26,6 +27,7 @@
         #gameCenter {
             display: flex; flex-direction: column; align-items: center;
             flex-shrink: 0; position: relative;
+            padding-top: 40px;
         }
         
         .title { font-size: 4rem; margin-bottom: 30px; color: #f1c40f; text-shadow: 2px 2px #8e44ad, 4px 4px #2c3e50; letter-spacing: 5px; }
@@ -249,13 +251,58 @@
             box-shadow: 0 6px 24px rgba(142,68,173,0.6);
             transform: translateY(-1px);
         }
+        /* ===== 強化パネル 開閉 ===== */
+        #levelPanel.collapsed { display: none; }
+        #levelPanelCloseBtn { display: none; }
+        .lv-panel-handle { display: none; }
+
+        #levelPanelBackdrop {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55); z-index: 199;
+        }
+        #levelPanelBackdrop.open { display: block; }
+        #levelPanelFAB { display: none; }
+
+        @media (max-width: 640px) {
+            #gameScreen {
+                flex-direction: column; align-items: center;
+                overflow-y: auto; padding-bottom: 80px;
+            }
+            #levelPanel {
+                position: fixed; left: 0; right: 0; bottom: 0;
+                width: 100%; max-height: 60vh; overflow-y: auto;
+                border-radius: 16px 16px 0 0;
+                border-left: none; border-right: none; border-bottom: none;
+                flex-direction: row; flex-wrap: wrap;
+                box-sizing: border-box; z-index: 200;
+            }
+            .lv-panel-handle {
+                display: block; width: 40px; height: 4px;
+                background: #666; border-radius: 2px; margin: 0 auto 8px;
+            }
+            #levelPanelCloseBtn {
+                display: flex; align-items: center; justify-content: center;
+                background: none; border: none; color: #aaa;
+                font-size: 1.2rem; cursor: pointer; padding: 0; margin: 0;
+            }
+            #levelPanelFAB {
+                display: flex; align-items: center; justify-content: center;
+                position: fixed; bottom: 16px; right: 16px;
+                width: 56px; height: 56px; border-radius: 50%;
+                background: #8e44ad; border: 2px solid #9b59b6;
+                box-shadow: 0 4px 20px rgba(142,68,173,0.6);
+                font-size: 1.4rem; z-index: 300; cursor: pointer; color: white;
+            }
+            #levelPanelToggleBtn { display: none; }
+        }
     </style>
 </head>
 <body>
 
     <div id="startScreen" class="screen">
-        <h1 class="title">Magika・Dorue γ版</h1>
+        <h1 class="title">Magika・Dorue</h1>
         <div id="carryOverUI" style="margin-bottom:18px; font-size:1.1rem; color:#f1c40f; background:rgba(0,0,0,0.5); padding:10px 28px; border-radius:8px; border:1px solid #f39c12; display:none;">
+            🔄 引継ぎ回数: <span id="runCountAmount">0</span> 回<br>
             💰 引継ぎゴールド: <span id="carryOverAmount">0</span> G
         </div>
         <button class="btn-start" onclick="enterGameScreen()">ゲーム開始</button>
@@ -276,10 +323,12 @@
             </div>
             <div id="goldUI">💰 <span id="goldAmount">50</span> G</div>
             <button id="speedBtn" onclick="toggleSpeed()" style="position:absolute; top:36px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">▶▶ 早送り</button>
+            <button id="pauseBtn" onclick="togglePause()" style="position:absolute; top:62px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">⏸ ポーズ</button>
 
             <div id="dashboard">
                 <div class="btn-group">
                     <button class="btn-castle" id="castleBtn" onclick="toggleCastleMode()">🏰 あくま部屋作成(0 Gold)</button>
+                    <button class="btn-castle" id="levelPanelToggleBtn" onclick="toggleLevelPanel()" style="font-size:14px; padding:10px 14px;">⚗ 強化 ▲</button>
                 </div>
                 <div id="message"></div>
                 <div class="legend">
@@ -301,7 +350,11 @@
 
         <!-- レベルアップパネル -->
         <div id="levelPanel">
-            <div class="lv-panel-title">⚗ 強化パネル</div>
+            <div class="lv-panel-handle"></div>
+            <div class="lv-panel-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>⚗ 強化パネル</span>
+                <button id="levelPanelCloseBtn" onclick="toggleLevelPanel()">✕</button>
+            </div>
 
             <!-- 石スライム -->
             <div class="lv-card">
@@ -442,6 +495,7 @@
     const randBonus = { slime: {atk:0,agi:0,hp:0}, goblin: {atk:0,agi:0,hp:0}, golem: {atk:0,agi:0,hp:0} };
     const randCount = { slime: 0, goblin: 0, golem: 0 };
     let heroGold = 0; // 勇者の内部ゴールド（画面非表示） // 強化回数（費用計算用）
+    let rageBonus = { atk: 0, agi: 0, hp: 0 };
 
     // ランダム強化の確率テーブル（atk/agi/hp）
     const RAND_WEIGHTS = {
@@ -493,7 +547,7 @@
     let heroPower = 0; // 勇者総合力（atk+agi+hp の合計）
     
     const COLS = 20;
-    const INITIAL_ROWS = 25;
+    const INITIAL_ROWS = 23;
     const TILE_SIZE = 30;
     let ROWS = INITIAL_ROWS; // 動的に増える
 
@@ -514,7 +568,7 @@
     let isGameRunning = false;
     
     // リソース＆リザルト用変数
-    let gold = 50; 
+    let gold = 20;
     let defeatedHeroesCount = 0;
     let totalEarnedGold = 0;
     
@@ -528,17 +582,23 @@
     const HERO_SEARCH_RANGE = 20;
 
     let maxDepth = 0;
-    const DIG_RANGE_BELOW_CASTLE = 20;
+    const DIG_RANGE_BELOW_CASTLE = 10;
     const ENTRANCE_X = Math.floor(COLS / 2);
     const SKY_LAYERS = 2;
 
+    // 地下行 y における鉱石確率の統一ヘルパー（全行で同一式を使用）
+    // depth=0 は y=SKY_LAYERS+1（地下最上行）、depth=200（y=203）で銅33%・苔33%・石34%に到達
+    function oreProbAt(y) {
+        const depth = y - (SKY_LAYERS + 1);
+        const d = Math.min(1.0, depth / 200);
+        return { pCopper: 0.33 * d, pMoss: 0.33 * d };
+    }
+
     function generateRow(y) {
-        const d = Math.min(1.0, (y - SKY_LAYERS) / 60);
+        const { pCopper, pMoss } = oreProbAt(y);
         const row = [];
         for (let x = 0; x < COLS; x++) {
             const r = Math.random();
-            const pCopper = 0.33 * d;
-            const pMoss   = 0.05 + 0.15 * d;
             if      (r < pCopper)          row.push(6);
             else if (r < pCopper + pMoss)  row.push(2);
             else                           row.push(1);
@@ -547,13 +607,27 @@
     }
 
     function expandMap(targetRow) {
+        const dirs = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
         while (map.length <= targetRow) {
             map.push(generateRow(map.length));
+            // 新行に対して苔の伝播（既存行との境界も含む）
+            const y = map.length - 1;
+            const changes = [];
+            for (let x = 0; x < COLS; x++) {
+                if (map[y][x] !== 1) continue;
+                let mossNeighbors = 0;
+                for (const dir of dirs) {
+                    const nx = x + dir[0], ny = y + dir[1];
+                    if (nx >= 0 && nx < COLS && ny >= SKY_LAYERS+1 && ny < map.length) {
+                        if (map[ny][nx] === 2) mossNeighbors++;
+                    }
+                }
+                if (mossNeighbors >= 2 && Math.random() < 0.6) changes.push(x);
+            }
+            changes.forEach(x => { map[y][x] = 2; });
         }
         ROWS = map.length;
         canvas.height = ROWS * TILE_SIZE;
-        maxDepth = Math.max(maxDepth, ROWS - INITIAL_ROWS);
-        document.getElementById('depthUI').innerText = maxDepth;
     }
 
     function generateMap() {
@@ -570,24 +644,13 @@
             }
         }
 
-        const undergroundRows = INITIAL_ROWS - SKY_LAYERS - 1;
-
         for (let y = SKY_LAYERS + 1; y < INITIAL_ROWS; y++) {
+            const { pCopper, pMoss } = oreProbAt(y);
             for (let x = 0; x < COLS; x++) {
                 if (y === SKY_LAYERS + 1 && x === ENTRANCE_X) continue;
-                
-                let d = (y - (SKY_LAYERS + 1)) / (undergroundRows - 1); 
-                if (undergroundRows <= 1) d = 1.0;
-
-                let pCopper = 0.33 * d;
-                let pMossSeed = 0.05 + 0.15 * d;
-
-                let r = Math.random();
-                if (r < pCopper) {
-                    map[y][x] = 6; 
-                } else if (r < pCopper + pMossSeed) {
-                    map[y][x] = 2; 
-                }
+                const r = Math.random();
+                if      (r < pCopper)          map[y][x] = 6;
+                else if (r < pCopper + pMoss)  map[y][x] = 2;
             }
         }
 
@@ -792,17 +855,26 @@
     function saveMonsterLevels() {
         localStorage.setItem('magika_monsterlevels', JSON.stringify(monsterLevels));
     }
+    function loadRunCount() {
+        return parseInt(localStorage.getItem('magika_runcount') || '0');
+    }
+    function saveRunCount(count) {
+        localStorage.setItem('magika_runcount', String(count));
+    }
     function resetCarryOver() {
         localStorage.removeItem('magika_carryover');
         localStorage.removeItem('magika_monsterlevels');
+        localStorage.removeItem('magika_runcount');
         updateStartScreenCarryOver();
     }
     function updateStartScreenCarryOver() {
         const saved = loadCarryOver();
         const lvs = loadMonsterLevels();
+        const runCount = loadRunCount();
         const ui = document.getElementById('carryOverUI');
         const span = document.getElementById('carryOverAmount');
-        if (saved > 0 || lvs.slime > 1 || lvs.goblin > 1 || lvs.golem > 1) {
+        if (saved > 0 || lvs.slime > 1 || lvs.goblin > 1 || lvs.golem > 1 || runCount > 0) {
+            document.getElementById('runCountAmount').innerText = runCount;
             span.innerHTML = `${saved} G &nbsp;／&nbsp; 🪨Lv.${lvs.slime} 🌿Lv.${lvs.goblin} 🟤Lv.${lvs.golem}`;
             ui.style.display = 'block';
         } else {
@@ -842,10 +914,11 @@
         monsterLevels.slime = savedLevels.slime;
         monsterLevels.goblin = savedLevels.goblin;
         monsterLevels.golem = savedLevels.golem;
-        // ランダムボーナスはセッション限定でリセット
+        // ランダムボーナス・怒りボーナスはセッション限定でリセット
         randBonus.slime  = {atk:0, agi:0, hp:0};
         randBonus.goblin = {atk:0, agi:0, hp:0};
         randBonus.golem  = {atk:0, agi:0, hp:0};
+        rageBonus = { atk: 0, agi: 0, hp: 0 };
         randCount.slime = 0; randCount.goblin = 0; randCount.golem = 0;
         heroGold = 0;
         
@@ -871,6 +944,7 @@
         const newCarry = prevCarry + gold;
         saveCarryOver(newCarry);
         saveMonsterLevels();
+        saveRunCount(loadRunCount() + 1);
 
         // リザルト画面への値の代入
         document.getElementById('resHeroes').innerText = defeatedHeroesCount;
@@ -936,6 +1010,30 @@
     window.addEventListener('mouseup', () => { isDragging = false; });
     canvas.addEventListener('mouseleave', () => { isDragging = false; });
 
+    // タッチ操作：canvas座標に変換するヘルパー
+    function touchToCanvasOffset(touch) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            offsetX: touch.clientX - rect.left,
+            offsetY: touch.clientY - rect.top
+        };
+    }
+
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const fakeEvent = touchToCanvasOffset(e.touches[0]);
+        if (isPlacingCastle) { placeCastle(fakeEvent); }
+        else { isDragging = true; dig(fakeEvent); }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!isDragging || isPlacingCastle) return;
+        dig(touchToCanvasOffset(e.touches[0]));
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => { isDragging = false; });
+
     function spawnFloatingText(x, y, text, color) {
         floatingTexts.push({
             x: x * TILE_SIZE + TILE_SIZE / 2,
@@ -974,7 +1072,12 @@
                 castleHp = CASTLE_MAX_HP;
                 toggleCastleMode();
 
-                // あくま部屋の下20行を確保
+                // 深度を更新（地表 y=SKY_LAYERS からの距離）
+                const castleDepth = castlePos.y - SKY_LAYERS;
+                maxDepth = Math.max(maxDepth, castleDepth);
+                document.getElementById('depthUI').innerText = castleDepth;
+
+                // あくま部屋の下を確保
                 expandMap(castlePos.y + DIG_RANGE_BELOW_CASTLE);
 
                 // あくま部屋が見えるようにスクロール
@@ -1117,14 +1220,22 @@
 
         // ベースステータス（UI表示・次レベルの基準）
         const [ba, bg, bh] = distribute(heroPower, weights[heroType]);
-        heroBaseAtk = ba; heroBaseAgi = bg; heroBaseHp = bh;
+
+        // 怒りレベルごとに恒久ボーナスを蓄積（以降の全勇者に引き継ぎ）
+        if (isEnraged) { rageBonus.atk += 5; rageBonus.agi += 5; rageBonus.hp += 5; }
+
+        heroBaseAtk = ba + rageBonus.atk;
+        heroBaseAgi = bg + rageBonus.agi;
+        heroBaseHp  = bh + rageBonus.hp;
 
         // 実際のスポーンステータス（怒りボーナス込み）
-        let spawnAtk = ba, spawnAgi = bg, spawnHp = bh;
+        let spawnAtk = heroBaseAtk, spawnAgi = heroBaseAgi, spawnHp = heroBaseHp;
         if (isEnraged && enragedBonus > 0) {
-            // 怒りタイプ：ボーナスは攻撃と耐久力に均等振り分け
+            // 怒りタイプ：ボーナスは攻撃・敏捷・耐久力に均等振り分け
             for (let i = 0; i < enragedBonus; i++) {
-                if (Math.random() < 0.5) spawnAtk++;
+                const r = Math.random() * 10;
+                if (r < 4) spawnAtk++;
+                else if (r < 6) spawnAgi++;
                 else spawnHp++;
             }
         }
@@ -1303,11 +1414,12 @@
 
                 // 勇者のHPを0にした際の処理
                 if (target.hp <= 0 && target.isHero) {
-                    gold += 25; 
-                    totalEarnedGold += 25;
+                    const reward = 10 + Math.floor(heroLevel / 5);
+                    gold += reward;
+                    totalEarnedGold += reward;
                     defeatedHeroesCount++;
                     updateGoldUI();
-                    spawnFloatingText(target.x, target.y, '+25G', '#f1c40f');
+                    spawnFloatingText(target.x, target.y, `+${reward}G`, '#f1c40f');
                     
                     let remainingHeroes = heroes.filter(h => h.hp > 0 && h !== target);
                     if (remainingHeroes.length === 0 && isWaveStarted) {
@@ -1403,6 +1515,7 @@
     const FRAME_INTERVAL = 1000 / TARGET_FPS;
     let lastFrameTime = 0;
     let isFastMode = false;
+    let isPaused = false;
 
     function toggleSpeed() {
         isFastMode = !isFastMode;
@@ -1418,6 +1531,37 @@
         }
     }
 
+    function toggleLevelPanel() {
+        const panel    = document.getElementById('levelPanel');
+        const backdrop = document.getElementById('levelPanelBackdrop');
+        const fab      = document.getElementById('levelPanelFAB');
+        const btn      = document.getElementById('levelPanelToggleBtn');
+        const isNowCollapsed = panel.classList.toggle('collapsed');
+        backdrop.classList.toggle('open', !isNowCollapsed);
+        if (fab) fab.textContent = isNowCollapsed ? '⚗' : '✕';
+        if (btn) btn.textContent = isNowCollapsed ? '⚗ 強化 ▼' : '⚗ 強化 ▲';
+    }
+
+    // モバイルでは初期状態でパネルを閉じる
+    if (window.innerWidth <= 640) {
+        document.getElementById('levelPanel').classList.add('collapsed');
+        document.getElementById('levelPanelFAB').textContent = '⚗';
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('pauseBtn');
+        if (isPaused) {
+            btn.textContent = '▶ 再開';
+            btn.style.background = '#c0392b';
+            btn.style.borderColor = '#e74c3c';
+        } else {
+            btn.textContent = '⏸ ポーズ';
+            btn.style.background = '#2c3e50';
+            btn.style.borderColor = '#7f8c8d';
+        }
+    }
+
     function gameLoop(timestamp = 0) {
         if(!isGameRunning) return;
         const interval = isFastMode ? 1000 / 60 : FRAME_INTERVAL;
@@ -1426,11 +1570,13 @@
             return;
         }
         lastFrameTime = timestamp;
-        // 早送り時はACTION_THRESHOLDを60、通常は100
-        const threshold = isFastMode ? 60 : ACTION_THRESHOLD;
 
-        heroes.forEach(h => updateEntity(h, monsters, threshold));
-        monsters.forEach(m => updateEntity(m, heroes, threshold));
+        if (!isPaused) {
+            // 早送り時はACTION_THRESHOLDを60、通常は100
+            const threshold = isFastMode ? 60 : ACTION_THRESHOLD;
+
+            heroes.forEach(h => updateEntity(h, monsters, threshold));
+            monsters.forEach(m => updateEntity(m, heroes, threshold));
 
         // ポーション自動発動（HP30%以下で一度だけ）
         heroes.forEach(h => {
@@ -1504,6 +1650,7 @@
             return false;
         });
         monsters.push(...newborns);
+        } // end if (!isPaused)
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -1794,5 +1941,7 @@
         requestAnimationFrame(gameLoop);
     }
 </script>
+<div id="levelPanelBackdrop" onclick="toggleLevelPanel()"></div>
+<button id="levelPanelFAB" onclick="toggleLevelPanel()">⚗</button>
 </body>
 </html>

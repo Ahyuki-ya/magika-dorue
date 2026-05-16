@@ -190,6 +190,20 @@
         .lv-btn-down { flex: 0 0 32px !important; background: #4a4a4a !important; font-size: 13px; }
         .lv-btn-down:hover:not(:disabled) { background: #666 !important; }
 
+        /* ===== タッチモードボタン（モバイルのみ表示） ===== */
+        #digModeBtn, #exploreModeBtn { display: none; }
+        .mode-btn {
+            display: flex; align-items: center; justify-content: center;
+            position: fixed; width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(44,62,80,0.85); border: 2px solid #556;
+            color: #888; font-size: 1.1rem; cursor: pointer;
+            z-index: 300; transition: 0.15s;
+        }
+        .mode-btn.active {
+            background: rgba(142,68,173,0.9); border-color: #9b59b6;
+            color: #fff; box-shadow: 0 2px 10px rgba(142,68,173,0.6);
+        }
+
         .result-box {
             background: rgba(0, 0, 0, 0.5); border: 2px solid #555;
             padding: 20px 40px; border-radius: 10px; margin-bottom: 30px;
@@ -295,6 +309,8 @@
                 font-size: 1.4rem; z-index: 300; cursor: pointer; color: white;
             }
             #levelPanelToggleBtn { display: none; }
+            #digModeBtn  { display: flex; bottom: 88px;  right: 24px; }
+            #exploreModeBtn { display: flex; bottom: 136px; right: 24px; }
         }
     </style>
 </head>
@@ -1043,20 +1059,54 @@
         return canvasOffset(touch.clientX, touch.clientY);
     }
 
+    let touchScrollStartY = null;
+    let touchMode = 'dig'; // 'dig' | 'explore'
+
+    function setTouchMode(mode) {
+        touchMode = mode;
+        document.getElementById('digModeBtn').classList.toggle('active', mode === 'dig');
+        document.getElementById('exploreModeBtn').classList.toggle('active', mode === 'explore');
+    }
+
+    function avgTouchY(touches) {
+        let sum = 0;
+        for (let i = 0; i < touches.length; i++) sum += touches[i].clientY;
+        return sum / touches.length;
+    }
+
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        const fakeEvent = touchToCanvasOffset(e.touches[0]);
-        if (isPlacingCastle) { placeCastle(fakeEvent); }
-        else { isDragging = true; dig(fakeEvent); }
+        const isScroll = e.touches.length >= 2 || touchMode === 'explore';
+        if (isScroll) {
+            isDragging = false;
+            touchScrollStartY = avgTouchY(e.touches);
+        } else {
+            touchScrollStartY = null;
+            const pos = touchToCanvasOffset(e.touches[0]);
+            if (isPlacingCastle) { placeCastle(pos); }
+            else { isDragging = true; dig(pos); }
+        }
     }, { passive: false });
 
     canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
-        if (!isDragging || isPlacingCastle) return;
-        dig(touchToCanvasOffset(e.touches[0]));
+        const isScroll = e.touches.length >= 2 || touchMode === 'explore';
+        if (isScroll) {
+            isDragging = false;
+            const midY = avgTouchY(e.touches);
+            if (touchScrollStartY !== null) {
+                const delta = touchScrollStartY - midY;
+                const scale = window.innerWidth < 640 ? window.innerWidth / 640 : 1;
+                document.getElementById('canvasContainer').scrollTop += delta / scale;
+            }
+            touchScrollStartY = midY;
+        } else if (isDragging && !isPlacingCastle) {
+            touchScrollStartY = null;
+            dig(touchToCanvasOffset(e.touches[0]));
+        }
     }, { passive: false });
 
-    canvas.addEventListener('touchend', () => { isDragging = false; });
+    canvas.addEventListener('touchend', () => { isDragging = false; touchScrollStartY = null; });
 
     function spawnFloatingText(x, y, text, color) {
         floatingTexts.push({
@@ -1967,5 +2017,7 @@
 </script>
 <div id="levelPanelBackdrop" onclick="toggleLevelPanel()"></div>
 <button id="levelPanelFAB" onclick="toggleLevelPanel()">⚗</button>
+<button id="digModeBtn" class="mode-btn active" onclick="setTouchMode('dig')">⛏</button>
+<button id="exploreModeBtn" class="mode-btn" onclick="setTouchMode('explore')">👁</button>
 </body>
 </html>

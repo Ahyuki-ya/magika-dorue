@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: 'Courier New', Courier, monospace;
-            background-color: #000; color: #fff;
+            background-color: #000018; color: #f0f0f0;
             margin: 0; padding: 0;
             display: flex; justify-content: center; align-items: center;
             height: 100vh; overflow: hidden; position: relative;
@@ -16,46 +16,121 @@
             display: none; flex-direction: column;
             align-items: center; justify-content: center;
             width: 100%; height: 100%;
+            position: absolute; inset: 0; z-index: 1;
         }
-        #startScreen { display: flex; background-color: #111; }
+        #titleScreen  { display: flex; background: #000018; }
+        #startScreen  { background: #000018; }
+        #modeSelectScreen { background: #000020; }
         #gameScreen {
             flex-direction: row; justify-content: center; align-items: flex-start;
-            padding-top: 15px; gap: 14px;
-            background-color: #222; position: relative;
+            padding: 12px; gap: 14px;
+            background-color: #000010;
+            position: absolute; inset: 0; z-index: 2;
             height: 100%; box-sizing: border-box;
+            overflow: auto;
         }
         #gameCenter {
             display: flex; flex-direction: column; align-items: center;
             flex-shrink: 0; position: relative;
             padding-top: 40px;
         }
-        
-        .title { font-size: 4rem; margin-bottom: 30px; color: #f1c40f; text-shadow: 2px 2px #8e44ad, 4px 4px #2c3e50; letter-spacing: 5px; }
-        .gameover-title { font-size: 4rem; color: #e74c3c; margin-bottom: 20px; }
+
+        /* 左サイドパネル（デスクトップ用メニュー導線） */
+        #sidePanelLeft {
+            width: 150px; flex-shrink: 0; align-self: flex-start;
+            margin-top: 40px;
+            display: flex; flex-direction: column; gap: 8px;
+            background: rgba(0,8,32,0.92); border: 2px solid #2244aa;
+            border-radius: 2px; padding: 10px 8px;
+        }
+        .side-panel-title {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 11px; color: #6688cc;
+            letter-spacing: 3px; border-bottom: 1px solid #1a2a60;
+            padding-bottom: 6px; margin-bottom: 2px;
+        }
+        #sidePanelCollapseBtn {
+            background: none; border: none; color: #6688cc; cursor: pointer;
+            font-size: 1rem; line-height: 1; padding: 0 2px; margin: 0;
+            letter-spacing: 0;
+        }
+        #sidePanelCollapseBtn:hover { color: #aaccff; }
+        #sidePanelLeft.collapsed { display: none; }
+        /* 畳んだ時の開くハンドル（デスクトップのみ・gameScreen左上） */
+        #sidePanelOpenHandle {
+            display: none; align-items: center; justify-content: center;
+            align-self: flex-start; margin-top: 40px;
+            width: 34px; height: 34px; flex-shrink: 0;
+            background: rgba(0,8,32,0.92); border: 2px solid #2244aa;
+            border-radius: 2px; color: #6688cc; cursor: pointer;
+            font-size: 1.1rem; padding: 0;
+        }
+        #sidePanelOpenHandle:hover { border-color: #4466cc; color: #aaccff; }
+        #sidePanelOpenHandle.show { display: flex; }
+        .side-btn {
+            display: flex; align-items: center; gap: 8px;
+            width: 100%; padding: 10px 10px; margin: 0;
+            background: rgba(68,102,204,0.08); border: 1px solid #1a2a60;
+            border-radius: 2px; cursor: pointer; text-align: left;
+            color: #aaccff; transition: all 0.12s;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .side-btn:hover { background: rgba(20,50,140,0.8); border-color: #4466cc; color: #ffffff; }
+        .side-btn-icon { font-size: 1.2rem; flex-shrink: 0; }
+        .side-btn-label { font-size: 0.8rem; font-weight: bold; }
+        .side-btn-quit { color: #cc8888; border-color: #3a1a1a; }
+        .side-btn-quit:hover { background: rgba(140,30,30,0.4); border-color: #aa3333; color: #ffbbbb; }
+
+        /* モバイル用メニューFAB（デスクトップでは非表示） */
+        #menuFAB {
+            display: none; align-items: center; justify-content: center;
+            position: fixed; bottom: 16px; left: 16px;
+            width: 56px; height: 56px; border-radius: 50%;
+            background: #0a2050; border: 2px solid #4466cc;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+            font-size: 1.4rem; z-index: 300; cursor: pointer; color: #aaccff;
+        }
+        /* モバイル用メニューポップオーバー */
+        #menuPopover {
+            display: none; position: fixed; bottom: 80px; left: 16px;
+            flex-direction: column; gap: 6px; z-index: 320;
+            background: rgba(0,8,32,0.97); border: 2px solid #4466cc;
+            border-radius: 8px; padding: 8px;
+        }
+        #menuPopover.open { display: flex; }
+        #menuPopover .side-btn { width: 150px; }
+
+        .title { font-size: 4rem; margin-bottom: 30px; color: #ffffff; text-shadow: 3px 3px 0 #000066, 6px 6px 0 #000044; letter-spacing: 5px; }
+        .gameover-title { font-size: 4rem; color: #ff4422; margin-bottom: 20px; }
 
         #dashboard { margin-bottom: 10px; text-align: center; z-index: 10; flex-shrink: 0; }
         .btn-group { margin-bottom: 8px; }
         button {
             padding: 8px 16px; font-size: 14px; cursor: pointer;
-            color: white; border: none; border-radius: 5px; font-weight: bold;
-            margin: 0 4px; transition: 0.2s;
+            color: #f0f0f0; border: none; border-radius: 2px; font-weight: bold;
+            margin: 0 4px; transition: 0.15s;
         }
-        .btn-start { background-color: #e67e22; font-size: 1.5rem; padding: 15px 40px; border: 2px solid #d35400; }
-        .btn-start:hover { background-color: #d35400; }
-        .btn-castle { background-color: #8e44ad; padding: 10px 20px; font-size: 16px;}
-        .btn-castle:hover { background-color: #732d91; }
-        .btn-castle.active { background-color: #e74c3c; box-shadow: 0 0 10px #e74c3c; }
+        .btn-start {
+            background: #0a2050; font-size: 1.5rem; padding: 15px 40px;
+            border: 3px solid #4466cc; color: #ffffff; letter-spacing: 3px;
+        }
+        .btn-start:hover { background: #1a3070; border-color: #6688ff; }
+        .btn-castle { background: #0a1840; padding: 10px 20px; font-size: 16px; border: 2px solid #2244aa; color: #aaccff; }
+        .btn-castle:hover { background: #1a2860; border-color: #4466cc; }
+        .btn-castle.active { background: #6a1010; border-color: #cc2200; color: #ffaaaa; box-shadow: 0 0 8px rgba(200,0,0,0.4); }
         
         #canvasContainer {
-            width: 600px; height: 600px; 
+            width: 600px;
+            height: min(600px, calc(100vh - 210px));
             overflow-y: auto; overflow-x: hidden;
-            border: 4px solid #555; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            border: 4px solid #4466cc;
+            box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px #4466cc;
             position: relative; background-color: #ecf0f1;
         }
         #canvasContainer::-webkit-scrollbar { width: 12px; }
-        #canvasContainer::-webkit-scrollbar-track { background: #222; }
-        #canvasContainer::-webkit-scrollbar-thumb { background: #555; border-radius: 6px; }
-        #canvasContainer::-webkit-scrollbar-thumb:hover { background: #777; }
+        #canvasContainer::-webkit-scrollbar-track { background: #000828; }
+        #canvasContainer::-webkit-scrollbar-thumb { background: #2244aa; border-radius: 0; }
+        #canvasContainer::-webkit-scrollbar-thumb:hover { background: #4466cc; }
 
         canvas { display: block; cursor: crosshair; }
 
@@ -68,55 +143,62 @@
             vertical-align: middle; margin-right: 4px; border-radius: 2px;
         }
         .dot-box { border-radius: 50%; }
-        #message { height: 20px; color: #e74c3c; font-weight: bold; margin-bottom: 5px; }
+        #message { height: 20px; color: #ff6644; font-weight: bold; margin-bottom: 5px; }
 
-        #goldUI {
+        #currencyUI {
             position: absolute; top: 0; right: 0;
-            font-size: 18px; font-weight: bold; color: #f1c40f;
-            background: rgba(0, 0, 0, 0.75); padding: 6px 12px;
-            border-radius: 6px; border: 1px solid #f39c12; z-index: 100;
+            display: flex; gap: 4px; z-index: 100;
+        }
+        #diamondUI {
+            font-size: 18px; font-weight: bold; color: #00ffee;
+            background: rgba(0,8,32,0.92); padding: 6px 12px;
+            border-radius: 2px; border: 2px solid #0088aa;
+        }
+        #goldUI {
+            font-size: 18px; font-weight: bold; color: #ffcc00;
+            background: rgba(0,8,32,0.92); padding: 6px 12px;
+            border-radius: 2px; border: 2px solid #aa8800;
         }
         #heroStatsUI {
             position: absolute; top: 0; left: 0;
-            font-size: 12px; font-weight: bold; color: #ecf0f1;
-            background: rgba(0, 0, 0, 0.75); padding: 8px 12px;
-            border-radius: 6px; border: 1px solid #3498db; z-index: 100;
+            font-size: 12px; font-weight: bold; color: #f0f0f0;
+            background: rgba(0,8,32,0.92); padding: 8px 12px;
+            border-radius: 2px; border: 2px solid #4466cc; z-index: 100;
             text-align: left; min-width: 130px;
         }
         #heroStatsUI .hero-lv-label {
-            font-size: 10px; color: #85c1e9; letter-spacing: 1px; margin-bottom: 3px;
+            font-size: 10px; color: #8899cc; letter-spacing: 1px; margin-bottom: 3px;
         }
         #heroStatsUI .hero-lv-value {
-            font-size: 18px; color: #f1c40f; font-weight: bold;
-            text-shadow: 0 0 8px rgba(241,196,15,0.5);
+            font-size: 18px; color: #ffcc00; font-weight: bold;
         }
         #heroStatsUI .hero-stat-row {
             display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
         }
         #heroStatsUI .hero-stat-chip {
-            background: rgba(255,255,255,0.07); border-radius: 3px;
-            padding: 1px 5px; font-size: 11px; color: #bdc3c7;
+            background: rgba(68,102,204,0.18); border-radius: 2px;
+            padding: 1px 5px; font-size: 11px; color: #aabbdd;
         }
-        #heroStatsUI .hero-stat-chip span { color: #e74c3c; font-weight: bold; }
+        #heroStatsUI .hero-stat-chip span { color: #ff6644; font-weight: bold; }
 
         /* ===== レベルアップパネル ===== */
         #levelPanel {
             width: 180px; flex-shrink: 0;
-            background: rgba(0,0,0,0.6); border: 1px solid #444;
-            border-radius: 8px; padding: 10px 8px;
+            background: rgba(0,8,32,0.92); border: 2px solid #2244aa;
+            border-radius: 2px; padding: 10px 8px;
             display: flex; flex-direction: column; gap: 10px;
             align-self: flex-start; margin-top: 0;
             max-height: 90vh; overflow-y: auto;
         }
         #levelPanel::-webkit-scrollbar { width: 4px; }
-        #levelPanel::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+        #levelPanel::-webkit-scrollbar-thumb { background: #2244aa; border-radius: 0; }
         .lv-panel-title {
-            text-align: center; font-size: 11px; color: #aaa;
-            letter-spacing: 2px; border-bottom: 1px solid #333; padding-bottom: 6px;
+            text-align: center; font-size: 11px; color: #6688cc;
+            letter-spacing: 2px; border-bottom: 1px solid #1a2a60; padding-bottom: 6px;
         }
         .lv-card {
-            background: rgba(255,255,255,0.04); border: 1px solid #333;
-            border-radius: 6px; padding: 8px 8px 6px;
+            background: rgba(68,102,204,0.08); border: 1px solid #1a2a60;
+            border-radius: 2px; padding: 8px 8px 6px;
         }
         .lv-card-header {
             display: flex; justify-content: space-between; align-items: center;
@@ -127,14 +209,14 @@
         .lv-card-name.goblin { color: #2ecc71; }
         .lv-card-name.golem  { color: #e59866; }
         .lv-badge {
-            font-size: 11px; font-weight: bold; color: #f1c40f;
-            background: rgba(241,196,15,0.15); border: 1px solid rgba(241,196,15,0.3);
-            border-radius: 3px; padding: 1px 6px;
+            font-size: 11px; font-weight: bold; color: #ffcc00;
+            background: rgba(255,204,0,0.12); border: 1px solid rgba(255,204,0,0.35);
+            border-radius: 2px; padding: 1px 6px;
         }
         .lv-bar-track { display: flex; gap: 3px; flex: 1; }
         .lv-pip {
-            flex: 1; height: 10px; border-radius: 2px;
-            background: #2a2a2a; border: 1px solid #3a3a3a; transition: background 0.25s;
+            flex: 1; height: 10px; border-radius: 0;
+            background: #001040; border: 1px solid #112266; transition: background 0.25s;
         }
         .lv-pip.filled.slime  { background: #95a5a6; border-color: #bdc3c7; box-shadow: 0 0 3px rgba(189,195,199,0.4); }
         .lv-pip.filled.goblin { background: #27ae60; border-color: #2ecc71; box-shadow: 0 0 3px rgba(46,204,113,0.4); }
@@ -163,17 +245,17 @@
         .lv-plus.golem  { background: #784212; border-color: #e59866; }
         .lv-plus.golem:hover:not(:disabled)  { background: #a04000; }
         .lv-cost-hint {
-            font-size: 10px; color: #777; text-align: center;
+            font-size: 10px; color: #6688aa; text-align: center;
             margin-bottom: 4px; min-height: 13px;
         }
         .lv-stats-grid {
             display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 4px;
         }
         .lv-stats-grid .hero-stat-chip {
-            background: rgba(255,255,255,0.07); border-radius: 3px;
-            padding: 1px 5px; font-size: 10px; color: #bdc3c7;
+            background: rgba(68,102,204,0.14); border-radius: 2px;
+            padding: 1px 5px; font-size: 10px; color: #aabbdd;
         }
-        .lv-stats-grid .hero-stat-chip span { color: #e74c3c; font-weight: bold; }
+        .lv-stats-grid .hero-stat-chip span { color: #ff6644; font-weight: bold; }
         .lv-rand-btn {
             width: 100%; padding: 4px 0; font-size: 10px; margin-top: 5px;
             border-radius: 4px; cursor: pointer; border: 1px dashed;
@@ -187,21 +269,21 @@
         .lv-rand-btn.golem  { border-color: #ca6f1e; color: #e59866; }
         .lv-rand-btn.golem:hover:not(:disabled)  { background: rgba(229,152,102,0.15); }
         .lv-btn-row .lv-btn { flex: 1; }
-        .lv-btn-down { flex: 0 0 32px !important; background: #4a4a4a !important; font-size: 13px; }
-        .lv-btn-down:hover:not(:disabled) { background: #666 !important; }
+        .lv-btn-down { flex: 0 0 32px !important; background: #1a1a3a !important; font-size: 13px; border: 1px solid #334488 !important; }
+        .lv-btn-down:hover:not(:disabled) { background: #2a2a5a !important; }
 
         /* ===== タッチモードボタン（モバイルのみ表示） ===== */
         #digModeBtn, #exploreModeBtn { display: none; }
         .mode-btn {
             display: flex; align-items: center; justify-content: center;
-            position: fixed; width: 40px; height: 40px; border-radius: 50%;
-            background: rgba(44,62,80,0.85); border: 2px solid #556;
-            color: #888; font-size: 1.1rem; cursor: pointer;
+            position: fixed; width: 40px; height: 40px; border-radius: 2px;
+            background: rgba(0,8,32,0.92); border: 2px solid #2244aa;
+            color: #6688cc; font-size: 1.1rem; cursor: pointer;
             z-index: 300; transition: 0.15s;
         }
         .mode-btn.active {
-            background: rgba(142,68,173,0.9); border-color: #9b59b6;
-            color: #fff; box-shadow: 0 2px 10px rgba(142,68,173,0.6);
+            background: rgba(20,40,130,0.95); border-color: #6688ff;
+            color: #ffffff; box-shadow: 0 2px 10px rgba(68,102,204,0.5);
         }
 
         .result-box {
@@ -211,9 +293,7 @@
         }
 
         /* ===== リザルト画面 ===== */
-        #gameOverScreen {
-            background: radial-gradient(ellipse at 50% 30%, #1a0a2e 0%, #0d0d0d 70%);
-        }
+        #gameOverScreen { background: #000018; }
         .result-container {
             display: flex; flex-direction: column; align-items: center;
             width: 100%; max-width: 480px; padding: 40px 20px;
@@ -226,45 +306,94 @@
         }
         .result-title {
             font-size: 2.8rem; font-weight: bold; letter-spacing: 4px;
-            color: #e74c3c;
-            text-shadow: 0 0 20px rgba(231,76,60,0.6), 2px 2px 0 #8e1a0e;
+            color: #ff4422;
+            text-shadow: 3px 3px 0 #880000;
             margin: 0 0 10px;
         }
         .result-subtitle {
-            font-size: 0.95rem; color: #8e8e9e; margin: 0; letter-spacing: 1px;
+            font-size: 0.95rem; color: #6688aa; margin: 0; letter-spacing: 1px;
         }
         .result-stats {
-            width: 100%; background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px; padding: 8px 0; margin-bottom: 36px;
-            backdrop-filter: blur(4px);
+            width: 100%; background: rgba(0,8,32,0.8);
+            border: 2px solid #2244aa;
+            border-radius: 2px; padding: 8px 0; margin-bottom: 36px;
         }
         .result-stat-item {
             display: flex; align-items: center; justify-content: space-between;
             padding: 16px 28px; gap: 12px;
         }
         .result-stat-sub { opacity: 0.7; padding: 12px 28px; }
-        .result-stat-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 0 20px; }
-        .result-stat-label { font-size: 0.95rem; color: #a0a0b8; letter-spacing: 1px; flex: 1; }
+        .result-stat-divider { height: 1px; background: rgba(68,102,204,0.25); margin: 0 20px; }
+        .result-stat-label { font-size: 0.95rem; color: #8899cc; letter-spacing: 1px; flex: 1; }
         .result-stat-value {
-            font-size: 2rem; font-weight: bold; color: #f1c40f;
-            text-shadow: 0 0 10px rgba(241,196,15,0.5);
+            font-size: 2rem; font-weight: bold; color: #ffcc00;
             min-width: 60px; text-align: right;
         }
-        .result-stat-value-small { font-size: 1.3rem; color: #bdc3c7; text-shadow: none; }
-        .result-stat-unit { font-size: 0.85rem; color: #6c6c80; min-width: 16px; }
+        .result-stat-value-small { font-size: 1.3rem; color: #aabbdd; }
+        .result-stat-unit { font-size: 0.85rem; color: #446688; min-width: 16px; }
         .btn-result {
             font-size: 1rem; padding: 14px 40px; letter-spacing: 2px;
-            background: linear-gradient(135deg, #8e44ad, #6c3483);
-            border: 1px solid rgba(255,255,255,0.15);
-            box-shadow: 0 4px 20px rgba(142,68,173,0.4);
-            transition: all 0.2s;
+            background: #0a2050; border: 3px solid #4466cc; color: #ffffff;
+            transition: all 0.15s;
         }
         .btn-result:hover {
-            background: linear-gradient(135deg, #9b59b6, #7d3c98);
-            box-shadow: 0 6px 24px rgba(142,68,173,0.6);
+            background: #1a3070; border-color: #6688ff;
             transform: translateY(-1px);
         }
+        /* ===== メインメニュー ===== */
+        .menu-heading {
+            font-size: 0.75rem; letter-spacing: 6px; color: #4466cc;
+            margin: 0 0 28px; text-transform: uppercase;
+        }
+        .menu-list { display: flex; flex-direction: column; gap: 8px; width: 300px; }
+        .btn-menu {
+            display: flex; align-items: center; gap: 16px;
+            width: 100%; padding: 14px 20px; border-radius: 2px;
+            font-family: 'Courier New', Courier, monospace;
+            background: rgba(0,8,32,0.7); border: 2px solid #1a2a60;
+            cursor: pointer; transition: all 0.12s; text-align: left; color: #f0f0f0;
+        }
+        .btn-menu:hover:not(:disabled) {
+            background: rgba(20,50,140,0.8); border-color: #4466cc; color: #ffffff;
+        }
+        .btn-menu:disabled { opacity: 0.28; cursor: not-allowed; }
+        .btn-menu-icon { font-size: 1.5rem; flex-shrink: 0; }
+        .btn-menu-name { font-size: 1rem; font-weight: bold; }
+        .btn-menu-sub { font-size: 0.7rem; color: #4466aa; margin-top: 2px; letter-spacing: 1px; }
+        .btn-back {
+            margin-top: 18px; font-size: 0.85rem; padding: 8px 22px;
+            background: transparent; border: 2px solid #1a2a60; color: #6688aa;
+            border-radius: 2px; cursor: pointer; transition: 0.15s;
+            font-family: 'Courier New', Courier, monospace; letter-spacing: 1px;
+        }
+        .btn-back:hover { border-color: #4466cc; color: #aabbdd; }
+
+        /* ===== タイトル画面 モード選択 ===== */
+        .mode-select {
+            display: flex; gap: 16px; margin-bottom: 20px; justify-content: center;
+        }
+        .btn-mode {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 20px 28px; border-radius: 12px; cursor: pointer;
+            transition: all 0.2s; min-width: 150px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .btn-mode-icon { font-size: 2rem; margin-bottom: 8px; line-height: 1; }
+        .btn-mode-name { font-size: 1.2rem; font-weight: bold; color: #fff; margin-bottom: 4px; }
+        .btn-mode-desc { font-size: 0.75rem; color: rgba(255,255,255,0.65); }
+        .btn-mode-standard {
+            background: #0a2050;
+            border: 3px solid #4466cc;
+            box-shadow: none;
+        }
+        .btn-mode-standard:hover { transform: translateY(-2px); border-color: #6688ff; background: #1a3070; }
+        .btn-mode-hard {
+            background: #400a0a;
+            border: 3px solid #aa2200;
+            box-shadow: none;
+        }
+        .btn-mode-hard:hover { transform: translateY(-2px); border-color: #ff4422; background: #5a1010; }
+
         /* ===== 強化パネル 開閉 ===== */
         #levelPanel.collapsed { display: none; }
         #levelPanelCloseBtn { display: none; }
@@ -279,6 +408,15 @@
         #levelPanelToggleBtn { display: none; }
 
         @media (max-width: 640px) {
+            .title { font-size: 2.2rem; letter-spacing: 2px; margin-bottom: 16px; }
+            #carryOverUI { font-size: 0.9rem !important; padding: 8px 16px !important; margin-bottom: 12px !important; }
+            .mode-select { flex-direction: column; width: min(85vw, 300px); gap: 10px; }
+            .btn-mode {
+                flex-direction: row; min-width: unset; width: 100%;
+                padding: 14px 20px; gap: 14px; text-align: left; align-items: center;
+            }
+            .btn-mode-icon { font-size: 1.6rem; margin-bottom: 0; flex-shrink: 0; }
+            .btn-mode-name { font-size: 1rem; margin-bottom: 2px; }
             #gameScreen {
                 flex-direction: column; align-items: center;
                 overflow: hidden; padding-bottom: 0;
@@ -304,29 +442,293 @@
                 display: flex; align-items: center; justify-content: center;
                 position: fixed; bottom: 16px; right: 16px;
                 width: 56px; height: 56px; border-radius: 50%;
-                background: #8e44ad; border: 2px solid #9b59b6;
-                box-shadow: 0 4px 20px rgba(142,68,173,0.6);
-                font-size: 1.4rem; z-index: 300; cursor: pointer; color: white;
+                background: #0a2050; border: 2px solid #4466cc;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+                font-size: 1.4rem; z-index: 300; cursor: pointer; color: #aaccff;
             }
             #levelPanelToggleBtn { display: none; }
             #digModeBtn  { display: flex; bottom: 88px;  right: 24px; }
             #exploreModeBtn { display: flex; bottom: 136px; right: 24px; }
+            #sidePanelLeft { display: none; }
+            #sidePanelOpenHandle { display: none !important; }
+            #menuFAB { display: flex; }
+            #canvasContainer { height: 600px; }
         }
+
+        /* ===== ダイヤショップ / その他設定 ===== */
+        #shopScreen, #settingsScreen { background: #000020; overflow-y: auto; padding: 20px 0; box-sizing: border-box; justify-content: flex-start; }
+        .shop-diamond-count {
+            font-size: 1.2rem; color: #00ffee; margin-bottom: 20px;
+            background: rgba(0,8,32,0.85); padding: 8px 24px;
+            border: 2px solid #0088aa; border-radius: 2px;
+        }
+        .shop-list, .ach-list {
+            display: flex; flex-direction: column; gap: 8px;
+            width: min(92vw, 420px); max-height: 55vh; overflow-y: auto;
+        }
+        .shop-list::-webkit-scrollbar, .ach-list::-webkit-scrollbar { width: 6px; }
+        .shop-list::-webkit-scrollbar-thumb, .ach-list::-webkit-scrollbar-thumb { background: #2244aa; }
+        .shop-item {
+            display: flex; align-items: center; gap: 12px;
+            background: rgba(0,8,32,0.7); border: 2px solid #1a2a60;
+            border-radius: 2px; padding: 10px 14px;
+        }
+        .shop-item-icon { font-size: 1.5rem; flex-shrink: 0; }
+        .shop-item-body { flex: 1; text-align: left; }
+        .shop-item-name { font-size: 0.9rem; font-weight: bold; color: #f0f0f0; }
+        .shop-item-desc { font-size: 0.7rem; color: #6688aa; margin-top: 2px; }
+        .shop-item-rank { font-size: 0.7rem; color: #00ffee; margin-top: 2px; }
+        .shop-buy-btn {
+            flex-shrink: 0; padding: 8px 12px; font-size: 0.8rem;
+            background: #043838; border: 2px solid #0088aa; color: #00ffee;
+            border-radius: 2px; cursor: pointer;
+            font-family: 'Courier New', Courier, monospace; font-weight: bold;
+        }
+        .shop-buy-btn:hover:not(:disabled) { background: #065858; border-color: #00ccdd; }
+        .shop-buy-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .ach-item {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(0,8,32,0.7); border: 2px solid #1a2a60;
+            border-radius: 2px; padding: 8px 14px; text-align: left;
+        }
+        .ach-item.done { border-color: #aa8800; }
+        .ach-item.done .ach-name { color: #ffcc00; }
+        .ach-icon { font-size: 1.2rem; flex-shrink: 0; }
+        .ach-name { font-size: 0.85rem; font-weight: bold; color: #556688; }
+        .ach-desc { font-size: 0.68rem; color: #6688aa; margin-top: 2px; }
+        .records-grid {
+            display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+            width: min(92vw, 420px); margin-bottom: 16px;
+        }
+        .record-chip {
+            background: rgba(0,8,32,0.85); border: 2px solid #2244aa;
+            border-radius: 2px; padding: 6px 12px; font-size: 0.72rem; color: #aabbdd;
+        }
+        .record-chip b { color: #ffcc00; font-size: 0.9rem; }
+
+        /* ===== ボス演出 ===== */
+        #bossWarning {
+            display: none; position: fixed; top: 18%; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(60,0,0,0.92); border: 3px solid #ff4422;
+            color: #ffdddd; font-size: 1.3rem; font-weight: bold;
+            letter-spacing: 4px; padding: 14px 36px; z-index: 500;
+            text-align: center; white-space: nowrap;
+            animation: bossBlink 0.5s step-end infinite;
+            box-shadow: 0 0 30px rgba(255,40,20,0.6);
+        }
+        @keyframes bossBlink {
+            0%, 100% { border-color: #ff4422; color: #ffdddd; }
+            50% { border-color: #ffcc00; color: #ffffff; }
+        }
+        #canvasContainer.boss-flash { animation: bossFlash 0.4s ease-out 3; }
+        @keyframes bossFlash {
+            0% { box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px #4466cc; }
+            50% { box-shadow: 0 0 0 1px #800000, 0 0 0 5px #aa0000, 0 0 0 6px #ff4422, 0 0 40px rgba(255,40,20,0.8); }
+            100% { box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px #4466cc; }
+        }
+        #bossHpUI {
+            display: none; position: absolute; top: 4px; left: 50%;
+            transform: translateX(-50%); width: 260px; z-index: 110;
+            background: rgba(30,0,0,0.92); border: 2px solid #aa2200;
+            border-radius: 2px; padding: 5px 10px 7px;
+        }
+        #bossHpUI .boss-label {
+            font-size: 10px; color: #ff8866; letter-spacing: 2px;
+            text-align: center; margin-bottom: 3px; font-weight: bold;
+        }
+        #bossHpUI .boss-bar-track {
+            height: 8px; background: #200; border: 1px solid #661100;
+        }
+        #bossHpUI .boss-bar-fill {
+            height: 100%; width: 100%; background: linear-gradient(90deg, #ff4422, #ffaa00);
+            transition: width 0.15s linear;
+        }
+        /* 次の勇者 予告 */
+        #nextHeroUI { font-size: 10px; color: #8899cc; margin-top: 4px; min-height: 12px; }
+        #nextHeroUI.rage-warn { color: #ff6644; font-weight: bold; animation: bossBlink 0.6s step-end infinite; }
+
+        /* シャドウレイス強化カード */
+        .lv-card-name.wraith { color: #b39ddb; }
+        .lv-pip.filled.wraith { background: #7d5bb5; border-color: #b39ddb; box-shadow: 0 0 3px rgba(179,157,219,0.4); }
+        .lv-minus.wraith { background: #3a2a5a; border-color: #5b4585; }
+        .lv-minus.wraith:hover:not(:disabled) { background: #4a3a70; }
+        .lv-plus.wraith { background: #5b4585; border-color: #b39ddb; }
+        .lv-plus.wraith:hover:not(:disabled) { background: #6d54a0; }
+        .lv-rand-btn.wraith { border-color: #7d5bb5; color: #b39ddb; }
+        .lv-rand-btn.wraith:hover:not(:disabled) { background: rgba(179,157,219,0.15); }
+
+        /* ===== ゲーム内スライドドロワー（プレイ中に展開して体験） ===== */
+        #inGamePanel { display: none; position: absolute; inset: 0; z-index: 200; }
+        #inGamePanel.open { display: block; }
+        .ig-backdrop { position: absolute; inset: 0; background: rgba(0,0,12,0.4); }
+        .ig-drawer {
+            position: absolute; top: 0; left: 0; height: 100%;
+            width: min(400px, 92vw); box-sizing: border-box;
+            background: #000020; border-right: 3px solid #4466cc;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.6);
+            display: flex; flex-direction: column;
+            animation: igSlideIn 0.22s ease-out;
+        }
+        @keyframes igSlideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+        .ig-drawer-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px; border-bottom: 1px solid #1a2a60;
+            background: rgba(0,8,32,0.9); flex-shrink: 0;
+        }
+        .ig-tabs { display: flex; gap: 6px; }
+        .ig-tab {
+            padding: 8px 14px; font-size: 0.8rem; font-weight: bold;
+            background: rgba(68,102,204,0.08); border: 1px solid #1a2a60;
+            color: #8899cc; border-radius: 2px; cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .ig-tab:hover { border-color: #4466cc; color: #ffffff; }
+        .ig-tab.active { background: rgba(20,50,140,0.85); border-color: #4466cc; color: #ffffff; }
+        .ig-close {
+            width: 32px; height: 32px; background: none; border: 1px solid #2a3a6a;
+            color: #8899cc; border-radius: 2px; cursor: pointer; font-size: 1rem; flex-shrink: 0;
+        }
+        .ig-close:hover { border-color: #4466cc; color: #ffffff; }
+        .ig-drawer-body {
+            flex: 1; overflow-y: auto; padding: 16px 14px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .ig-drawer-body::-webkit-scrollbar { width: 6px; }
+        .ig-drawer-body::-webkit-scrollbar-thumb { background: #2244aa; }
+        .ig-drawer .shop-list, .ig-drawer .ach-list { max-height: none; width: 100%; }
+        .ig-drawer .records-grid { width: 100%; }
+        .ig-note { font-size: 0.68rem; color: #6688aa; margin-bottom: 12px; text-align: center; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
-    <div id="startScreen" class="screen">
+    <!-- タイトル画面 -->
+    <div id="titleScreen" class="screen">
         <h1 class="title">Magika・Dorue</h1>
-        <div id="carryOverUI" style="margin-bottom:18px; font-size:1.1rem; color:#f1c40f; background:rgba(0,0,0,0.5); padding:10px 28px; border-radius:8px; border:1px solid #f39c12; display:none;">
+        <button class="btn-start" onclick="showMainMenu()">▶ スタート</button>
+    </div>
+
+    <!-- メインメニュー画面 -->
+    <div id="startScreen" class="screen">
+        <p class="menu-heading">— Main Menu —</p>
+        <div class="menu-list">
+            <button class="btn-menu" onclick="showModeSelect()">
+                <span class="btn-menu-icon">⚔</span>
+                <div>
+                    <div class="btn-menu-name">ゲームをプレイ</div>
+                </div>
+            </button>
+            <button class="btn-menu" onclick="openSubScreen('shop')">
+                <span class="btn-menu-icon">🛒</span>
+                <div>
+                    <div class="btn-menu-name">お買い物</div>
+                    <div class="btn-menu-sub">ダイヤで恒久強化</div>
+                </div>
+            </button>
+            <button class="btn-menu" onclick="openSubScreen('settings')">
+                <span class="btn-menu-icon">⚙</span>
+                <div>
+                    <div class="btn-menu-name">その他設定</div>
+                    <div class="btn-menu-sub">実績・記録・サウンド</div>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- モード選択画面 -->
+    <div id="modeSelectScreen" class="screen">
+        <p class="menu-heading">— Mode Select —</p>
+        <div id="carryOverUI" style="margin-bottom:18px; font-size:1.1rem; color:#ffcc00; background:rgba(0,8,32,0.85); padding:10px 28px; border-radius:2px; border:2px solid #2244aa; display:none;">
             🔄 引継ぎ回数: <span id="runCountAmount">0</span> 回<br>
             💰 引継ぎゴールド: <span id="carryOverAmount">0</span> G
         </div>
-        <button class="btn-start" onclick="enterGameScreen()">ゲーム開始</button>
-        <button class="btn-start" onclick="resetCarryOver()" style="margin-top:10px; font-size:1rem; padding:10px 28px; background:#555; border-color:#444;">🗑 引継ぎリセット</button>
+        <div class="mode-select">
+            <button class="btn-mode btn-mode-standard" onclick="enterGameScreen('standard')">
+                <div class="btn-mode-icon">⚔</div>
+                <div>
+                    <div class="btn-mode-name">スタンダード</div>
+                    <div class="btn-mode-desc">通常難易度でプレイ</div>
+                </div>
+            </button>
+            <button class="btn-mode btn-mode-hard" onclick="enterGameScreen('hard')">
+                <div class="btn-mode-icon">💀</div>
+                <div>
+                    <div class="btn-mode-name">ハード</div>
+                    <div class="btn-mode-desc">高難易度でプレイ</div>
+                </div>
+            </button>
+        </div>
+        <button class="btn-start" onclick="resetCarryOver()" style="font-size:0.95rem; padding:10px 28px; background:#555; border-color:#444;">🗑 引継ぎリセット</button>
+        <button class="btn-back" onclick="showMainMenu()">← 戻る</button>
+    </div>
+
+    <!-- ダイヤショップ画面 -->
+    <div id="shopScreen" class="screen">
+        <p class="menu-heading">— Diamond Shop —</p>
+        <div class="shop-diamond-count">💎 <span id="shopDiamondAmount">0</span></div>
+        <div class="shop-list" id="shopList"></div>
+        <button class="btn-back" onclick="backFromSubScreen()">← 戻る</button>
+    </div>
+
+    <!-- その他設定（実績・記録・サウンド）画面 -->
+    <div id="settingsScreen" class="screen">
+        <p class="menu-heading">— Records & Settings —</p>
+        <div class="records-grid" id="recordsGrid"></div>
+        <div class="ach-list" id="achList"></div>
+        <button class="btn-start" id="settingsMuteBtn" onclick="toggleMute()" style="font-size:0.9rem; padding:10px 28px; margin-top:16px;">🔊 サウンド: ON</button>
+        <button class="btn-back" onclick="backFromSubScreen()">← 戻る</button>
     </div>
 
     <div id="gameScreen" class="screen">
+        <!-- 左サイドパネル：メニュー導線（デスクトップ・畳み込み可能） -->
+        <div id="sidePanelLeft">
+            <div class="side-panel-title">
+                <span>MENU</span>
+                <button id="sidePanelCollapseBtn" onclick="toggleSidePanel()" title="パネルを畳む">«</button>
+            </div>
+            <button class="side-btn" onclick="openInGamePanel('shop')">
+                <span class="side-btn-icon">🛒</span>
+                <span class="side-btn-label">お買い物</span>
+            </button>
+            <button class="side-btn" onclick="openInGamePanel('settings')">
+                <span class="side-btn-icon">⚙</span>
+                <span class="side-btn-label">その他設定</span>
+            </button>
+            <button class="side-btn side-btn-quit" onclick="quitToTitle()">
+                <span class="side-btn-icon">🏳</span>
+                <span class="side-btn-label">タイトルへ</span>
+            </button>
+        </div>
+        <!-- 畳んだ時に表示される開くハンドル -->
+        <button id="sidePanelOpenHandle" onclick="toggleSidePanel()" title="メニューを開く">☰</button>
+
+        <!-- ゲーム内スライドドロワー：プレイを続けたまま展開して体験 -->
+        <div id="inGamePanel">
+            <div class="ig-backdrop" onclick="closeInGamePanel()"></div>
+            <div class="ig-drawer">
+                <div class="ig-drawer-header">
+                    <div class="ig-tabs">
+                        <button class="ig-tab" id="igTabShop" onclick="switchInGameTab('shop')">🛒 お買い物</button>
+                        <button class="ig-tab" id="igTabSettings" onclick="switchInGameTab('settings')">⚙ 記録</button>
+                    </div>
+                    <button class="ig-close" onclick="closeInGamePanel()" title="閉じる（プレイに戻る）">✕</button>
+                </div>
+                <div class="ig-drawer-body">
+                    <div id="igShopSection" style="width:100%; display:flex; flex-direction:column; align-items:center;">
+                        <div class="ig-note">このランのダイヤで即時強化（戦闘は進行中）</div>
+                        <div class="shop-diamond-count">💎 <span id="igShopDiamondAmount">0</span></div>
+                        <div class="shop-list" id="igShopList"></div>
+                    </div>
+                    <div id="igSettingsSection" style="width:100%; display:none; flex-direction:column; align-items:center;">
+                        <div class="records-grid" id="igRecordsGrid"></div>
+                        <div class="ach-list" id="igAchList"></div>
+                        <button class="btn-start" id="igMuteBtn" onclick="toggleMute()" style="font-size:0.85rem; padding:8px 22px; margin-top:14px;">🔊 サウンド: ON</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="gameCenter">
             <div id="heroStatsUI">
                 <div class="hero-lv-label">⚔ 勇者</div>
@@ -336,11 +738,20 @@
                     <div class="hero-stat-chip">敏 <span id="hAgi">-</span></div>
                     <div class="hero-stat-chip">HP <span id="hHp">-</span></div>
                 </div>
-                <div style="font-size:10px; color:#f1c40f; margin-top:4px;">🕳 深度 <span id="depthUI">0</span> m</div>
+                <div style="font-size:10px; color:#8899cc; margin-top:4px;">🕳 深度 <span id="depthUI">0</span> m</div>
+                <div id="nextHeroUI"></div>
             </div>
-            <div id="goldUI">💰 <span id="goldAmount">50</span> G</div>
+            <div id="bossHpUI">
+                <div class="boss-label">⚠ 怒りの勇者</div>
+                <div class="boss-bar-track"><div class="boss-bar-fill" id="bossHpFill"></div></div>
+            </div>
+            <div id="currencyUI">
+                <div id="diamondUI">💎 <span id="diamondAmount">0</span></div>
+                <div id="goldUI">💰 <span id="goldAmount">50</span> G</div>
+            </div>
             <button id="speedBtn" onclick="toggleSpeed()" style="position:absolute; top:36px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">▶▶ 早送り</button>
             <button id="pauseBtn" onclick="togglePause()" style="position:absolute; top:62px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">⏸ ポーズ</button>
+            <button id="muteBtn" onclick="toggleMute()" style="position:absolute; top:88px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">🔊 音</button>
 
             <div id="dashboard">
                 <div class="btn-group">
@@ -352,11 +763,14 @@
                     <span><div class="color-box dot-box" style="background:#3498db;"></div>勇者</span>
                     <span><div class="color-box dot-box" style="background:#95a5a6;"></div>石スライム</span>
                     <span><div class="color-box dot-box" style="background:#2ecc71;"></div>苔ゴブリン</span>
-                    <span><div class="color-box dot-box" style="background:#d35400;"></div>銅ゴーレム</span><br>
-                    <span><div class="color-box" style="background:#8e44ad;"></div>あくま部屋</span>
+                    <span><div class="color-box dot-box" style="background:#d35400;"></div>銅ゴーレム</span>
+                    <span id="legendWraith" style="display:none;"><div class="color-box dot-box" style="background:#b39ddb;"></div>シャドウレイス</span><br>
+                    <span><div class="color-box" style="background:#1a1060; border:1px solid #4466cc;"></div>あくま部屋</span>
                     <span><div class="color-box" style="background:#95a5a6;"></div>石</span>
                     <span><div class="color-box" style="background:#7b8d41;"></div>苔石</span>
                     <span><div class="color-box" style="background:#9A6229;"></div>銅</span>
+                    <span id="legendDark" style="display:none;"><div class="color-box" style="background:#2a1a4a; border:1px solid #7d5bb5;"></div>闇水晶</span>
+                    <span><div class="color-box" style="background:#8a7a3a; border:1px solid #ffcc00;"></div>宝石鉱脈</span>
                 </div>
             </div>
 
@@ -420,9 +834,27 @@
                 <div class="lv-stats-grid" id="golem-stats"></div>
                 <button class="lv-rand-btn golem" id="golem-rand-btn" onclick="randomUpgrade('golem')">🎲 5G ランダム強化</button>
             </div>
-        </div>
+
+            <!-- シャドウレイス（ダイヤショップ解禁後のみ表示） -->
+            <div class="lv-card" id="wraith-card" style="display:none;">
+                <div class="lv-card-header">
+                    <span class="lv-card-name wraith">👻 シャドウレイス</span>
+                    <span class="lv-badge" id="wraith-lv-badge">Lv.1</span>
+                </div>
+                <div class="lv-controls">
+                    <button class="lv-pm-btn lv-minus wraith" id="wraith-btn-down" onclick="levelDown('wraith')">－</button>
+                    <div class="lv-bar-track" id="wraith-bar"></div>
+                    <button class="lv-pm-btn lv-plus wraith" id="wraith-btn" onclick="levelUp('wraith')">＋</button>
+                </div>
+                <div class="lv-cost-hint" id="wraith-cost"></div>
+                <div class="lv-stats-grid" id="wraith-stats"></div>
+                <button class="lv-rand-btn wraith" id="wraith-rand-btn" onclick="randomUpgrade('wraith')">🎲 5G ランダム強化</button>
+            </div>
         </div>
     </div>
+
+    <!-- ボス警告バナー -->
+    <div id="bossWarning">⚠ 怒りの勇者 接近 ⚠</div>
 
     <div id="gameOverScreen" class="screen">
         <div class="result-container">
@@ -447,22 +879,37 @@
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
                     <span class="result-stat-label">🕳 最大深度</span>
-                    <span class="result-stat-value" id="resDepth" style="color:#f1c40f;">0</span>
+                    <span class="result-stat-value" id="resDepth" style="color:#ffcc00;">0</span>
                     <span class="result-stat-unit">m</span>
                 </div>
+                <div class="result-stat-divider"></div>
+                <div class="result-stat-item result-stat-sub">
+                    <span class="result-stat-label">🏦 最終所持ゴールド</span>
                     <span class="result-stat-value result-stat-value-small" id="resFinalGold">0</span>
                     <span class="result-stat-unit">G</span>
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
+                    <span class="result-stat-label">💎 獲得ダイヤモンド</span>
+                    <span class="result-stat-value" id="resEarnedDiamond" style="color:#00ffee;">0</span>
+                    <span class="result-stat-unit">個</span>
+                </div>
+                <div class="result-stat-divider"></div>
+                <div class="result-stat-item">
                     <span class="result-stat-label">📦 累積引継ぎゴールド</span>
-                    <span class="result-stat-value" id="resCarryOver" style="color:#2ecc71;">0</span>
+                    <span class="result-stat-value" id="resCarryOver" style="color:#44cc66;">0</span>
                     <span class="result-stat-unit">G</span>
+                </div>
+                <div class="result-stat-divider"></div>
+                <div class="result-stat-item">
+                    <span class="result-stat-label">💎 累積引継ぎダイヤ</span>
+                    <span class="result-stat-value" id="resCarryDiamond" style="color:#00ffee;">0</span>
+                    <span class="result-stat-unit">個</span>
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item result-stat-sub">
                     <span class="result-stat-label">⚗ 引継ぎレベル</span>
-                    <span class="result-stat-value result-stat-value-small" id="resMonsterLevels" style="color:#2ecc71;">-</span>
+                    <span class="result-stat-value result-stat-value-small" id="resMonsterLevels" style="color:#44cc66;">-</span>
                 </div>
             </div>
 
@@ -482,6 +929,361 @@
     const hHpSpan = document.getElementById('hHp');
     const hLvSpan  = document.getElementById('hLv');
 
+    // ===== サウンドエンジン（WebAudio・外部ファイル不要） =====
+    let audioCtx = null;
+    let isMuted = localStorage.getItem('magika_mute') === '1';
+
+    function getAC() {
+        if (!audioCtx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return null;
+            audioCtx = new AC();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        return audioCtx;
+    }
+    // レトロ8bit風の単音（矩形波・三角波）
+    function tone(freq, dur, opts = {}) {
+        const { type = 'square', vol = 0.06, slide = 0, delay = 0 } = opts;
+        const ac = getAC(); if (!ac) return;
+        const t0 = ac.currentTime + delay;
+        const osc = ac.createOscillator();
+        const g = ac.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t0);
+        if (slide !== 0) osc.frequency.linearRampToValueAtTime(Math.max(20, freq + slide), t0 + dur);
+        g.gain.setValueAtTime(vol, t0);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+        osc.connect(g); g.connect(ac.destination);
+        osc.start(t0); osc.stop(t0 + dur + 0.02);
+    }
+    // 短いノイズ（掘削・打撃用）
+    function noiseSE(dur, vol = 0.06, delay = 0) {
+        const ac = getAC(); if (!ac) return;
+        const t0 = ac.currentTime + delay;
+        const len = Math.max(1, Math.floor(ac.sampleRate * dur));
+        const buf = ac.createBuffer(1, len, ac.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        const src = ac.createBufferSource();
+        src.buffer = buf;
+        const g = ac.createGain();
+        g.gain.setValueAtTime(vol, t0);
+        src.connect(g); g.connect(ac.destination);
+        src.start(t0);
+    }
+    function playSE(name) {
+        if (isMuted) return;
+        try {
+            switch (name) {
+                case 'dig':       noiseSE(0.06, 0.05); tone(150, 0.06, { slide: -70, vol: 0.04 }); break;
+                case 'spawn':     tone(392, 0.07, { slide: 180, type: 'triangle', vol: 0.06 }); break;
+                case 'gem':       tone(1320, 0.07, { vol: 0.05 }); tone(1760, 0.12, { delay: 0.06, vol: 0.05 }); break;
+                case 'heroKill':  tone(660, 0.07); tone(880, 0.07, { delay: 0.07 }); tone(1100, 0.11, { delay: 0.14 }); break;
+                case 'bossKill':  tone(523, 0.09, { vol: 0.08 }); tone(660, 0.09, { delay: 0.09, vol: 0.08 }); tone(784, 0.09, { delay: 0.18, vol: 0.08 }); tone(1046, 0.22, { delay: 0.27, vol: 0.09 }); break;
+                case 'bossWarn':  tone(880, 0.16, { type: 'sawtooth', vol: 0.05 }); tone(660, 0.16, { type: 'sawtooth', vol: 0.05, delay: 0.2 }); tone(880, 0.16, { type: 'sawtooth', vol: 0.05, delay: 0.4 }); break;
+                case 'breed':     tone(1046, 0.06, { type: 'triangle', vol: 0.05 }); tone(1318, 0.1, { type: 'triangle', delay: 0.06, vol: 0.05 }); break;
+                case 'grow':      tone(523, 0.09, { slide: 240, type: 'triangle', vol: 0.05 }); break;
+                case 'levelup':   tone(523, 0.06); tone(659, 0.06, { delay: 0.06 }); tone(784, 0.1, { delay: 0.12 }); break;
+                case 'castleHit': noiseSE(0.14, 0.1); tone(70, 0.2, { type: 'triangle', vol: 0.1, slide: -30 }); break;
+                case 'gameover':  tone(392, 0.18, { vol: 0.07 }); tone(311, 0.18, { delay: 0.2, vol: 0.07 }); tone(233, 0.4, { delay: 0.4, vol: 0.07 }); break;
+                case 'buy':       tone(784, 0.06, { type: 'triangle' }); tone(1046, 0.1, { delay: 0.06, type: 'triangle' }); break;
+                case 'error':     tone(180, 0.12, { type: 'sawtooth', vol: 0.04 }); break;
+            }
+        } catch (e) { /* サウンド失敗はゲームに影響させない */ }
+    }
+    function toggleMute() {
+        isMuted = !isMuted;
+        localStorage.setItem('magika_mute', isMuted ? '1' : '0');
+        updateMuteButtons();
+        if (!isMuted) playSE('buy');
+    }
+    function updateMuteButtons() {
+        const label = isMuted ? '🔇 消音' : '🔊 音';
+        const btn = document.getElementById('muteBtn');
+        if (btn) btn.textContent = label;
+        const sBtn = document.getElementById('settingsMuteBtn');
+        if (sBtn) sBtn.textContent = isMuted ? '🔇 サウンド: OFF' : '🔊 サウンド: ON';
+        const igBtn = document.getElementById('igMuteBtn');
+        if (igBtn) igBtn.textContent = isMuted ? '🔇 サウンド: OFF' : '🔊 サウンド: ON';
+    }
+
+    // ===== ダイヤショップ（恒久強化・magika_shop） =====
+    const SHOP_DEFAULTS = { startGold: 0, breedCap: 0, growSpeed: 0, wraith: false };
+    function loadShop() {
+        try { return Object.assign({}, SHOP_DEFAULTS, JSON.parse(localStorage.getItem('magika_shop') || '{}')); }
+        catch { return Object.assign({}, SHOP_DEFAULTS); }
+    }
+    function saveShop() { localStorage.setItem('magika_shop', JSON.stringify(shopData)); }
+    let shopData = loadShop();
+
+    const SHOP_ITEMS = [
+        { key: 'startGold', icon: '💰', name: '初期ゴールド増加',
+          desc: '開始時の所持ゴールド +15G／段階', max: 5, costs: [3, 5, 8, 13, 21] },
+        { key: 'breedCap', icon: '🍼', name: '繁殖上限アップ',
+          desc: 'ちびモンスターの上限 +2体／段階', max: 2, costs: [5, 13] },
+        { key: 'growSpeed', icon: '⏳', name: 'ちび成長促進',
+          desc: '成体化までの時間 20秒 → 16秒 → 12秒', max: 2, costs: [5, 13] },
+        { key: 'wraith', icon: '👻', name: 'シャドウレイス解禁',
+          desc: '深層の闇水晶から召喚できる第4のモンスター', max: 1, costs: [21],
+          requires: r => r.maxDepthEver >= 100, reqText: '条件: あくま部屋を深度100に設置' },
+    ];
+
+    function showShop() {
+        showScreenOnly('shopScreen');
+        renderShop();
+    }
+    // 全画面ショップ（メインメニュー経由・引継ぎダイヤを使用）
+    function renderShop() {
+        renderShopInto(document.getElementById('shopList'),
+                       document.getElementById('shopDiamondAmount'), false);
+    }
+    // ゲーム内ショップ（プレイ中・このランのライブなダイヤを使用）
+    function renderShopLive() {
+        renderShopInto(document.getElementById('igShopList'),
+                       document.getElementById('igShopDiamondAmount'), true);
+    }
+    // live=true のときは実行中の diamond、false のときは引継ぎダイヤを通貨源にする
+    function renderShopInto(list, diamondEl, live) {
+        if (!list || !diamondEl) return;
+        const available = live ? diamond : loadCarryDiamond();
+        diamondEl.innerText = available;
+        const records = loadRecords();
+        list.innerHTML = '';
+        for (const item of SHOP_ITEMS) {
+            const rank = item.key === 'wraith' ? (shopData.wraith ? 1 : 0) : shopData[item.key];
+            const isMax = rank >= item.max;
+            const cost = isMax ? null : item.costs[rank];
+            const locked = item.requires && !item.requires(records);
+
+            const row = document.createElement('div');
+            row.className = 'shop-item';
+            const rankText = item.max > 1
+                ? `Lv ${rank} / ${item.max}`
+                : (isMax ? '解禁済み' : '未解禁');
+            const reqLine = (locked && !isMax) ? `<div class="shop-item-desc" style="color:#ff6644;">${item.reqText}</div>` : '';
+            row.innerHTML =
+                `<span class="shop-item-icon">${item.icon}</span>` +
+                `<div class="shop-item-body">` +
+                    `<div class="shop-item-name">${item.name}</div>` +
+                    `<div class="shop-item-desc">${item.desc}</div>` + reqLine +
+                    `<div class="shop-item-rank">${rankText}</div>` +
+                `</div>`;
+            const btn = document.createElement('button');
+            btn.className = 'shop-buy-btn';
+            if (isMax) { btn.textContent = 'MAX'; btn.disabled = true; }
+            else {
+                btn.textContent = `💎 ${cost}`;
+                btn.disabled = locked || available < cost;
+                btn.onclick = () => buyShopItem(item.key, live);
+            }
+            row.appendChild(btn);
+            list.appendChild(row);
+        }
+    }
+    function buyShopItem(key, live) {
+        const item = SHOP_ITEMS.find(i => i.key === key);
+        if (!item) return;
+        const rank = key === 'wraith' ? (shopData.wraith ? 1 : 0) : shopData[key];
+        if (rank >= item.max) return;
+        const records = loadRecords();
+        if (item.requires && !item.requires(records)) { playSE('error'); return; }
+        const cost = item.costs[rank];
+
+        if (live) {
+            // このランのダイヤで購入。即時に永続化して中断コピーを防ぐ
+            if (diamond < cost) { playSE('error'); return; }
+            diamond -= cost;
+            if (key === 'wraith') shopData.wraith = true;
+            else shopData[key]++;
+            saveShop();
+            saveCarryDiamond(diamond);
+            applyLiveShopEffect(key);
+            updateGoldUI();
+            playSE('buy');
+            renderShopLive();
+        } else {
+            const carryDia = loadCarryDiamond();
+            if (carryDia < cost) { playSE('error'); return; }
+            saveCarryDiamond(carryDia - cost);
+            if (key === 'wraith') shopData.wraith = true;
+            else shopData[key]++;
+            saveShop();
+            playSE('buy');
+            renderShop();
+        }
+    }
+    // ゲーム内購入をそのランへ即時反映
+    function applyLiveShopEffect(key) {
+        if (key === 'startGold') { gold += 15; updateGoldUI(); }        // 初期ゴールド強化ぶんを即付与
+        else if (key === 'growSpeed') { BABY_GROW_MS = [20000, 16000, 12000][shopData.growSpeed] || 20000; }
+        // breedCap は BREED_MAX が毎フレーム shopData を参照するため自動反映
+        // wraith 解禁は refreshInGameUnlocks で反映
+        refreshInGameUnlocks();
+    }
+
+    // ===== 実績・記録（magika_records） =====
+    const RECORD_DEFAULTS = { kills: 0, breeds: 0, maxDepthEver: 0, maxHeroLevel: 0, diamondsEarned: 0 };
+    function loadRecords() {
+        try { return Object.assign({}, RECORD_DEFAULTS, JSON.parse(localStorage.getItem('magika_records') || '{}')); }
+        catch { return Object.assign({}, RECORD_DEFAULTS); }
+    }
+    function saveRecords(r) { localStorage.setItem('magika_records', JSON.stringify(r)); }
+
+    const ACHIEVEMENTS = [
+        { name: 'はじめての討伐', desc: '勇者を1人討伐する', test: r => r.kills >= 1 },
+        { name: '魔王の風格',     desc: '勇者を累計50人討伐する', test: r => r.kills >= 50 },
+        { name: '勇者たちの墓場', desc: '勇者を累計300人討伐する', test: r => r.kills >= 300 },
+        { name: '穴掘り開始',     desc: 'あくま部屋を深度10に設置する', test: r => r.maxDepthEver >= 10 },
+        { name: '地底の住人',     desc: 'あくま部屋を深度50に設置する', test: r => r.maxDepthEver >= 50 },
+        { name: '深淵の主',       desc: 'あくま部屋を深度100に設置する（👻解禁条件）', test: r => r.maxDepthEver >= 100 },
+        { name: 'にぎやかな巣',   desc: 'ちびモンスターを累計10体繁殖させる', test: r => r.breeds >= 10 },
+        { name: 'モンスター牧場', desc: 'ちびモンスターを累計100体繁殖させる', test: r => r.breeds >= 100 },
+        { name: '強敵との遭遇',   desc: 'Lv20の勇者と対峙する', test: r => r.maxHeroLevel >= 20 },
+        { name: '伝説の防衛戦',   desc: 'Lv50の勇者と対峙する', test: r => r.maxHeroLevel >= 50 },
+        { name: 'ダイヤコレクター', desc: 'ダイヤを累計10個獲得する', test: r => r.diamondsEarned >= 10 },
+    ];
+
+    function showSettings() {
+        showScreenOnly('settingsScreen');
+        renderSettings();
+    }
+    function renderSettings() {
+        renderSettingsInto(document.getElementById('recordsGrid'),
+                           document.getElementById('achList'));
+    }
+    function renderSettingsLive() {
+        renderSettingsInto(document.getElementById('igRecordsGrid'),
+                           document.getElementById('igAchList'));
+    }
+    function renderSettingsInto(grid, list) {
+        if (!grid || !list) return;
+        const r = loadRecords();
+        grid.innerHTML =
+            `<div class="record-chip">⚔️ 累計討伐 <b>${r.kills}</b></div>` +
+            `<div class="record-chip">🕳 最深記録 <b>${r.maxDepthEver}</b>m</div>` +
+            `<div class="record-chip">🍼 累計繁殖 <b>${r.breeds}</b></div>` +
+            `<div class="record-chip">🏆 最高勇者Lv <b>${r.maxHeroLevel}</b></div>` +
+            `<div class="record-chip">💎 累計ダイヤ <b>${r.diamondsEarned}</b></div>`;
+        list.innerHTML = '';
+        for (const a of ACHIEVEMENTS) {
+            const done = a.test(r);
+            const row = document.createElement('div');
+            row.className = 'ach-item' + (done ? ' done' : '');
+            row.innerHTML =
+                `<span class="ach-icon">${done ? '🏅' : '🔒'}</span>` +
+                `<div><div class="ach-name">${a.name}</div><div class="ach-desc">${a.desc}</div></div>`;
+            list.appendChild(row);
+        }
+        updateMuteButtons();
+    }
+
+    // ===== ゲーム内からのサブ画面アクセス =====
+    // subScreenFrom: 'menu'（メインメニュー経由）| 'game'（ゲーム中断経由）
+    let subScreenFrom = 'menu';
+    let wasPausedBeforeSub = false;
+
+    // 指定した画面だけを表示し、他の全画面を確実に閉じる（横並び事故の防止）
+    const ALL_SCREENS = ['titleScreen','startScreen','modeSelectScreen','shopScreen','settingsScreen','gameScreen','gameOverScreen'];
+    function showScreenOnly(id, displayMode) {
+        for (const sid of ALL_SCREENS) {
+            const el = document.getElementById(sid);
+            if (el) el.style.display = (sid === id) ? (displayMode || 'flex') : 'none';
+        }
+    }
+
+    function openSubScreen(which) {
+        // ゲーム中なら中断状態を記録してポーズ
+        if (isGameRunning) {
+            subScreenFrom = 'game';
+            wasPausedBeforeSub = isPaused;
+            isPaused = true;
+        } else {
+            subScreenFrom = 'menu';
+        }
+        closeMenuPopover();
+        if (which === 'shop') showShop();
+        else showSettings();
+    }
+
+    // ===== ゲーム内スライドドロワー（プレイを止めずに展開して体験） =====
+    let isInGamePanelOpen = false;
+    let inGamePanelTab = 'shop';
+    function openInGamePanel(which) {
+        closeMenuPopover();
+        isInGamePanelOpen = true;
+        document.getElementById('inGamePanel').classList.add('open');
+        switchInGameTab(which || 'shop');
+    }
+    function switchInGameTab(which) {
+        inGamePanelTab = which;
+        const shopSec = document.getElementById('igShopSection');
+        const setSec = document.getElementById('igSettingsSection');
+        shopSec.style.display = (which === 'shop') ? 'flex' : 'none';
+        setSec.style.display = (which === 'settings') ? 'flex' : 'none';
+        document.getElementById('igTabShop').classList.toggle('active', which === 'shop');
+        document.getElementById('igTabSettings').classList.toggle('active', which === 'settings');
+        if (which === 'shop') renderShopLive();
+        else renderSettingsLive();
+    }
+    function closeInGamePanel() {
+        isInGamePanelOpen = false;
+        document.getElementById('inGamePanel').classList.remove('open');
+    }
+
+    function backFromSubScreen() {
+        if (subScreenFrom === 'game' && isGameRunning) {
+            // ゲームへ復帰（中断前がポーズでなければ再開）
+            showScreenOnly('gameScreen');
+            adjustMobileScale();
+            isPaused = wasPausedBeforeSub;
+            // ショップでレイスを解禁した場合などのUIを反映
+            refreshInGameUnlocks();
+        } else {
+            showMainMenu();
+        }
+    }
+
+    // ゲーム中にショップで解禁され得る要素をUIへ即時反映
+    function refreshInGameUnlocks() {
+        const wraithCard = document.getElementById('wraith-card');
+        if (wraithCard) wraithCard.style.display = shopData.wraith ? '' : 'none';
+        const lw = document.getElementById('legendWraith');
+        const ld = document.getElementById('legendDark');
+        if (lw) lw.style.display = shopData.wraith ? '' : 'none';
+        if (ld) ld.style.display = shopData.wraith ? '' : 'none';
+        updateLevelPanel();
+        updateMuteButtons();
+    }
+
+    function quitToTitle() {
+        closeMenuPopover();
+        if (isGameRunning && !confirm('ゲームを中断してタイトルへ戻りますか？\n（このランの進行は保存されません）')) return;
+        location.reload();
+    }
+
+    function toggleMenuPopover() {
+        document.getElementById('menuPopover').classList.toggle('open');
+    }
+    function closeMenuPopover() {
+        document.getElementById('menuPopover').classList.remove('open');
+    }
+    // 左サイドパネルの畳み込み（デスクトップ）
+    function toggleSidePanel() {
+        const panel = document.getElementById('sidePanelLeft');
+        const handle = document.getElementById('sidePanelOpenHandle');
+        const collapsed = panel.classList.toggle('collapsed');
+        handle.classList.toggle('show', collapsed);
+        try { localStorage.setItem('magika_sidepanel', collapsed ? '1' : '0'); } catch (e) {}
+    }
+    // 初期状態を復元
+    function initSidePanelState() {
+        const collapsed = localStorage.getItem('magika_sidepanel') === '1';
+        if (collapsed) {
+            document.getElementById('sidePanelLeft').classList.add('collapsed');
+            document.getElementById('sidePanelOpenHandle').classList.add('show');
+        }
+    }
     // ===== レベルシステム =====
     // フィボナッチコスト（初期値5G）: Lv1→2:5G, 2→3:8G, 3→4:13G, 4→5:21G
     const LV_COSTS = [0, 5, 8, 13, 21]; // index=現在Lv
@@ -504,13 +1306,26 @@
             agi:   [1,1,2,2,2],
             hp:    [4,6,7,8,10],
             range: [3,4,4,4,4]
+        },
+        // 第4のモンスター：ガラスキャノン（低HP・高攻撃・最長射程）
+        wraith: {
+            atk:   [3,4,5,6,8],
+            agi:   [2,2,3,3,4],
+            hp:    [1,2,2,3,3],
+            range: [12,12,12,12,12]
         }
     };
 
-    const monsterLevels = { slime: 1, goblin: 1, golem: 1 };
+    const MONSTER_NAMES  = { slime: '石スライム', goblin: '苔ゴブリン', golem: '銅ゴーレム', wraith: 'シャドウレイス' };
+    const MONSTER_COLORS = { slime: '#95a5a6', goblin: '#2ecc71', golem: '#d35400', wraith: '#b39ddb' };
+    const ALL_MTYPES = ['slime', 'goblin', 'golem', 'wraith'];
+    // シャドウレイス解禁状態に応じたアクティブ種族リスト
+    function activeMtypes() { return shopData.wraith ? ALL_MTYPES : ['slime', 'goblin', 'golem']; }
+
+    const monsterLevels = { slime: 1, goblin: 1, golem: 1, wraith: 1 };
     // セッション限定ランダムボーナス（引継ぎなし）
-    const randBonus = { slime: {atk:0,agi:0,hp:0}, goblin: {atk:0,agi:0,hp:0}, golem: {atk:0,agi:0,hp:0} };
-    const randCount = { slime: 0, goblin: 0, golem: 0 };
+    const randBonus = { slime: {atk:0,agi:0,hp:0}, goblin: {atk:0,agi:0,hp:0}, golem: {atk:0,agi:0,hp:0}, wraith: {atk:0,agi:0,hp:0} };
+    const randCount = { slime: 0, goblin: 0, golem: 0, wraith: 0 };
     let heroGold = 0; // 勇者の内部ゴールド（画面非表示） // 強化回数（費用計算用）
     let rageBonus = { atk: 0, agi: 0, hp: 0 };
 
@@ -518,7 +1333,8 @@
     const RAND_WEIGHTS = {
         slime:  [1, 1, 1],        // 均等
         goblin: [3, 3, 1],        // 攻・敏重め
-        golem:  [1, 1, 4]         // 耐久重め
+        golem:  [1, 1, 4],        // 耐久重め
+        wraith: [4, 1, 1]         // 攻撃特化
     };
 
     function randomUpgrade(mt) {
@@ -557,7 +1373,8 @@
         });
 
         const statName = stat === 'atk' ? '攻撃力' : stat === 'agi' ? '敏捷性' : '耐久力';
-        spawnFloatingText(Math.floor(COLS/2), Math.floor(ROWS/4), `${statName} +1!`, '#f39c12');
+        spawnFloatingText(Math.floor(COLS/2), Math.floor(ROWS/4), `${statName} +1!`, '#ffcc00');
+        playSE('levelup');
         updateLevelPanel();
     }
     let heroLevel = 1;
@@ -586,8 +1403,10 @@
     
     // リソース＆リザルト用変数
     let gold = 20;
+    let diamond = 0;
     let defeatedHeroesCount = 0;
     let totalEarnedGold = 0;
+    let totalEarnedDiamond = 0;
     
     let isFirstCastlePlaced = false;
     let isWaveStarted = false;
@@ -599,6 +1418,8 @@
     const HERO_SEARCH_RANGE = 20;
 
     let maxDepth = 0;
+    let sessionBreeds = 0;              // このランでの繁殖数（記録用）
+    let BABY_GROW_MS = 20000;           // ちび成長時間（ショップで短縮）
     const DIG_RANGE_BELOW_CASTLE = 10;
     const ENTRANCE_X = Math.floor(COLS / 2);
     const SKY_LAYERS = 2;
@@ -611,10 +1432,27 @@
         return { pCopper: 0.33 * d, pMoss: 0.33 * d };
     }
 
+    // 深層限定鉱石の確率（既存の銅/苔の分布式には手を加えず、別ロールで上乗せ）
+    // 闇水晶(7): レイス解禁時のみ。深度100から出現し、深度300で12%上限まで線形上昇
+    // 宝石鉱脈(8): 深度20から出現。0.4%〜深度200で1.2%まで線形上昇
+    function extraOreAt(y) {
+        const depth = y - (SKY_LAYERS + 1);
+        const dDark = Math.max(0, Math.min(1, (depth - 100) / 200));
+        const pDark = shopData.wraith ? 0.12 * dDark : 0;
+        const dGem = Math.max(0, Math.min(1, (depth - 20) / 180));
+        const pGem = depth >= 20 ? 0.004 + 0.008 * dGem : 0;
+        return { pDark, pGem };
+    }
+
     function generateRow(y) {
         const { pCopper, pMoss } = oreProbAt(y);
+        const { pDark, pGem } = extraOreAt(y);
         const row = [];
         for (let x = 0; x < COLS; x++) {
+            // 深層鉱石は先行ロール（当選しなければ既存分布ロールへ）
+            const r2 = Math.random();
+            if (r2 < pDark)             { row.push(7); continue; }
+            else if (r2 < pDark + pGem) { row.push(8); continue; }
             const r = Math.random();
             if      (r < pCopper)          row.push(6);
             else if (r < pCopper + pMoss)  row.push(2);
@@ -692,7 +1530,13 @@
         map = newMap;
     }
 
-    function updateGoldUI() { goldSpan.innerText = gold; updateLevelPanel(); }
+    function updateGoldUI() {
+        goldSpan.innerText = gold;
+        document.getElementById('diamondAmount').innerText = diamond;
+        updateLevelPanel();
+        // ゲーム内ショップ表示中はライブなダイヤ残高・購入可否を追従
+        if (isInGamePanelOpen && inGamePanelTab === 'shop') renderShopLive();
+    }
     
     function updateHeroStatsUI(isEnraged, heroType) {
         hLvSpan.innerText = heroLevel;
@@ -700,11 +1544,11 @@
         const typeSpan = document.getElementById('hType');
 
         if (isEnraged) {
-            ui.style.borderColor = '#e74c3c';
-            ui.style.background = 'rgba(60,0,0,0.8)';
+            ui.style.borderColor = '#ff4422';
+            ui.style.background = 'rgba(60,0,0,0.92)';
         } else {
-            ui.style.borderColor = '#3498db';
-            ui.style.background = 'rgba(0,0,0,0.75)';
+            ui.style.borderColor = '#4466cc';
+            ui.style.background = 'rgba(0,8,32,0.92)';
         }
 
         const typeLabels = {
@@ -733,7 +1577,7 @@
 
     // レベルパネルUI更新
     function updateLevelPanel() {
-        ['slime','goblin','golem'].forEach(mt => {
+        activeMtypes().forEach(mt => {
             const lv = monsterLevels[mt];
             const stats = MONSTER_STATS[mt];
 
@@ -754,7 +1598,7 @@
             const idx = lv - 1;
             const rb = randBonus[mt];
             const fmt = (base, bonus) => bonus > 0
-                ? `${base}<span style="color:#f39c12;font-size:9px">+${bonus}</span>`
+                ? `${base}<span style="color:#ffcc00;font-size:9px">+${bonus}</span>`
                 : `${base}`;
             statsEl.innerHTML =
                 `<div class="hero-stat-chip">攻 <span>${fmt(stats.atk[idx], rb.atk)}</span></div>` +
@@ -791,7 +1635,7 @@
             const costEl = document.getElementById(`${mt}-cost`);
             if (lv >= 5) {
                 costEl.textContent = '🔥 MAX';
-                costEl.style.color = '#f1c40f';
+                costEl.style.color = '#ffcc00';
             } else {
                 const cost = LV_COSTS[lv];
                 const canAfford = gold >= cost;
@@ -812,17 +1656,18 @@
 
         const idx = monsterLevels[mt] - 1;
         const s = MONSTER_STATS[mt];
+        const rbDown = randBonus[mt];
         monsters.forEach(m => {
             if (m.mtype !== mt) return;
-            m.atk = s.atk[idx]; m.agi = s.agi[idx];
-            m.maxHp = s.hp[idx]; m.hp = Math.min(m.hp, m.maxHp);
+            m.atk = s.atk[idx] + rbDown.atk; m.agi = s.agi[idx] + rbDown.agi;
+            m.maxHp = s.hp[idx] + rbDown.hp; m.hp = Math.min(m.hp, m.maxHp);
             m.range = s.range[idx];
         });
 
         spawnFloatingText(
             Math.floor(COLS / 2), Math.floor(ROWS / 4),
             `+${refund}G 返還`,
-            '#f1c40f'
+            '#ffcc00'
         );
     }
 
@@ -840,21 +1685,23 @@
         updateGoldUI();
         updateLevelPanel();
 
-        // 既存のそのタイプのモンスターにも即時反映
+        // 既存のそのタイプのモンスターにも即時反映（ランダムボーナス込み）
         const idx = monsterLevels[mt] - 1;
         const s = MONSTER_STATS[mt];
+        const rbUp = randBonus[mt];
         monsters.forEach(m => {
             if (m.mtype !== mt) return;
-            m.atk = s.atk[idx]; m.agi = s.agi[idx];
-            m.maxHp = s.hp[idx]; m.hp = Math.min(m.hp, m.maxHp);
+            m.atk = s.atk[idx] + rbUp.atk; m.agi = s.agi[idx] + rbUp.agi;
+            m.maxHp = s.hp[idx] + rbUp.hp; m.hp = Math.min(m.hp, m.maxHp);
             m.range = s.range[idx];
         });
 
         spawnFloatingText(
             Math.floor(COLS / 2), Math.floor(ROWS / 4),
-            `${mt === 'slime' ? '石スライム' : mt === 'goblin' ? '苔ゴブリン' : '銅ゴーレム'} Lv.${monsterLevels[mt]}!`,
-            '#f1c40f'
+            `${MONSTER_NAMES[mt]} Lv.${monsterLevels[mt]}!`,
+            '#ffcc00'
         );
+        playSE('levelup');
     }
 
     // ===== 引継ぎゴールド＆モンスターレベル =====
@@ -864,10 +1711,17 @@
     function saveCarryOver(amount) {
         localStorage.setItem('magika_carryover', String(amount));
     }
+    function loadCarryDiamond() {
+        return parseInt(localStorage.getItem('magika_diamond') || '0');
+    }
+    function saveCarryDiamond(amount) {
+        localStorage.setItem('magika_diamond', String(amount));
+    }
     function loadMonsterLevels() {
+        const defaults = { slime: 1, goblin: 1, golem: 1, wraith: 1 };
         const saved = localStorage.getItem('magika_monsterlevels');
-        if (!saved) return { slime: 1, goblin: 1, golem: 1 };
-        try { return JSON.parse(saved); } catch { return { slime: 1, goblin: 1, golem: 1 }; }
+        if (!saved) return defaults;
+        try { return Object.assign(defaults, JSON.parse(saved)); } catch { return defaults; }
     }
     function saveMonsterLevels() {
         localStorage.setItem('magika_monsterlevels', JSON.stringify(monsterLevels));
@@ -882,17 +1736,27 @@
         localStorage.removeItem('magika_carryover');
         localStorage.removeItem('magika_monsterlevels');
         localStorage.removeItem('magika_runcount');
+        localStorage.removeItem('magika_diamond');
         updateStartScreenCarryOver();
     }
+    function showMainMenu() {
+        showScreenOnly('startScreen');
+    }
+    function showModeSelect() {
+        showScreenOnly('modeSelectScreen');
+        updateStartScreenCarryOver();
+    }
+
     function updateStartScreenCarryOver() {
         const saved = loadCarryOver();
+        const savedDiamond = loadCarryDiamond();
         const lvs = loadMonsterLevels();
         const runCount = loadRunCount();
         const ui = document.getElementById('carryOverUI');
         const span = document.getElementById('carryOverAmount');
-        if (saved > 0 || lvs.slime > 1 || lvs.goblin > 1 || lvs.golem > 1 || runCount > 0) {
+        if (saved > 0 || savedDiamond > 0 || lvs.slime > 1 || lvs.goblin > 1 || lvs.golem > 1 || runCount > 0) {
             document.getElementById('runCountAmount').innerText = runCount;
-            span.innerHTML = `${saved} G &nbsp;／&nbsp; 🪨Lv.${lvs.slime} 🌿Lv.${lvs.goblin} 🟤Lv.${lvs.golem}`;
+            span.innerHTML = `${saved} G &nbsp;／&nbsp; 💎 ${savedDiamond} &nbsp;／&nbsp; 🪨Lv.${lvs.slime} 🌿Lv.${lvs.goblin} 🟤Lv.${lvs.golem}`;
             ui.style.display = 'block';
         } else {
             ui.style.display = 'none';
@@ -915,9 +1779,27 @@
     }
     window.addEventListener('resize', adjustMobileScale);
 
-    function enterGameScreen() {
-        document.getElementById('startScreen').style.display = 'none';
-        document.getElementById('gameScreen').style.display = 'flex';
+    // リザルト画面を画面高に収める（内容が縦に長い場合のみ倍率を動的縮小）
+    function adjustResultScale() {
+        const rc = document.querySelector('#gameOverScreen .result-container');
+        if (!rc) return;
+        // 実寸を測るため一旦リセット
+        rc.style.transform = '';
+        rc.style.transformOrigin = '';
+        const natural = rc.offsetHeight;              // padding込みの自然な高さ
+        const avail = window.innerHeight * 0.98;      // 上下に僅かな余白
+        if (natural > avail) {
+            const scale = Math.max(0.4, avail / natural);
+            rc.style.transformOrigin = 'center center';
+            rc.style.transform = `scale(${scale.toFixed(4)})`;
+        }
+    }
+    window.addEventListener('resize', adjustResultScale);
+
+    function enterGameScreen(mode = 'standard') {
+        gameMode = mode;
+        showScreenOnly('gameScreen');
+        initSidePanelState();
         adjustMobileScale();
         
         generateMap();
@@ -926,11 +1808,26 @@
         heroes = []; monsters = []; particles = []; floatingTexts = [];
         castlePos = null; castleHp = CASTLE_MAX_HP;
         
-        // パラメータの初期化
+        // パラメータの初期化（ショップ「初期ゴールド増加」を反映）
         const carryOver = loadCarryOver();
-        gold = 20 + carryOver;
+        gold = 20 + carryOver + shopData.startGold * 15;
+        diamond = loadCarryDiamond();
         defeatedHeroesCount = 0;
         totalEarnedGold = 0;
+        totalEarnedDiamond = 0;
+        sessionBreeds = 0;
+        BABY_GROW_MS = [20000, 16000, 12000][shopData.growSpeed] || 20000;
+
+        // シャドウレイス解禁状態のUI反映
+        document.getElementById('wraith-card').style.display = shopData.wraith ? '' : 'none';
+        document.getElementById('legendWraith').style.display = shopData.wraith ? '' : 'none';
+        document.getElementById('legendDark').style.display = shopData.wraith ? '' : 'none';
+        // ボスUIリセット
+        document.getElementById('bossHpUI').style.display = 'none';
+        bossUIVisible = false;
+        document.getElementById('bossWarning').style.display = 'none';
+        updateNextHeroUI(null);
+        updateMuteButtons();
         
         isPlacingCastle = false;
         castleBtn.classList.remove('active');
@@ -946,12 +1843,14 @@
         monsterLevels.slime = savedLevels.slime;
         monsterLevels.goblin = savedLevels.goblin;
         monsterLevels.golem = savedLevels.golem;
+        monsterLevels.wraith = savedLevels.wraith || 1;
         // ランダムボーナス・怒りボーナスはセッション限定でリセット
         randBonus.slime  = {atk:0, agi:0, hp:0};
         randBonus.goblin = {atk:0, agi:0, hp:0};
         randBonus.golem  = {atk:0, agi:0, hp:0};
+        randBonus.wraith = {atk:0, agi:0, hp:0};
         rageBonus = { atk: 0, agi: 0, hp: 0 };
-        randCount.slime = 0; randCount.goblin = 0; randCount.golem = 0;
+        randCount.slime = 0; randCount.goblin = 0; randCount.golem = 0; randCount.wraith = 0;
         heroGold = 0;
         
         updateGoldUI();
@@ -967,16 +1866,28 @@
 
     function triggerGameOver() {
         isGameRunning = false;
+        closeInGamePanel();
+        playSE('gameover');
         if (heroTimerId) clearInterval(heroTimerId);
         if (countdownTimerId) clearInterval(countdownTimerId);
         countdownTimerId = null;
 
-        // 引継ぎゴールド＆モンスターレベルを保存（残ゴールドを累積）
+        // 引継ぎゴールド＆モンスターレベル＆ダイヤを保存（残ゴールド・ダイヤを累積）
         const prevCarry = loadCarryOver();
         const newCarry = prevCarry + gold;
         saveCarryOver(newCarry);
+        saveCarryDiamond(diamond);
         saveMonsterLevels();
         saveRunCount(loadRunCount() + 1);
+
+        // 実績・記録の更新（magika_records）
+        const rec = loadRecords();
+        rec.kills += defeatedHeroesCount;
+        rec.breeds += sessionBreeds;
+        rec.maxDepthEver = Math.max(rec.maxDepthEver, maxDepth);
+        rec.maxHeroLevel = Math.max(rec.maxHeroLevel, heroLevel);
+        rec.diamondsEarned += totalEarnedDiamond;
+        saveRecords(rec);
 
         // リザルト画面への値の代入
         document.getElementById('resHeroes').innerText = defeatedHeroesCount;
@@ -984,11 +1895,15 @@
         document.getElementById('resFinalGold').innerText = gold;
         document.getElementById('resDepth').innerText = maxDepth;
         document.getElementById('resCarryOver').innerText = newCarry;
+        document.getElementById('resEarnedDiamond').innerText = totalEarnedDiamond;
+        document.getElementById('resCarryDiamond').innerText = diamond;
         document.getElementById('resMonsterLevels').innerText =
-            `🪨Lv.${monsterLevels.slime} 🌿Lv.${monsterLevels.goblin} 🟤Lv.${monsterLevels.golem}`;
+            `🪨Lv.${monsterLevels.slime} 🌿Lv.${monsterLevels.goblin} 🟤Lv.${monsterLevels.golem}` +
+            (shopData.wraith ? ` 👻Lv.${monsterLevels.wraith}` : '');
 
-        document.getElementById('gameScreen').style.display = 'none';
-        document.getElementById('gameOverScreen').style.display = 'flex';
+        showScreenOnly('gameOverScreen');
+        // 表示後にレイアウトが確定してから倍率調整
+        adjustResultScale();
     }
 
     function toggleCastleMode() {
@@ -1023,6 +1938,8 @@
         let color = '#95a5a6'; 
         if (type === 2) color = '#7b8d41'; 
         if (type === 6) color = '#9A6229'; 
+        if (type === 7) color = '#7d5bb5';
+        if (type === 8) color = '#ffcc00';
 
         const numParticles = 6 + Math.floor(Math.random() * 4); 
         for (let i = 0; i < numParticles; i++) {
@@ -1108,11 +2025,11 @@
 
     canvas.addEventListener('touchend', () => { isDragging = false; touchScrollStartY = null; });
 
-    function spawnFloatingText(x, y, text, color) {
+    function spawnFloatingText(x, y, text, color, size = 13) {
         floatingTexts.push({
             x: x * TILE_SIZE + TILE_SIZE / 2,
             y: y * TILE_SIZE,
-            text, color,
+            text, color, size,
             life: 1.0,
             vy: -1.2
         });
@@ -1150,6 +2067,16 @@
                 const castleDepth = castlePos.y - SKY_LAYERS;
                 maxDepth = Math.max(maxDepth, castleDepth);
                 document.getElementById('depthUI').innerText = castleDepth;
+
+                // 最深記録は到達時点で即時保存（シャドウレイス解禁条件・リロード対策）
+                const recD = loadRecords();
+                if (castleDepth > recD.maxDepthEver) {
+                    recD.maxDepthEver = castleDepth;
+                    saveRecords(recD);
+                    if (castleDepth >= 100 && !shopData.wraith) {
+                        spawnFloatingText(x, y - 2, '🏅 深淵の主 達成！', '#00ffee', 15);
+                    }
+                }
 
                 // あくま部屋の下を確保
                 expandMap(castlePos.y + DIG_RANGE_BELOW_CASTLE);
@@ -1189,26 +2116,41 @@
             return;
         }
 
-        if (map[y][x] === 1 || map[y][x] === 2 || map[y][x] === 6) {
+        const TILE_TO_MTYPE = { 1: 'slime', 2: 'goblin', 6: 'golem', 7: 'wraith' };
+        const tile = map[y][x];
+        if (tile === 1 || tile === 2 || tile === 6 || tile === 7 || tile === 8) {
             if (gold >= 1) {
                 gold -= 1; updateGoldUI();
-                const type = map[y][x];
-                spawnDebris(x, y, type);
-                spawnFloatingText(x, y, '-1G', '#f1c40f');
-                map[y][x] = 0; 
+                spawnDebris(x, y, tile);
+                map[y][x] = 0;
+                playSE('dig');
 
-                if (type === 1) {
-                    const s = MONSTER_STATS.slime, idx = monsterLevels.slime - 1;
-                    const m = makeEntity(x, y, { hp: s.hp[idx], maxHp: s.hp[idx], atk: s.atk[idx], agi: s.agi[idx], range: s.range[idx], isHero: false, color: '#95a5a6', mtype: 'slime' });
+                if (tile === 8) {
+                    // 宝石鉱脈：ゴールド + 稀にダイヤ
+                    const gain = 10 + Math.floor(Math.random() * 21); // 10〜30G
+                    gold += gain; totalEarnedGold += gain;
+                    if (Math.random() < 0.10) {
+                        diamond++; totalEarnedDiamond++;
+                        spawnFloatingText(x, y - 1, '+1💎', '#00cfff');
+                        playSE('gem');
+                    } else {
+                        playSE('heroKill');
+                    }
+                    spawnFloatingText(x, y, `💎鉱脈! +${gain}G`, '#ffcc00');
+                    updateGoldUI();
+                } else {
+                    spawnFloatingText(x, y, '-1G', '#ffcc00');
+                    const mt = TILE_TO_MTYPE[tile];
+                    const s = MONSTER_STATS[mt], idx = monsterLevels[mt] - 1;
+                    const rb = randBonus[mt];
+                    const m = makeEntity(x, y, {
+                        hp: s.hp[idx] + rb.hp, maxHp: s.hp[idx] + rb.hp,
+                        atk: s.atk[idx] + rb.atk, agi: s.agi[idx] + rb.agi,
+                        range: s.range[idx], isHero: false,
+                        color: MONSTER_COLORS[mt], mtype: mt
+                    });
                     m.fertile = (Math.random() < 0.10); m.isBaby = false; monsters.push(m);
-                } else if (type === 2) {
-                    const s = MONSTER_STATS.goblin, idx = monsterLevels.goblin - 1;
-                    const m = makeEntity(x, y, { hp: s.hp[idx], maxHp: s.hp[idx], atk: s.atk[idx], agi: s.agi[idx], range: s.range[idx], isHero: false, color: '#2ecc71', mtype: 'goblin' });
-                    m.fertile = (Math.random() < 0.10); m.isBaby = false; monsters.push(m);
-                } else if (type === 6) {
-                    const s = MONSTER_STATS.golem, idx = monsterLevels.golem - 1;
-                    const m = makeEntity(x, y, { hp: s.hp[idx], maxHp: s.hp[idx], atk: s.atk[idx], agi: s.agi[idx], range: s.range[idx], isHero: false, color: '#d35400', mtype: 'golem' });
-                    m.fertile = (Math.random() < 0.10); m.isBaby = false; monsters.push(m);
+                    playSE('spawn');
                 }
             } else {
                 if(!isDragging) {
@@ -1221,19 +2163,31 @@
 
     let countdownTimerId = null;
 
+    // 次の勇者予告（heroStatsUI内）。次が怒り勇者(10の倍数Lv)なら赤字で警告
+    function updateNextHeroUI(remaining) {
+        const el = document.getElementById('nextHeroUI');
+        if (remaining === null) { el.textContent = ''; el.classList.remove('rage-warn'); return; }
+        const nextLv = heroLevel + 1;
+        const isRageNext = (nextLv % 10 === 0);
+        el.classList.toggle('rage-warn', isRageNext);
+        el.textContent = isRageNext
+            ? `⚠ 次: 怒りの勇者 Lv.${nextLv} …${remaining}s`
+            : `⏱ 次の勇者 Lv.${nextLv} …${remaining}s`;
+    }
+
     function startHeroCountdown(sec) {
         if (countdownTimerId) clearInterval(countdownTimerId);
         let remaining = sec;
-        msgDiv.innerText = `次の勇者まで… ${remaining}秒`;
+        updateNextHeroUI(remaining);
         countdownTimerId = setInterval(() => {
             if (!isGameRunning) { clearInterval(countdownTimerId); return; }
             remaining--;
             if (remaining > 0) {
-                msgDiv.innerText = `次の勇者まで… ${remaining}秒`;
+                updateNextHeroUI(remaining);
             } else {
                 clearInterval(countdownTimerId);
                 countdownTimerId = null;
-                msgDiv.innerText = '';
+                updateNextHeroUI(null);
                 spawnHero();
             }
         }, 1000);
@@ -1363,19 +2317,71 @@
 
         heroGold = hg;
 
-        if (isEnraged) spawnFloatingText(2, 2, '⚔ 怒れる勇者！', '#e74c3c');
+        if (isEnraged) {
+            spawnFloatingText(2, 2, '⚔ 怒れる勇者！', '#e74c3c');
+            showBossWarning();
+        }
 
         updateHeroStatsUI(isEnraged, heroType);
 
-        // 勇者登場ごとに同種2体を繁殖可能にする
-        const mtypes = ['slime','goblin','golem'];
-        const shuffled = [...mtypes].sort(() => Math.random() - 0.5);
+        // 勇者登場ごとに繁殖可能にする
+        // スライム・ゴブリンは確定で2体ずつ、加えてランダムで1種2体
+        const markFertile = (mt) => {
+            const group = monsters.filter(m => m.mtype === mt && !m.isBaby && !m.fertile && m.hp > 0);
+            if (group.length >= 2) {
+                group.sort(() => Math.random() - 0.5).slice(0, 2).forEach(m => { m.fertile = true; });
+            }
+        };
+        markFertile('slime');
+        markFertile('goblin');
+        // 既存：ランダムで1種2体（ゴーレム・レイスが選ばれることもある）
+        const shuffled = activeMtypes().slice().sort(() => Math.random() - 0.5);
         for (const mt of shuffled) {
             const group = monsters.filter(m => m.mtype === mt && !m.isBaby && !m.fertile && m.hp > 0);
             if (group.length >= 2) {
                 group.sort(() => Math.random() - 0.5).slice(0, 2).forEach(m => { m.fertile = true; });
                 break;
             }
+        }
+    }
+
+    // ===== ボス演出 =====
+    let bossWarnTimerId = null;
+    function showBossWarning() {
+        playSE('bossWarn');
+        const banner = document.getElementById('bossWarning');
+        banner.style.display = 'block';
+        const container = document.getElementById('canvasContainer');
+        container.classList.remove('boss-flash');
+        void container.offsetWidth; // アニメーション再トリガー
+        container.classList.add('boss-flash');
+        if (bossWarnTimerId) clearTimeout(bossWarnTimerId);
+        bossWarnTimerId = setTimeout(() => {
+            banner.style.display = 'none';
+            container.classList.remove('boss-flash');
+        }, 2600);
+    }
+    // ボスHPバー（怒り勇者生存中のみ表示）— gameLoopから毎フレーム呼び出し
+    let bossUIVisible = false;
+    function updateBossHpUI() {
+        const boss = heroes.find(h => h.isEnraged && h.hp > 0);
+        const ui = document.getElementById('bossHpUI');
+        if (boss) {
+            if (!bossUIVisible) { ui.style.display = 'block'; bossUIVisible = true; }
+            document.getElementById('bossHpFill').style.width =
+                `${Math.max(0, boss.hp / boss.maxHp * 100)}%`;
+        } else if (bossUIVisible) {
+            ui.style.display = 'none'; bossUIVisible = false;
+        }
+    }
+    // 撃破時の大量パーティクル
+    function spawnBurst(x, y, colors, count = 26) {
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2,
+                vx: (Math.random() - 0.5) * 12, vy: (Math.random() - 1.4) * 9,
+                life: 1.0, color: colors[i % colors.length], size: Math.random() * 4 + 2
+            });
         }
     }
 
@@ -1392,24 +2398,44 @@
         return (x >= 0 && x < COLS && y >= 0 && y < ROWS && (map[y][x] === 0 || map[y][x] === 4 || map[y][x] === 5));
     }
 
+    // BFS parent 配列から「entity → found セル」への最初の1手を逆引き
+    // parent[y*COLS+x] = 前のセルの flat index、-2 = 出発点、-1 = 未訪問
+    function bfsTraceback(parent, currX, currY, foundX, foundY) {
+        const currIdx = currY * COLS + currX;
+        if (parent[currIdx] === -2) {
+            // curr が出発点 = entity はターゲットの隣にいる → そのまま踏み込む
+            return {x: foundX, y: foundY};
+        }
+        let idx = currIdx;
+        let prevIdx = idx;
+        while (parent[idx] !== -2) {
+            prevIdx = idx;
+            idx = parent[idx];
+        }
+        // idx = 出発点、prevIdx = 出発点の次 = 最初の1手
+        return {x: prevIdx % COLS, y: Math.floor(prevIdx / COLS)};
+    }
+
     function getNextStepTowardsCastle(entity) {
         if (!castlePos || (entity.x === castlePos.x && entity.y === castlePos.y)) return null;
+        const sx = entity.x, sy = entity.y;
+        const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
 
-        let queue = [{x: entity.x, y: entity.y, path: []}];
-        let visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
-        visited[entity.y][entity.x] = true;
-        const dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+        const parent = new Int32Array(ROWS * COLS).fill(-1);
+        parent[sy * COLS + sx] = -2;
 
-        while(queue.length > 0) {
-            let curr = queue.shift();
-            for (let d of dirs) {
-                let nx = curr.x + d.x; let ny = curr.y + d.y;
+        const queue = [sx, sy];
+        let head = 0;
+        while (head < queue.length) {
+            const cx = queue[head++], cy = queue[head++];
+            for (const d of dirs) {
+                const nx = cx + d.x, ny = cy + d.y;
                 if (nx === castlePos.x && ny === castlePos.y) {
-                    return curr.path.length > 0 ? curr.path[0] : {x: nx, y: ny};
+                    return bfsTraceback(parent, cx, cy, nx, ny);
                 }
-                if (isPassable(nx, ny) && !visited[ny][nx]) {
-                    visited[ny][nx] = true;
-                    queue.push({x: nx, y: ny, path: [...curr.path, {x: nx, y: ny}]});
+                if (isPassable(nx, ny) && parent[ny * COLS + nx] === -1) {
+                    parent[ny * COLS + nx] = cy * COLS + cx;
+                    queue.push(nx, ny);
                 }
             }
         }
@@ -1419,29 +2445,29 @@
     // 汎用BFS：任意の目標座標への次ステップを返す（目標の隣接1マスまで）
     function getNextStepTowards(entity, tx, ty, monsterOnly = false) {
         if (Math.abs(entity.x - tx) + Math.abs(entity.y - ty) <= 1) return null;
-
-        let queue = [{x: entity.x, y: entity.y, path: []}];
-        let visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
-        visited[entity.y][entity.x] = true;
+        const sx = entity.x, sy = entity.y;
         const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
 
-        while (queue.length > 0) {
-            let curr = queue.shift();
-            for (let d of dirs) {
-                let nx = curr.x + d.x, ny = curr.y + d.y;
-                if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
-                if (visited[ny][nx]) continue;
-                if (monsterOnly && ny < SKY_LAYERS) continue; // モンスターは空エリア侵入禁止
+        const parent = new Int32Array(ROWS * COLS).fill(-1);
+        parent[sy * COLS + sx] = -2;
 
-                // 目標に隣接かつ通行可能なマスに到達 → ここが最終ステップ
+        const queue = [sx, sy];
+        let head = 0;
+        while (head < queue.length) {
+            const cx = queue[head++], cy = queue[head++];
+            for (const d of dirs) {
+                const nx = cx + d.x, ny = cy + d.y;
+                if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+                if (parent[ny * COLS + nx] !== -1) continue;
+                if (monsterOnly && ny < SKY_LAYERS) continue;
+
                 const adjToTarget = Math.abs(nx - tx) + Math.abs(ny - ty) <= 1;
                 if (adjToTarget && isPassable(nx, ny)) {
-                    return curr.path.length > 0 ? curr.path[0] : {x: nx, y: ny};
+                    return bfsTraceback(parent, cx, cy, nx, ny);
                 }
-
                 if (isPassable(nx, ny)) {
-                    visited[ny][nx] = true;
-                    queue.push({x: nx, y: ny, path: [...curr.path, {x: nx, y: ny}]});
+                    parent[ny * COLS + nx] = cy * COLS + cx;
+                    queue.push(nx, ny);
                 }
             }
         }
@@ -1457,6 +2483,7 @@
                 const distToCastle = Math.abs(castlePos.x - entity.x) + Math.abs(castlePos.y - entity.y);
                 if (distToCastle <= 1) {
                     castleHp -= entity.atk;
+                    playSE('castleHit');
                     if (castleHp <= 0) triggerGameOver();
                     return; 
                 }
@@ -1482,18 +2509,48 @@
                 
                 // モンスターを倒した時の勇者ゴールド加算
                 if (target.hp <= 0 && entity.isHero && target.mtype) {
-                    const heroGoldGain = {slime: 2, goblin: 1, golem: 5};
+                    const heroGoldGain = {slime: 2, goblin: 1, golem: 5, wraith: 3};
                     heroGold += heroGoldGain[target.mtype] || 0;
                 }
 
                 // 勇者のHPを0にした際の処理
                 if (target.hp <= 0 && target.isHero) {
-                    const reward = 10 + Math.floor(heroLevel / 5);
+                    const baseReward = gameMode === 'standard' ? 25 : 10 + Math.floor(heroLevel / 5);
+                    const rageBonus = (gameMode === 'standard' && target.isEnraged) ? heroGold : 0;
+                    const reward = baseReward + rageBonus;
                     gold += reward;
                     totalEarnedGold += reward;
                     defeatedHeroesCount++;
+
+                    // ボス（怒り勇者）撃破演出 / 通常撃破SE
+                    if (target.isEnraged) {
+                        playSE('bossKill');
+                        spawnBurst(target.x, target.y, ['#ffcc00', '#ff4422', '#ffffff'], 34);
+                        spawnFloatingText(target.x, target.y - 2, 'BOSS 撃破!!', '#ff4422', 20);
+                    } else {
+                        playSE('heroKill');
+                        spawnBurst(target.x, target.y, ['#ffcc00', '#74b9ff'], 12);
+                    }
+
+                    // ダイヤモンドドロップ判定
+                    let diamondChancePct;
+                    if (gameMode === 'standard') {
+                        diamondChancePct = Math.min(0.01 * heroLevel, 1);
+                    } else {
+                        const base = heroLevel * 0.01 + 1;
+                        const cap = target.isEnraged ? Math.min(heroGold, 100) : 5;
+                        diamondChancePct = Math.min(base, cap);
+                    }
+                    if (Math.random() * 100 < diamondChancePct) {
+                        diamond++;
+                        totalEarnedDiamond++;
+                        spawnFloatingText(target.x, target.y - 1, '+1💎', '#00cfff');
+                        playSE('gem');
+                    }
+
                     updateGoldUI();
-                    spawnFloatingText(target.x, target.y, `+${reward}G`, '#f1c40f');
+                    const rewardText = rageBonus > 0 ? `+${reward}G (怒り+${rageBonus})` : `+${reward}G`;
+                    spawnFloatingText(target.x, target.y, rewardText, '#ffcc00');
                     
                     let remainingHeroes = heroes.filter(h => h.hp > 0 && h !== target);
                     if (remainingHeroes.length === 0 && isWaveStarted) {
@@ -1504,6 +2561,27 @@
             }
 
             if (entity.isHero) {
+                // スタック検出：2秒以上同じ位置にいたら5秒間あくま部屋へ直行
+                const now = Date.now();
+                if (entity.lastMoveTime === undefined) {
+                    entity.lastMoveTime = now;
+                    entity.lastX = entity.x; entity.lastY = entity.y;
+                    entity.castleRushUntil = 0;
+                }
+                if (entity.x !== entity.lastX || entity.y !== entity.lastY) {
+                    entity.lastX = entity.x; entity.lastY = entity.y;
+                    entity.lastMoveTime = now;
+                }
+                if (now - entity.lastMoveTime >= 2000 && now > entity.castleRushUntil) {
+                    entity.castleRushUntil = now + 5000;
+                    entity.lastMoveTime = now;
+                }
+                if (castlePos && now < entity.castleRushUntil) {
+                    const step = getNextStepTowardsCastle(entity);
+                    if (step) { entity.x = step.x; entity.y = step.y; }
+                    return;
+                }
+
                 if (entity.y < SKY_LAYERS) {
                     if (entity.x < ENTRANCE_X) { entity.x++; }
                     else if (entity.x === ENTRANCE_X) { entity.y++; }
@@ -1590,6 +2668,7 @@
     let lastFrameTime = 0;
     let isFastMode = false;
     let isPaused = false;
+    let gameMode = 'standard'; // 'standard' | 'hard'
 
     function toggleSpeed() {
         isFastMode = !isFastMode;
@@ -1664,10 +2743,13 @@
         heroes = heroes.filter(h => h.hp > 0);
         monsters = monsters.filter(m => m.hp > 0);
 
+        // ボスHPバー更新（怒り勇者生存中のみ表示）
+        updateBossHpUI();
+
         // ===== 繁殖システム =====
         if (castlePos && isWaveStarted) {
-            const BREED_MAX = 8;
-            const mtypes = ['slime','goblin','golem'];
+            const BREED_MAX = 8 + shopData.breedCap * 2; // ショップ「繁殖上限アップ」
+            const mtypes = activeMtypes();
             for (const mt of mtypes) {
                 try {
                 if (monsters.filter(m => m.mtype === mt && m.isBaby).length >= BREED_MAX) continue;
@@ -1695,20 +2777,21 @@
                     isBaby: true, bornAt: Date.now(), fertile: false
                 });
                 monsters.push(baby);
+                sessionBreeds++;
                 a.fertile = false;
                 b.fertile = false;
-                const names = {slime:'ちび石スライム', goblin:'ちび苔ゴブリン', golem:'ちび銅ゴーレム'};
-                spawnFloatingText(sx, sy, `${names[mt]}誕生！`, '#e91e96');
+                spawnFloatingText(sx, sy, `ちび${MONSTER_NAMES[mt]}誕生！`, '#e91e96');
+                playSE('breed');
                 } catch(e) {}
             }
         }
 
-        // ちびモンスターの成長（20秒後に成体化）
+        // ちびモンスターの成長（BABY_GROW_MS 後に成体化・ショップで短縮可能）
         const now = Date.now();
         const newborns = [];
         monsters = monsters.filter(m => {
             if (!m.isBaby) return true;
-            if (now - m.bornAt < 20000) return true;
+            if (now - m.bornAt < BABY_GROW_MS) return true;
             const idx = monsterLevels[m.mtype] - 1;
             const s = MONSTER_STATS[m.mtype];
             const rb = randBonus[m.mtype];
@@ -1720,7 +2803,8 @@
                 isBaby: false, fertile: false
             });
             newborns.push(grown);
-            spawnFloatingText(m.x, m.y, '成長！', '#f1c40f');
+            spawnFloatingText(m.x, m.y, '成長！', '#ffcc00');
+            playSE('grow');
             return false;
         });
         monsters.push(...newborns);
@@ -1742,15 +2826,42 @@
                 } else if (map[y][x] === 4) {
                     ctx.fillStyle = '#87CEEB'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
                 } else if (map[y][x] === 5) {
-                    ctx.fillStyle = '#8e44ad'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    ctx.strokeStyle = '#2c3e50'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = 'red'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - 6, TILE_SIZE, 4);
-                    ctx.fillStyle = '#f1c40f';
+                    ctx.fillStyle = '#1a1060'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#4466cc'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = '#cc0000'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - 6, TILE_SIZE, 4);
+                    ctx.fillStyle = '#00cc44';
                     const hpRatio = Math.max(0, castleHp) / CASTLE_MAX_HP;
                     ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - 6, TILE_SIZE * hpRatio, 4);
                 } else if (map[y][x] === 6) {
                     ctx.fillStyle = '#9A6229'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
                     ctx.strokeStyle = '#6d4219'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 7) {
+                    // 闇水晶：濃紫 + 菱形クリスタル
+                    const px = x * TILE_SIZE, py = y * TILE_SIZE;
+                    ctx.fillStyle = '#2a1a4a'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#1a0f30'; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = '#7d5bb5';
+                    ctx.beginPath();
+                    ctx.moveTo(px + 15, py + 6); ctx.lineTo(px + 22, py + 15);
+                    ctx.lineTo(px + 15, py + 24); ctx.lineTo(px + 8, py + 15);
+                    ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = '#b39ddb';
+                    ctx.beginPath();
+                    ctx.moveTo(px + 15, py + 6); ctx.lineTo(px + 18, py + 12);
+                    ctx.lineTo(px + 15, py + 15); ctx.lineTo(px + 12, py + 12);
+                    ctx.closePath(); ctx.fill();
+                } else if (map[y][x] === 8) {
+                    // 宝石鉱脈：石地 + 金の輝き
+                    const px = x * TILE_SIZE, py = y * TILE_SIZE;
+                    ctx.fillStyle = '#8a7a3a'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#6d5f28'; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.fillRect(px + 6,  py + 8,  4, 4);
+                    ctx.fillRect(px + 18, py + 14, 5, 5);
+                    ctx.fillRect(px + 10, py + 20, 3, 3);
+                    ctx.fillStyle = '#fff8cc';
+                    ctx.fillRect(px + 7,  py + 9,  1.5, 1.5);
+                    ctx.fillRect(px + 19, py + 15, 2, 2);
                 }
             }
         }
@@ -1944,14 +3055,14 @@
                 ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx, cy + s); ctx.stroke();
 
                 // ボルト（四隅）
-                ctx.fillStyle = '#f39c12';
+                ctx.fillStyle = '#ffcc00';
                 [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([dx,dy]) => {
                     ctx.beginPath(); ctx.arc(cx + dx*(s-1.5), cy + dy*(s-1.5), 1, 0, Math.PI*2); ctx.fill();
                 });
 
                 // 目（黄色く光る）
-                ctx.fillStyle = '#f1c40f';
-                ctx.shadowColor = '#f1c40f'; ctx.shadowBlur = 4;
+                ctx.fillStyle = '#ffcc00';
+                ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 4;
                 ctx.beginPath(); ctx.arc(cx - 1.8, cy - 1, 1.2, 0, Math.PI * 2); ctx.fill();
                 ctx.beginPath(); ctx.arc(cx + 1.8, cy - 1, 1.2, 0, Math.PI * 2); ctx.fill();
                 ctx.shadowBlur = 0;
@@ -1962,13 +3073,53 @@
                 ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
                 ctx.fillStyle = '#27ae60';
                 ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
+
+            } else if (entity.mtype === 'wraith') {
+                // ---- シャドウレイス：半透明の幽体・揺らめく裾 ----
+                // shadowBlurは重いため未使用。半透明レイヤー重ねで発光風に
+                const r = 5;
+                const wob = Math.sin(Date.now() / 180 + entity.rx) * 1.2; // 揺らめき
+
+                // 外側のオーラ（半透明の紫）
+                ctx.fillStyle = 'rgba(125,91,181,0.18)';
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, r * 1.7, r * 1.9, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 幽体本体（上半分は丸、下は波打つ裾）
+                ctx.fillStyle = 'rgba(179,157,219,0.85)';
+                ctx.beginPath();
+                ctx.arc(cx, cy - 1, r * 0.9, Math.PI, 0);
+                ctx.lineTo(cx + r * 0.9, cy + r * 0.8);
+                ctx.quadraticCurveTo(cx + r * 0.45, cy + r * 0.3 + wob, cx, cy + r * 0.8);
+                ctx.quadraticCurveTo(cx - r * 0.45, cy + r * 0.3 - wob, cx - r * 0.9, cy + r * 0.8);
+                ctx.closePath();
+                ctx.fill();
+
+                // 内側のコア
+                ctx.fillStyle = 'rgba(90,60,140,0.6)';
+                ctx.beginPath();
+                ctx.arc(cx, cy - 1, r * 0.45, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 目（白く光る点）
+                ctx.fillStyle = '#f5eeff';
+                ctx.beginPath(); ctx.arc(cx - 1.7, cy - 1.5, 1, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 1.7, cy - 1.5, 1, 0, Math.PI * 2); ctx.fill();
+
+                const bw = 10, bh = 2;
+                const bx = cx - bw/2, by = cy - r - 5;
+                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
+                ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
+                ctx.fillStyle = '#27ae60';
+                ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
             }
 
             ctx.restore();
 
             // ちびの成長バー
             if (entity.isBaby) {
-                const progress = Math.min(1, (Date.now() - entity.bornAt) / 20000);
+                const progress = Math.min(1, (Date.now() - entity.bornAt) / BABY_GROW_MS);
                 const bw = 12, bh = 2, bx = cx - bw/2, by = cy + 8;
                 ctx.fillStyle = '#333'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
                 ctx.fillStyle = '#e91e96'; ctx.fillRect(bx, by, bw * progress, bh);
@@ -2001,7 +3152,7 @@
             } else {
                 ctx.save();
                 ctx.globalAlpha = ft.life;
-                ctx.font = 'bold 13px "Courier New", monospace';
+                ctx.font = `bold ${ft.size || 13}px "Courier New", monospace`;
                 ctx.fillStyle = ft.color;
                 ctx.strokeStyle = 'rgba(0,0,0,0.7)';
                 ctx.lineWidth = 3;
@@ -2019,5 +3170,11 @@
 <button id="levelPanelFAB" onclick="toggleLevelPanel()">⚗</button>
 <button id="digModeBtn" class="mode-btn active" onclick="setTouchMode('dig')">⛏</button>
 <button id="exploreModeBtn" class="mode-btn" onclick="setTouchMode('explore')">👁</button>
+<button id="menuFAB" onclick="toggleMenuPopover()">☰</button>
+<div id="menuPopover">
+    <button class="side-btn" onclick="openInGamePanel('shop')"><span class="side-btn-icon">🛒</span><span class="side-btn-label">お買い物</span></button>
+    <button class="side-btn" onclick="openInGamePanel('settings')"><span class="side-btn-icon">⚙</span><span class="side-btn-label">その他設定</span></button>
+    <button class="side-btn side-btn-quit" onclick="quitToTitle()"><span class="side-btn-icon">🏳</span><span class="side-btn-label">タイトルへ</span></button>
+</div>
 </body>
 </html>

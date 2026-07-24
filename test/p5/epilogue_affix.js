@@ -10,17 +10,19 @@
     const tot = equippedAffixTotals();
     out.totals = tot;
 
-    // 2) effStat が 基礎加算×倍率、range=索敵加算、atkRange=1+射程 を反映
-    monsterLevels.slime = 1;                 // base slime atk1/agi1/hp3 range4
+    // 2) effStat が 基礎加算×倍率、range=索敵加算 を反映。射程(atkRange)はレイス限定。
+    monsterLevels.slime = 1; monsterLevels.wraith = 1;
     randBonus.slime = { atk: tot.atk||0, agi:0, hp:0 };
+    randBonus.wraith = { atk:0, agi:0, hp:0 };
     equipMul = { atk: tot.mulAtk||0, agi:0, hp:0 };
     equipRange = tot.range||0;
     equipSight = tot.sight||0;
     const e = effStat('slime');
     out.eff = e;
     out.effAtkOK = (e.atk === Math.round((1+5)*(1+10/100)));  // round(6.6)=7
-    out.effRangeOK = (e.range === 4 + 3);                     // 索敵
-    out.atkRangeOK = (e.atkRange === 1 + 2);                  // 射程
+    out.effRangeOK = (e.range === 4 + 3);                     // 索敵は全モンスター
+    out.slimeAtkRange1 = (e.atkRange === 1);                  // 非レイスは射程無効=1
+    out.wraithAtkRange = (effStat('wraith').atkRange === 1 + 2); // レイスのみ射程有効
 
     // 3) 倍率アフィックスの値は 0〜(1×mult) の小数
     const vals = [];
@@ -35,7 +37,7 @@
       return minDist <= (atkRange || 1);   // updateEntity と同条件
     })();
 
-    out.OK = out.effAtkOK && out.effRangeOK && out.atkRangeOK && out.mulRangeOK && out.attackAtRange2 &&
+    out.OK = out.effAtkOK && out.effRangeOK && out.slimeAtkRange1 && out.wraithAtkRange && out.mulRangeOK && out.attackAtRange2 &&
              tot.atk===5 && tot.mulAtk===10 && tot.range===2 && tot.sight===3;
   } catch (e) { out.error = String(e && e.stack || e); }
   process.stdout.write(JSON.stringify(out) + '\n');

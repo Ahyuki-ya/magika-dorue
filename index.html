@@ -1791,8 +1791,9 @@
             atk: mul(s.atk + rb.atk, equipMul.atk),
             agi: mul(s.agi + rb.agi, equipMul.agi),
             hp:  mul(s.hp  + rb.hp,  equipMul.hp),
-            range: s.range + equipSight,     // 探知距離（entity.range）
-            atkRange: 1 + equipRange,         // 攻撃距離（既定1）
+            range: s.range + equipSight,     // 探知距離（entity.range）＝索敵は全モンスター共通
+            // 攻撃距離：全モンスターは一律1（近接）。射程アフィックスの恩恵はシャドウレイスのみ。
+            atkRange: mt === 'wraith' ? 1 + equipRange : 1,
         };
     }
     // Lv→Lv+1 のゴールドコスト（序盤は据え置き、以降は線形上昇）

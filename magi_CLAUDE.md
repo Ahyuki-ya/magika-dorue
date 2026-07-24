@@ -154,10 +154,25 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - `#exploreModeBtn`: モバイル探索モード (right:24px, bottom:136px)
 
 ## Performance Notes
-- BFS は parent-tracking 方式（`Int32Array` + head-pointer queue）で最適化済み
+- **経路探索は Phase 5 で深度非依存化済み（下記 その8）**。城直行は距離場O(1)、追跡はホライズンBFS O(H²)。
+- BFS は世代スタンプ法（モジュール共有 `Int32Array` スクラッチ＋世代スタンプ）で確保ゼロ。旧「クエリ毎 `new Int32Array(ROWS*COLS)`」は撤廃。
 - `[...curr.path]` スプレッドは完全に除去
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
+
+## Recent Session Changes (2026-07-24 その8：Phase 5 経路探索・時間系の保守的最適化)
+
+> 指示書 [OPUS_実装指示_大型改修.md](OPUS_実装指示_大型改修.md) の Phase 5。**「挙動を1ビットも変えない（保存則1〜3）」制約付き**の純最適化。全変更を等価性ハーネス（`scratchpad/p5/`）で機械照合済み。
+
+- **P5-7 等価性ハーネス** (`test/p5/`, `node test/p5/verify.sh <index.html>` で実行): `Math.random` を決定的LCG、`Date.now`/時計を制御下に置くDOMスタブ方式。①経路探索オラクル（40マップ×全開始セル×掘削2ラウンド=19926サンプルの一手をハッシュ照合）②全軌道sim（手組みシナリオを1000tick駆動し全エンティティ(x,y,hp,cd)系列＋乱数消費回数を照合）。`verify.sh` が baseline と比較。
+- **P5-1 世代スタンプ法**: `getNextStepTowardsCastle`/`getNextStepTowards` の毎クエリ `new Int32Array(ROWS*COLS)` を、モジュール共有スクラッチ `__pfParent/__pfStamp/__pfQueue/__pfDist` ＋世代 `__pfGen`（訪問⇔stamp===gen）に置換。初期化 O(V)→O(1)、GC圧ゼロ。`__pfEnsure()` は ROWS 増加時のみ再確保。
+- **P5-2 城フローフィールド**: `getNextStepTowardsCastle` の全呼び出しは素の `isPassable`（空域許可・monsterOnly非適用）＝単一クラスで足りる（城目標の `getNextStepTowards` 呼び出しは存在しない）。城を単一源とする逆向きBFSで距離場 `__ffDist` を構築し、参照時は `PF_DIRS` 順に「d が1減る最初の近傍」を返す（距離場等価定理で前向きBFSと第一手一致）。`__ffDirty`＋`__ffValidFor`(castlePos同一性) で遅延再計算。無効化フック `__p5_bumpTerrain()` を **dig / 勇者の家四方破壊 / expandMap / generateMap** に配線（placeCastleは castlePos 新オブジェクト＝同一性ガードで自動）。O(M·V)/tick → O(V)/地形変更。
+- **P5-4 追跡BFSホライズン化**: `getNextStepTowards` を半径 `H=PATHFIND_CONFIG.horizonFactor(=3)*range` のBFSに制限。`__bfsToward(e,tx,ty,mo,maxDist)` が BFS距離を追跡し「距離<maxDist のセルのみ展開・ターゲット隣接returnは常時」。H内未発見なら `maxDist=Infinity` で全域BFSへフォールバック。**Dの値によらず強保存**（D≤H+1で展開順が全域と同一、D>H+1でフォールバック一致）。訪問セル ≤ 2H(H+1)+1 で深度非依存。
+- **P5-6 gameTime一本化**: 非ポーズ時のみ `gameTime += interval` で進む論理時刻を導入。スタック検出/城直行(`castleRushUntil`)/ちび成長(`bornAt`比較・成長バー)の参照時刻を `Date.now()`→`gameTime` に統一。**ポーズ中に壁時計だけ進む→再開直後の一斉城直行・即成体化を解消**（非ポーズ時は挙動同一）。宝物ID/`createdAt`・レイス揺らめきは視覚/実時刻用途で `Date.now()` 据え置き。`enterGameScreen` で `gameTime=0` リセット。
+- **P5-5 フレームゲートのキャリー化**: `gameLoop` のゲートを `lastFrameTime = timestamp`（代入）→ `lastFrameTime += interval`（繰越、大幅遅延時は再同期クランプ）。高リフレッシュ環境で早送りが量子化されて遅くなる問題を是正（60Hzでは差なし＝強保存）。
+- **P5-3（未実装・確定）**: Union-Find 到達不能早期判定は**ユーザー判断で見送り**（「到達不能ターゲットはいない」。深度非依存は P5-2/4 で達成済み、DSU stale による保存則違反リスクに見合わないと判断）。
+- **PF_DIRS**: 経路探索の方向走査順をモジュール定数に一本化（受け入れ条件6＝距離場・前向きBFS・城フィールドが単一定義を共有）。ランダムウォークの方向順は別用途で非共有。
+- **検証結果**: 経路探索オラクル hash `a72aec6f`(19926)・全軌道sim hash `f554277b`/rng458 ともに baseline と完全一致。ポーズ中 gameTime 凍結を確認。実測（深度25→250, 各20万回）: 城直行 baseline 2757→34489ms(12.5倍悪化) → **最適化 35.6→5.85ms(約5900倍高速・深度非依存)**、追跡 baseline 157→574ms → **最適化 26→25ms(約23倍高速・ratio0.96)**。`new Int32Array` はモジュール初期化と grow ガード内のみ（クエリ毎確保なし）。
 
 ## Recent Session Changes (2026-07-24 その7：ミニマップ勇者・宝物合成・ゴッドレア)
 

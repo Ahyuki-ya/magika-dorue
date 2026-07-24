@@ -3128,6 +3128,9 @@
     }
     // P5-4 追跡BFSのホライズン半径 = horizonFactor * entity.range（バランス調整点）
     const PATHFIND_CONFIG = { horizonFactor: 3 };
+    // 経路探索の方向走査順（受け入れ条件6：距離場・前向きBFS・城フィールドが単一定義を共有）。
+    // 距離場等価定理の一致条件(a)＝局所走査の方向順が前向きBFSの dirs と同一、を担保する。
+    const PF_DIRS = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
     function __pfNextGen() {
         __pfGen++;
         if (__pfGen === 2147483647) { __pfStamp.fill(0); __pfGen = 1; } // 32bitラップ保護
@@ -3156,7 +3159,7 @@
         __ffDirty = false;
         __ffValidFor = castlePos;
         if (!castlePos) return;
-        const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+        const dirs = PF_DIRS; // 単一定義（PF_DIRS）を共有
         const queue = __ffQueue;
         const cIdx = castlePos.y * COLS + castlePos.x;
         dist[cIdx] = 0;
@@ -3185,7 +3188,7 @@
         const sIdx = entity.y * COLS + entity.x;
         const dS = dist[sIdx];
         if (dS <= 0) return null;   // -1=到達不能 / 0=既に城上（前段でガード済みだが保険）
-        const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+        const dirs = PF_DIRS; // 単一定義（PF_DIRS）を共有
         for (const d of dirs) {
             const nx = entity.x + d.x, ny = entity.y + d.y;
             if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
@@ -3202,7 +3205,7 @@
     // ＝Hの値によらず強保存。訪問セル数 ≤ 2H(H+1)+1 で深度非依存（フォールバックは稀）。
     function __bfsToward(entity, tx, ty, monsterOnly, maxDist) {
         const sx = entity.x, sy = entity.y;
-        const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+        const dirs = PF_DIRS; // 単一定義（PF_DIRS）を共有
         __pfEnsure();
         const gen = __pfNextGen();
         const parent = __pfParent, stamp = __pfStamp, queue = __pfQueue, distA = __pfDist;

@@ -1452,7 +1452,7 @@
     //   返済 R(t) = D·(1+r)^(t-grace) 複利（t=ウェーブ数=heroLevel、最初のgraceウェーブは利子ゼロ）
     //   撤退（利確）or 城陥落で精算：ΔB = 手持ちgold − R を引継ぎ銀行に加算（マイナス可）
     const LEV_C = 0.3;        // 倍率係数 L = c·√D
-    const LEV_R = 0.05;       // 複利利率 / ウェーブ
+    const LEV_R = 0.02;       // 複利利率 / ウェーブ（雪だるまを抑制）
     const LEV_GRACE = 3;      // 利子ゼロの猶予ウェーブ数
     const LEV_LAMBDA = 0.6;   // EV負スポーンの搾取率（期待宝価値 = λ·限界負債）
     const LEV_MAX_DEBT = 5000;// 借入上限
@@ -1525,12 +1525,25 @@
             else if (rho < 1.0)     { zoneEl.innerText = '⚖ 最適点付近'; zoneEl.style.color = '#ffcc00'; }
             else                    { zoneEl.innerText = '🔥 赤字ゾーン'; zoneEl.style.color = '#ff5566'; }
         }
+        // 撤退ボタンは勇者不在時のみ有効（波の合間）
+        const rb = document.getElementById('retreatBtn');
+        if (rb) {
+            const canRetreat = isWaveStarted && !heroes.some(h => h.hp > 0);
+            rb.style.opacity = canRetreat ? '1' : '0.4';
+            rb.innerText = canRetreat ? '🏳 撤退' : '🏳 波の合間に';
+        }
     }
     // 撤退（利確）：確認後に自主精算してゲーム終了
     function retreatCashOut() {
         if (!isGameRunning || !leverage.active) return;
         if (!isWaveStarted) {
             msgDiv.innerText = "防衛を開始してから撤退できます";
+            setTimeout(() => { if (msgDiv.innerText.includes("撤退")) msgDiv.innerText = ""; }, 1500);
+            return;
+        }
+        // 勇者が場にいる間は撤退不可（ウェーブを生き延びた合間にのみ利確できる）
+        if (heroes.some(h => h.hp > 0)) {
+            msgDiv.innerText = "勇者がいる間は撤退できません（波の合間に）";
             setTimeout(() => { if (msgDiv.innerText.includes("撤退")) msgDiv.innerText = ""; }, 1500);
             return;
         }

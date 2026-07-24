@@ -162,7 +162,7 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 ## Recent Session Changes (2026-07-24 その5)
 
 ### ミニマップ（プレイ画面左下）
-- `#minimap`（canvasContainer内・66×140px・`position:absolute; left:6px`、`positionMinimap()` で `top=scrollTop+clientHeight-h-6` にしビューポート下部へ追従）。
+- `#minimap`（**キャンバス枠外**・gameScreen直下・66×140px・`position:fixed; left:14px; bottom:14px`で画面左下に固定。モバイルは menuFAB と干渉するため `display:none`）。`positionMinimap()` は no-op（当初はcanvasContainer内でスクロール追従していたが枠外固定に変更）。
 - `drawMinimap()`: 全体マップ（掘削済み/空/鉱脈を色分け）＋**あくま部屋（赤+白枠）/勇者部屋（オレンジ）を強調**＋現在の表示範囲を白枠で表示。gameLoopで6フレームごと再描画、scroll時は即再描画。
 - **タップでカメラ移動**: クリックYの割合→`canvasContainer.scrollTop` を該当深度が中央に来るよう設定（`getBoundingClientRect` でtransform scale補正）。
 

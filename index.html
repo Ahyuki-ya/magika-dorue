@@ -131,6 +131,11 @@
         #canvasContainer::-webkit-scrollbar-track { background: #000828; }
         #canvasContainer::-webkit-scrollbar-thumb { background: #2244aa; border-radius: 0; }
         #canvasContainer::-webkit-scrollbar-thumb:hover { background: #4466cc; }
+        #minimap {
+            position: fixed; left: 14px; bottom: 14px; z-index: 150;
+            border: 2px solid #4466cc; background: rgba(0,8,32,0.9);
+            cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.6);
+        }
 
         canvas { display: block; cursor: crosshair; }
 
@@ -453,6 +458,7 @@
             #sidePanelOpenHandle { display: none !important; }
             #menuFAB { display: flex; }
             #canvasContainer { height: 600px; }
+            #minimap { display: none; }   /* モバイルは左下メニューFABと干渉するため非表示 */
         }
 
         /* ===== ダイヤショップ / その他設定 ===== */
@@ -840,9 +846,11 @@
 
             <div id="canvasContainer">
                 <canvas id="gameCanvas"></canvas>
-                <canvas id="minimap" width="66" height="140" title="タップでカメラ移動" style="position:absolute; left:6px; z-index:50; border:2px solid #4466cc; background:rgba(0,8,32,0.85); cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.5);"></canvas>
             </div>
         </div>
+
+        <!-- ミニマップ（キャンバス枠外・画面左下に固定） -->
+        <canvas id="minimap" width="66" height="140" title="タップでカメラ移動"></canvas>
 
         <!-- レベルアップパネル -->
         <div id="levelPanel">
@@ -1005,10 +1013,7 @@
     const minimap = document.getElementById('minimap');
     const mmctx = minimap.getContext('2d');
     let minimapTick = 0;
-    function positionMinimap() {
-        const c = document.getElementById('canvasContainer');
-        minimap.style.top = (c.scrollTop + c.clientHeight - minimap.height - 6) + 'px';
-    }
+    function positionMinimap() { /* 枠外・画面左下に固定（CSSで配置）。位置追従は不要 */ }
     function drawMinimap() {
         if (!map || !map.length) return;
         const mmW = minimap.width, mmH = minimap.height;

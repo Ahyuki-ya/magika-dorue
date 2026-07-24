@@ -2927,6 +2927,16 @@
         heroHouses.push({ x: entity.x, y: entity.y, depth: d });
         heroSpawn = { x: entity.x, y: entity.y };
         lastHouseDepth = d;
+        // 四方のブロックを破壊して開通（石・鉱石のみ。モンスター/宝物は湧かせない）
+        for (const dir of [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}]) {
+            const nx = entity.x + dir.x, ny = entity.y + dir.y;
+            if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+            const t = map[ny][nx];
+            if (t === 1 || t === 2 || t === 6 || t === 7 || t === 8) {
+                spawnDebris(nx, ny, t);
+                map[ny][nx] = 0;
+            }
+        }
         playSE('buy');
         spawnFloatingText(entity.x, entity.y - 1, '🏠 勇者の家!', '#ffdd55', 14);
         spawnBurst(entity.x, entity.y, ['#ffdd55', '#ffffff', '#cc8844'], 14);

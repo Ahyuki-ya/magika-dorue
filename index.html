@@ -576,6 +576,23 @@
             padding: 10px 12px; border-bottom: 1px solid #1a2a60;
             background: rgba(0,8,32,0.9); flex-shrink: 0;
         }
+        /* 宝物庫：ソシャゲ風グリッド */
+        .tz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; width: 100%; }
+        .tz-cell {
+            position: relative; aspect-ratio: 1 / 1; border-radius: 8px; border: 2px solid #888;
+            background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(0,8,32,0.7));
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; overflow: hidden; user-select: none; transition: transform 0.08s;
+        }
+        .tz-cell:hover { filter: brightness(1.18); transform: translateY(-1px); }
+        .tz-cell .tz-ic { font-size: 1.9rem; line-height: 1; }
+        .tz-cell .tz-nm { font-size: 0.56rem; color: #cde; margin-top: 3px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 3px; }
+        .tz-cell .tz-eq { position: absolute; top: 1px; right: 3px; font-size: 0.7rem; }
+        .tz-cell .tz-rank { position: absolute; top: 0; left: 0; font-size: 0.5rem; padding: 1px 4px; border-bottom-right-radius: 6px; color: #111; font-weight: bold; }
+        .tz-slot {
+            width: 52px; height: 52px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; cursor: pointer; background: rgba(0,0,0,0.3);
+        }
         .ig-tabs { display: flex; gap: 6px; }
         .ig-tab {
             padding: 8px 14px; font-size: 0.8rem; font-weight: bold;
@@ -703,10 +720,17 @@
     <!-- 宝物庫（Treasury）画面 -->
     <div id="treasuryScreen" class="screen">
         <p class="menu-heading">— 宝物庫 —</p>
-        <div style="font-size:0.85rem; color:#aab; margin-bottom:8px;">装備した宝物のアフィックスが次のランに適用されます（スロット <span id="tzEquipCount">0</span>/<span id="tzEquipMax">3</span>）</div>
-        <div id="tzEquippedRow" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:10px; min-height:20px;"></div>
-        <div id="tzInventoryList" style="width:min(560px,94vw); max-height:52vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        <div style="font-size:0.85rem; color:#aab; margin-bottom:8px;">装備した宝物の効果が次のランに適用（<span id="tzEquipCount">0</span>/<span id="tzEquipMax">3</span> スロット）</div>
+        <div id="tzEquippedRow" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; min-height:52px;"></div>
+        <div style="width:min(560px,94vw); max-height:50vh; overflow-y:auto; padding:2px;">
+            <div id="tzInventoryList" class="tz-grid"></div>
+        </div>
         <button class="btn-back" onclick="showSettings()" style="margin-top:14px;">← 戻る</button>
+    </div>
+
+    <!-- 宝物 詳細モーダル（グリッドのセルをタップで表示） -->
+    <div id="tzDetailModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.68); align-items:center; justify-content:center;" onclick="if(event.target===this)tzCloseDetail()">
+        <div id="tzDetailCard" style="width:min(320px,88vw); background:#0a1230; border:2px solid #888; border-radius:12px; padding:20px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);"></div>
     </div>
 
     <div id="gameScreen" class="screen">
@@ -719,6 +743,10 @@
             <button class="side-btn" onclick="openInGamePanel('shop')">
                 <span class="side-btn-icon">🛒</span>
                 <span class="side-btn-label">お買い物</span>
+            </button>
+            <button class="side-btn" onclick="openInGamePanel('treasury')">
+                <span class="side-btn-icon">🏆</span>
+                <span class="side-btn-label">宝物庫</span>
             </button>
             <button class="side-btn" onclick="openInGamePanel('settings')">
                 <span class="side-btn-icon">⚙</span>
@@ -739,6 +767,7 @@
                 <div class="ig-drawer-header">
                     <div class="ig-tabs">
                         <button class="ig-tab" id="igTabShop" onclick="switchInGameTab('shop')">🛒 お買い物</button>
+                        <button class="ig-tab" id="igTabTreasury" onclick="switchInGameTab('treasury')">🏆 宝物庫</button>
                         <button class="ig-tab" id="igTabSettings" onclick="switchInGameTab('settings')">⚙ 記録</button>
                     </div>
                     <button class="ig-close" onclick="closeInGamePanel()" title="閉じる（プレイに戻る）">✕</button>
@@ -748,6 +777,11 @@
                         <div class="ig-note">このランのダイヤで即時強化（戦闘は進行中）</div>
                         <div class="shop-diamond-count">💎 <span id="igShopDiamondAmount">0</span></div>
                         <div class="shop-list" id="igShopList"></div>
+                    </div>
+                    <div id="igTreasurySection" style="width:100%; display:none; flex-direction:column; align-items:center;">
+                        <div class="ig-note">装備した宝物の効果は次のランに適用（<span id="igTzEquipCount">0</span>/<span id="igTzEquipMax">3</span> スロット）</div>
+                        <div id="igTzEquippedRow" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:6px 0 12px; min-height:52px;"></div>
+                        <div id="igTzInventoryList" class="tz-grid"></div>
                     </div>
                     <div id="igSettingsSection" style="width:100%; display:none; flex-direction:column; align-items:center;">
                         <div class="records-grid" id="igRecordsGrid"></div>
@@ -1265,73 +1299,103 @@
         renderSettings();
     }
 
-    // ===== 宝物庫（Treasury）UI =====
-    function showTreasury() {
-        showScreenOnly('treasuryScreen');
-        renderTreasury();
-    }
+    // ===== 宝物庫（Treasury）UI（ソシャゲ風グリッド＋詳細モーダル） =====
+    const RARITY_ORDER = { legendary:4, epic:3, rare:2, uncommon:1, common:0 };
+    // 全画面版とゲーム内ドロワー版、2つのコンテナへ描画
+    const TZ_FULL = { row:'tzEquippedRow', list:'tzInventoryList', count:'tzEquipCount', max:'tzEquipMax' };
+    const TZ_IG   = { row:'igTzEquippedRow', list:'igTzInventoryList', count:'igTzEquipCount', max:'igTzEquipMax' };
+    function showTreasury() { showScreenOnly('treasuryScreen'); renderTreasuryInto(TZ_FULL); }
+    function renderTreasuryAll() { renderTreasuryInto(TZ_FULL); renderTreasuryInto(TZ_IG); }
     function tzEquip(id) {
         const eq = loadEquipped();
         if (eq.includes(id) || eq.length >= EQUIP_SLOTS) return;
-        eq.push(id); saveEquipped(eq); playSE('buy'); renderTreasury();
+        eq.push(id); saveEquipped(eq); playSE('buy');
+        renderTreasuryAll(); if (tzDetailId) tzShowDetail(tzDetailId);
     }
     function tzUnequip(id) {
-        saveEquipped(loadEquipped().filter(x => x !== id)); renderTreasury();
+        saveEquipped(loadEquipped().filter(x => x !== id));
+        renderTreasuryAll(); if (tzDetailId) tzShowDetail(tzDetailId);
     }
-    const RARITY_ORDER = { legendary:4, epic:3, rare:2, uncommon:1, common:0 };
-    function renderTreasury() {
-        const inv = loadInventory();
-        const eq = loadEquipped();
-        document.getElementById('tzEquipCount').innerText = eq.length;
-        document.getElementById('tzEquipMax').innerText = EQUIP_SLOTS;
+    function renderTreasuryInto(ctx) {
+        const listEl = document.getElementById(ctx.list);
+        if (!listEl) return;                       // コンテナが存在しない場合スキップ
+        const inv = loadInventory(), eq = loadEquipped();
+        const cEl = document.getElementById(ctx.count); if (cEl) cEl.innerText = eq.length;
+        const mEl = document.getElementById(ctx.max);   if (mEl) mEl.innerText = EQUIP_SLOTS;
         // 装備スロット
-        const eqRow = document.getElementById('tzEquippedRow');
-        eqRow.innerHTML = '';
-        for (let i = 0; i < EQUIP_SLOTS; i++) {
-            const t = eq[i] ? inv.find(x => x.id === eq[i]) : null;
-            const slot = document.createElement('div');
-            if (t) {
-                const rar = RARITY_BY_KEY[t.rarity];
-                slot.style.cssText = `border:2px solid ${rar.color}; border-radius:4px; padding:4px 10px; font-size:1.3rem; cursor:pointer; background:rgba(0,0,0,0.3);`;
-                slot.innerText = t.icon;
-                slot.title = t.name + '（クリックで解除）';
-                slot.onclick = () => tzUnequip(t.id);
-            } else {
-                slot.style.cssText = 'border:2px dashed #445; border-radius:4px; padding:4px 14px; color:#556; font-size:1.3rem;';
-                slot.innerText = '＋';
+        const eqRow = document.getElementById(ctx.row);
+        if (eqRow) {
+            eqRow.innerHTML = '';
+            for (let i = 0; i < EQUIP_SLOTS; i++) {
+                const t = eq[i] ? inv.find(x => x.id === eq[i]) : null;
+                const slot = document.createElement('div');
+                slot.className = 'tz-slot';
+                if (t) {
+                    const rar = RARITY_BY_KEY[t.rarity];
+                    slot.style.border = `2px solid ${rar.color}`;
+                    slot.innerText = t.icon;
+                    slot.title = t.name + '（タップで詳細）';
+                    slot.onclick = () => tzShowDetail(t.id);
+                } else {
+                    slot.style.border = '2px dashed #445';
+                    slot.style.color = '#556';
+                    slot.innerText = '＋';
+                }
+                eqRow.appendChild(slot);
             }
-            eqRow.appendChild(slot);
         }
-        // インベントリ一覧（レア度→深度で降順）
+        // グリッド（レア度→深度で降順）
         const sorted = inv.slice().sort((a, b) =>
             (RARITY_ORDER[b.rarity] - RARITY_ORDER[a.rarity]) || (b.bornDepth - a.bornDepth));
-        const listEl = document.getElementById('tzInventoryList');
         listEl.innerHTML = '';
         if (sorted.length === 0) {
-            listEl.innerHTML = '<div style="color:#889; text-align:center; padding:24px;">まだ宝物がありません。<br>深く潜って宝石鉱脈（💎）を掘りましょう。</div>';
+            listEl.innerHTML = '<div style="grid-column:1/-1; color:#889; text-align:center; padding:24px;">まだ宝物がありません。<br>深く潜って宝石鉱脈（💎）を掘りましょう。</div>';
             return;
         }
-        const full = eq.length >= EQUIP_SLOTS;
         for (const t of sorted) {
             const rar = RARITY_BY_KEY[t.rarity];
             const isEq = eq.includes(t.id);
-            const card = document.createElement('div');
-            card.style.cssText = `display:flex; align-items:center; gap:10px; border:2px solid ${rar.color}; border-radius:4px; padding:8px 12px; background:rgba(0,8,32,0.6); text-align:left;`;
-            const affixText = t.affixes.map(a => AFFIX_BY_KEY[a.key].fmt(a.value)).join(' ／ ');
-            const info = document.createElement('div');
-            info.style.cssText = 'flex:1; min-width:0;';
-            info.innerHTML = `<div style="color:${rar.color}; font-weight:bold;">${t.icon} ${t.name} <span style="font-size:0.72rem; opacity:0.85;">［${rar.name}］</span></div>`
-                + `<div style="font-size:0.8rem; color:#cde;">${affixText}</div>`
-                + `<div style="font-size:0.68rem; color:#889;">深度 ${t.bornDepth} で出土</div>`;
-            const btn = document.createElement('button');
-            btn.className = 'btn-start';
-            btn.style.cssText = 'padding:6px 14px; font-size:0.8rem; flex-shrink:0;';
-            if (isEq) { btn.innerText = '解除'; btn.style.background = '#555'; btn.onclick = () => tzUnequip(t.id); }
-            else if (full) { btn.innerText = '満杯'; btn.disabled = true; btn.style.opacity = '0.4'; }
-            else { btn.innerText = '装備'; btn.onclick = () => tzEquip(t.id); }
-            card.appendChild(info); card.appendChild(btn);
-            listEl.appendChild(card);
+            const cell = document.createElement('div');
+            cell.className = 'tz-cell';
+            cell.style.borderColor = rar.color;
+            cell.onclick = () => tzShowDetail(t.id);
+            cell.innerHTML =
+                `<div class="tz-rank" style="background:${rar.color};">${rar.name}</div>`
+                + (isEq ? '<div class="tz-eq">✅</div>' : '')
+                + `<div class="tz-ic">${t.icon}</div>`
+                + `<div class="tz-nm">${t.name}</div>`;
+            listEl.appendChild(cell);
         }
+    }
+    // 詳細モーダル
+    let tzDetailId = null;
+    function tzShowDetail(id) {
+        const t = loadInventory().find(x => x.id === id);
+        if (!t) { tzCloseDetail(); return; }
+        tzDetailId = id;
+        const rar = RARITY_BY_KEY[t.rarity];
+        const eq = loadEquipped();
+        const isEq = eq.includes(id), full = eq.length >= EQUIP_SLOTS;
+        const affix = t.affixes.map(a =>
+            `<div style="color:#cde; font-size:0.9rem; margin:3px 0;">・${AFFIX_BY_KEY[a.key].fmt(a.value)}</div>`).join('');
+        let btn;
+        if (isEq) btn = `<button class="btn-start" style="background:#555; width:100%;" onclick="tzUnequip('${id}')">装備を解除</button>`;
+        else if (full) btn = `<button class="btn-start" disabled style="opacity:0.4; width:100%;">装備枠が満杯（3/3）</button>`;
+        else btn = `<button class="btn-start" style="width:100%; background:#3a2a5a; border-color:#9b59b6;" onclick="tzEquip('${id}')">装備する</button>`;
+        document.getElementById('tzDetailCard').style.borderColor = rar.color;
+        document.getElementById('tzDetailCard').innerHTML =
+            `<div style="font-size:3.4rem; line-height:1;">${t.icon}</div>`
+            + `<div style="color:${rar.color}; font-weight:bold; font-size:1.15rem; margin-top:6px;">${t.name}</div>`
+            + `<div style="display:inline-block; margin:8px 0; padding:2px 12px; border-radius:12px; color:${rar.color}; font-size:0.8rem; border:1px solid ${rar.color};">［${rar.name}］</div>`
+            + `<div style="border-top:1px solid #334; border-bottom:1px solid #334; margin:8px 0; padding:8px 0;">${affix}</div>`
+            + `<div style="font-size:0.72rem; color:#889; margin-bottom:14px;">深度 ${t.bornDepth} で出土</div>`
+            + btn
+            + `<button class="btn-back" style="margin-top:10px;" onclick="tzCloseDetail()">閉じる</button>`;
+        document.getElementById('tzDetailModal').style.display = 'flex';
+    }
+    function tzCloseDetail() {
+        document.getElementById('tzDetailModal').style.display = 'none';
+        tzDetailId = null;
     }
     function renderSettings() {
         renderSettingsInto(document.getElementById('recordsGrid'),
@@ -1402,13 +1466,14 @@
     }
     function switchInGameTab(which) {
         inGamePanelTab = which;
-        const shopSec = document.getElementById('igShopSection');
-        const setSec = document.getElementById('igSettingsSection');
-        shopSec.style.display = (which === 'shop') ? 'flex' : 'none';
-        setSec.style.display = (which === 'settings') ? 'flex' : 'none';
+        document.getElementById('igShopSection').style.display = (which === 'shop') ? 'flex' : 'none';
+        document.getElementById('igTreasurySection').style.display = (which === 'treasury') ? 'flex' : 'none';
+        document.getElementById('igSettingsSection').style.display = (which === 'settings') ? 'flex' : 'none';
         document.getElementById('igTabShop').classList.toggle('active', which === 'shop');
+        document.getElementById('igTabTreasury').classList.toggle('active', which === 'treasury');
         document.getElementById('igTabSettings').classList.toggle('active', which === 'settings');
         if (which === 'shop') renderShopLive();
+        else if (which === 'treasury') renderTreasuryInto(TZ_IG);
         else renderSettingsLive();
     }
     function closeInGamePanel() {
@@ -3659,6 +3724,7 @@
 <button id="menuFAB" onclick="toggleMenuPopover()">☰</button>
 <div id="menuPopover">
     <button class="side-btn" onclick="openInGamePanel('shop')"><span class="side-btn-icon">🛒</span><span class="side-btn-label">お買い物</span></button>
+    <button class="side-btn" onclick="openInGamePanel('treasury')"><span class="side-btn-icon">🏆</span><span class="side-btn-label">宝物庫</span></button>
     <button class="side-btn" onclick="openInGamePanel('settings')"><span class="side-btn-icon">⚙</span><span class="side-btn-label">その他設定</span></button>
     <button class="side-btn side-btn-quit" onclick="quitToTitle()"><span class="side-btn-icon">🏳</span><span class="side-btn-label">タイトルへ</span></button>
 </div>

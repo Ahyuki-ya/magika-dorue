@@ -168,7 +168,8 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - **アフィックス** `AFFIX_TYPES`: startGold / atk / agi / hp（全モンスター）/ breedCap。value = base×レア度倍率。名前/アイコンは `TREASURE_NAMES` の固定表からランダム（自由入力なし=安全）。
 - **ドロップ**: `dig()` の宝石鉱脈(tile8)で `rollTreasure(depthOf(y))` → `addTreasure` + レア度別演出（色/バースト/SE）。ゴールドは8〜20Gに減、旧ダイヤドロップは廃止（宝物に置換）。ハードの深度駆動スポーン(`levTreasureFactor`)と噛み合い「深い＝宝の山＝高レア度」。
 - **装備適用**: `equippedAffixTotals()` を `enterGameScreen` で反映。startGold→開始gold加算、atk/agi/hp→全 `randBonus[mt]` の初期値、breedCap→`treasureBreedCap`（BREED_MAX に加算）。両モードで有効。
-- **宝物庫UI** `#treasuryScreen`（設定画面に「🏆 宝物庫」ボタン→`showTreasury`）: 装備スロット3＋インベントリ一覧（レア度色枠・アフィックス・出土深度）、装備/解除ボタン、満杯時ガード。`ALL_SCREENS` に追加。
+- **宝物庫UI**（2026-07-24 その5 で刷新）: **ソシャゲ風グリッド**（`.tz-grid` レスポンシブ・レア度色枠のセル＝アイコン/名前/レア度バッジ/装備✅）＋**詳細モーダル** `#tzDetailModal`（セルタップ→大アイコン・アフィックス・出土深度・装備/解除）。`renderTreasuryInto(ctx)` で全画面版(`TZ_FULL`)とゲーム内ドロワー版(`TZ_IG`)の2コンテナに描画、`renderTreasuryAll` で両方更新。
+  - **ゲーム内アクセス**: in-gameドロワー `#inGamePanel` に「🏆 宝物庫」タブ追加（`switchInGameTab('treasury')`→`renderTreasuryInto(TZ_IG)`）。サイドパネル/モバイルメニューに直接ボタン（`openInGamePanel('treasury')`）。全画面版は設定画面の「🏆 宝物庫」ボタン(`showTreasury`)から。`ALL_SCREENS` に `treasuryScreen` 追加。
 - リザルトに「🏆 入手した宝物」(`sessionTreasures`)を追加。
 - **検証**: 構文OK・div167/167・全ID/関数存在・DOMスタブ全ロード・レア度分布(深度0/250)・生成構造・装備合計・スロット上限 の各テスト合格。
 - **次段(Phase2.5/3)**: 時価売却（市場価格で宝物を換金）／宝物の分解・整理／道A取引コード。

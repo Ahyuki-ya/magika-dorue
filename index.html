@@ -2763,8 +2763,8 @@
         heroPower += powerGain;
 
         const isEnraged = (heroLevel % 10 === 0);
-        // 富スケールはハード（レバレッジ経済）限定。standardは従来の heroPower のみ＝気楽なまま
-        const heroWealth = leverage.active ? Math.max(0, totalEarnedGold) : 0;
+        // 富スケールはハード限定。基準は現在ゴールド（開始資本S×Lを含むので勇者が最初から手強い）。standardは0＝気楽なまま
+        const heroWealth = leverage.active ? Math.max(0, gold) : 0;
         const enragedBonus = isEnraged ? Math.floor(RAGE_GOLD_SCALE * Math.sqrt(heroWealth)) : 0;
 
         // タイプ決定（怒りモード時は強制的に怒りタイプ）

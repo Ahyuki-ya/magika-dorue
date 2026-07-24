@@ -160,6 +160,13 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
 
+## Recent Session Changes (2026-07-24 その9：レベル上限方式・ランダム強化廃止・開発コマンド)
+
+- **レベル上限（cap）方式に変更**: モンスターのレベルアップは「ダイヤ=上限解放 / ゴールド=実レベル」の二段。上限 `monsterCap`（初期5・最大 `MAX_LEVEL`=100・**恒久**、`magika_monstercaps`）を **1💎で+1**（`raiseCapDiamond`。旧 `levelUpDiamond` は廃止＝ダイヤで実レベルを上げるのをやめた）。ゲーム内ゴールドの `levelUp` は `monsterCap[mt]` までしか上げられず、到達時はメッセージ＋error音。`loadMonsterCaps()` は**旧セーブ救済**として `max(5, 既存レベル)` を保証。`enterGameScreen` で cap 読込＋実レベルを cap にクランプ。お買い物タブ＝「上限+1 💎1／Lv X ／上限 N/100」表示（非live時はストレージ値を参照＝タイトルからも正しい）。ゲーム内⚗パネルも上限表示・上限到達でロック。`resetCarryOver` は caps も削除。
+- **ランダム強化（🎲）を廃止**（強すぎたため）: `randomUpgrade`/`RAND_WEIGHTS`/`randCount` と4つの🎲ボタンを削除。**`randBonus` は残置**（装備宝物アフィックス 全モンスター 攻/敏/HP の反映器として継続使用。旧はランダム強化と共用していた）。
+- **開発者コマンド**: タイトル画面表示中に **Shift+Cmd(Meta or Ctrl)+Enter** で prompt を開き銀行残高(`magika_carryover`)を任意設定（マイナス可）。デバッグ用。
+- 検証: `test/p5/verify.sh` ✅ PASS（経路探索/sim 不変）、cap ロジック（初期5・ゴールド頭打ち・💎で上限+1・旧セーブ救済30）を `test/p5/epilogue_cap.js` で確認。
+
 ## Recent Session Changes (2026-07-24 その8：Phase 5 経路探索・時間系の保守的最適化)
 
 > 指示書 [OPUS_実装指示_大型改修.md](OPUS_実装指示_大型改修.md) の Phase 5。**「挙動を1ビットも変えない（保存則1〜3）」制約付き**の純最適化。全変更を等価性ハーネス（`scratchpad/p5/`）で機械照合済み。

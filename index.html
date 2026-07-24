@@ -873,7 +873,6 @@
                 </div>
                 <div class="lv-cost-hint" id="slime-cost"></div>
                 <div class="lv-stats-grid" id="slime-stats"></div>
-                <button class="lv-rand-btn slime" id="slime-rand-btn" onclick="randomUpgrade('slime')">🎲 5G ランダム強化</button>
             </div>
 
             <!-- 苔ゴブリン -->
@@ -889,7 +888,6 @@
                 </div>
                 <div class="lv-cost-hint" id="goblin-cost"></div>
                 <div class="lv-stats-grid" id="goblin-stats"></div>
-                <button class="lv-rand-btn goblin" id="goblin-rand-btn" onclick="randomUpgrade('goblin')">🎲 5G ランダム強化</button>
             </div>
 
             <!-- 銅ゴーレム -->
@@ -905,7 +903,6 @@
                 </div>
                 <div class="lv-cost-hint" id="golem-cost"></div>
                 <div class="lv-stats-grid" id="golem-stats"></div>
-                <button class="lv-rand-btn golem" id="golem-rand-btn" onclick="randomUpgrade('golem')">🎲 5G ランダム強化</button>
             </div>
 
             <!-- シャドウレイス（ダイヤショップ解禁後のみ表示） -->
@@ -921,7 +918,6 @@
                 </div>
                 <div class="lv-cost-hint" id="wraith-cost"></div>
                 <div class="lv-stats-grid" id="wraith-stats"></div>
-                <button class="lv-rand-btn wraith" id="wraith-rand-btn" onclick="randomUpgrade('wraith')">🎲 5G ランダム強化</button>
             </div>
         </div>
     </div>
@@ -1238,30 +1234,34 @@
             list.appendChild(row);
         }
 
-        // ===== モンスターLvアップ（1ダイヤ / Lv、〜100・恒久） =====
+        // ===== モンスターのレベル上限を解放（1💎で上限+1・初期5・最大100・恒久） =====
         const header = document.createElement('div');
         header.style.cssText = 'width:100%; text-align:center; color:#8899cc; font-size:0.8rem; letter-spacing:2px; margin:14px 0 6px; border-top:1px solid #223; padding-top:10px;';
-        header.textContent = '— モンスター強化（1💎 / Lv・最大100）—';
+        header.textContent = '— レベル上限の解放（1💎で上限+1・最大100）—';
         list.appendChild(header);
+        // liveなら実行中の値、非liveならストレージの値を参照（タイトルからでも正しく表示）
+        const shopLevels = live ? monsterLevels : loadMonsterLevels();
+        const shopCaps   = live ? monsterCap    : loadMonsterCaps();
         for (const mt of activeMtypes()) {
-            const lv = monsterLevels[mt];
-            const isMax = lv >= MAX_LEVEL;
+            const cap = shopCaps[mt];
+            const lv = Math.min(shopLevels[mt] || 1, cap);
+            const isMax = cap >= MAX_LEVEL;
             const row = document.createElement('div');
             row.className = 'shop-item';
             row.innerHTML =
                 `<span class="shop-item-icon">${MONSTER_ICONS[mt]}</span>` +
                 `<div class="shop-item-body">` +
                     `<div class="shop-item-name">${MONSTER_NAMES[mt]}</div>` +
-                    `<div class="shop-item-desc">Lv+1（ステータスが線形上昇）</div>` +
-                    `<div class="shop-item-rank">Lv ${lv} / ${MAX_LEVEL}</div>` +
+                    `<div class="shop-item-desc">上限+1（実レベルはゲーム内ゴールドで）</div>` +
+                    `<div class="shop-item-rank">Lv ${lv} ／ 上限 ${cap} / ${MAX_LEVEL}</div>` +
                 `</div>`;
             const btn = document.createElement('button');
             btn.className = 'shop-buy-btn';
             if (isMax) { btn.textContent = 'MAX'; btn.disabled = true; }
             else {
-                btn.textContent = '💎 1';
+                btn.textContent = '上限+1 💎1';
                 btn.disabled = available < 1;
-                btn.onclick = () => levelUpDiamond(mt, live);
+                btn.onclick = () => raiseCapDiamond(mt, live);
             }
             row.appendChild(btn);
             list.appendChild(row);
@@ -1771,59 +1771,15 @@
     function activeMtypes() { return shopData.wraith ? ALL_MTYPES : ['slime', 'goblin', 'golem']; }
 
     const monsterLevels = { slime: 1, goblin: 1, golem: 1, wraith: 1 };
-    // セッション限定ランダムボーナス（引継ぎなし）
+    // レベル上限（キャップ）。初期5・ダイヤ1個で+1（最大MAX_LEVEL・恒久）。ゲーム内ゴールドの
+    // レベルアップはこの上限までしか上げられない。ダイヤ=上限解放 / ゴールド=実レベル。
+    const monsterCap = { slime: 5, goblin: 5, golem: 5, wraith: 5 };
+    // 装備宝物アフィックス（全モンスター 攻/敏/HP）の反映用ボーナス。ラン開始時に装備から確定。
+    // （旧「ランダム強化」も同じ器を使っていたが、ランダム強化は廃止し装備専用に。）
     const randBonus = { slime: {atk:0,agi:0,hp:0}, goblin: {atk:0,agi:0,hp:0}, golem: {atk:0,agi:0,hp:0}, wraith: {atk:0,agi:0,hp:0} };
-    const randCount = { slime: 0, goblin: 0, golem: 0, wraith: 0 };
-    let heroGold = 0; // 勇者の内部ゴールド（画面非表示） // 強化回数（費用計算用）
+    let heroGold = 0; // 勇者の内部ゴールド（画面非表示）
     let rageBonus = { atk: 0, agi: 0, hp: 0 };
 
-    // ランダム強化の確率テーブル（atk/agi/hp）
-    const RAND_WEIGHTS = {
-        slime:  [1, 1, 1],        // 均等
-        goblin: [3, 3, 1],        // 攻・敏重め
-        golem:  [1, 1, 4],        // 耐久重め
-        wraith: [4, 1, 1]         // 攻撃特化
-    };
-
-    function randomUpgrade(mt) {
-        const RAND_BASE_COST = 5;
-        const cost = RAND_BASE_COST + randCount[mt];
-        if (gold < cost) {
-            msgDiv.innerText = `ゴールドが足りません！(必要: ${cost}G)`;
-            setTimeout(() => { if(msgDiv.innerText.includes('足りません')) msgDiv.innerText = ''; }, 1500);
-            return;
-        }
-        gold -= cost;
-        randCount[mt]++;
-        updateGoldUI();
-
-        // 重み付き抽選
-        const w = RAND_WEIGHTS[mt];
-        const total = w[0] + w[1] + w[2];
-        const roll = Math.random() * total;
-        let stat;
-        if (roll < w[0]) stat = 'atk';
-        else if (roll < w[0] + w[1]) stat = 'agi';
-        else stat = 'hp';
-
-        randBonus[mt][stat]++;
-
-        // 既存モンスターに即時反映
-        const s = mstatsAt(mt, monsterLevels[mt]);
-        monsters.forEach(m => {
-            if (m.mtype !== mt) return;
-            m.atk   = s.atk   + randBonus[mt].atk;
-            m.agi   = s.agi   + randBonus[mt].agi;
-            m.maxHp = s.hp    + randBonus[mt].hp;
-            m.hp    = Math.min(m.hp + (stat === 'hp' ? 1 : 0), m.maxHp);
-            m.range = s.range;
-        });
-
-        const statName = stat === 'atk' ? '攻撃力' : stat === 'agi' ? '敏捷性' : '耐久力';
-        spawnFloatingText(Math.floor(COLS/2), Math.floor(ROWS/4), `${statName} +1!`, '#ffcc00');
-        playSE('levelup');
-        updateLevelPanel();
-    }
     let heroLevel = 1;
     let heroPower = 0; // 勇者総合力（atk+agi+hp の合計）
     
@@ -2138,11 +2094,12 @@
             const barEl = document.getElementById(`${mt}-bar`);
             barEl.style.cssText = 'flex:1; height:10px; background:#001040; border:1px solid #112266; border-radius:2px; overflow:hidden;';
             barEl.innerHTML = '';
+            const cap = monsterCap[mt];
             const fill = document.createElement('div');
-            fill.style.cssText = `height:100%; width:${Math.min(100, lv / MAX_LEVEL * 100)}%; background:${MONSTER_COLORS[mt]}; box-shadow:0 0 5px ${MONSTER_COLORS[mt]}; transition:width 0.25s;`;
+            fill.style.cssText = `height:100%; width:${Math.min(100, lv / cap * 100)}%; background:${MONSTER_COLORS[mt]}; box-shadow:0 0 5px ${MONSTER_COLORS[mt]}; transition:width 0.25s;`;
             barEl.appendChild(fill);
 
-            // ステータス表示（ランダムボーナス込み）
+            // ステータス表示（装備アフィックス込み）
             const statsEl = document.getElementById(`${mt}-stats`);
             const rb = randBonus[mt];
             const fmt = (base, bonus) => bonus > 0
@@ -2154,18 +2111,10 @@
                 `<div class="hero-stat-chip">HP <span>${fmt(stats.hp, rb.hp)}</span></div>` +
                 `<div class="hero-stat-chip">索 <span>${stats.range}</span></div>`;
 
-            // ランダムボタン
-            const randBtn = document.getElementById(`${mt}-rand-btn`);
-            if (randBtn) {
-                const cost = 5 + randCount[mt];
-                randBtn.textContent = `🎲 ${cost}G ランダム強化`;
-                randBtn.disabled = (gold < cost);
-            }
-
-            // ＋ボタン（ゴールドで Lv+1、MAX_LEVEL まで）
+            // ＋ボタン（ゴールドで Lv+1、上限 cap まで。上限超えは💎で解放）
             const btnUp = document.getElementById(`${mt}-btn`);
-            if (lv >= MAX_LEVEL) {
-                btnUp.disabled = true; btnUp.title = 'MAX';
+            if (lv >= cap) {
+                btnUp.disabled = true; btnUp.title = `上限 Lv.${cap}（お買い物で💎により解放）`;
             } else {
                 const cost = goldCostFor(lv);
                 btnUp.disabled = (gold < cost);
@@ -2181,13 +2130,13 @@
 
             // コストヒント
             const costEl = document.getElementById(`${mt}-cost`);
-            if (lv >= MAX_LEVEL) {
-                costEl.textContent = '🔥 MAX (Lv.100)';
+            if (lv >= cap) {
+                costEl.textContent = `🔒 上限 Lv.${cap}（💎で解放）`;
                 costEl.style.color = '#ffcc00';
             } else {
                 const cost = goldCostFor(lv);
                 const canAfford = gold >= cost;
-                costEl.textContent = `＋ ${cost}G  ／  － ${lv > 1 ? '+'+goldCostFor(lv-1)+'G返還' : '不可'}`;
+                costEl.textContent = `＋ ${cost}G  ／  － ${lv > 1 ? '+'+goldCostFor(lv-1)+'G返還' : '不可'}  ／ 上限${cap}`;
                 costEl.style.color = canAfford ? '#888' : '#c0392b';
             }
         });
@@ -2219,7 +2168,12 @@
 
     function levelUp(mt) {
         const lv = monsterLevels[mt];
-        if (lv >= MAX_LEVEL) return;
+        if (lv >= monsterCap[mt]) {   // 上限に到達（ダイヤで上限解放が必要）
+            msgDiv.innerText = `Lv上限です！お買い物で💎を使い上限を解放してください（現在 上限${monsterCap[mt]}）`;
+            setTimeout(() => { if(msgDiv.innerText.includes('上限')) msgDiv.innerText = ''; }, 1800);
+            playSE('error');
+            return;
+        }
         const cost = goldCostFor(lv);
         if (gold < cost) {
             msgDiv.innerText = `ゴールドが足りません！(必要: ${cost}G)`;
@@ -2235,26 +2189,24 @@
         playSE('levelup');
     }
 
-    // ダイヤで Lv+1（お買い物タブ・恒久・MAX_LEVEL まで）。live=実行中のダイヤ / false=引継ぎダイヤ
-    function levelUpDiamond(mt, live) {
-        if (monsterLevels[mt] >= MAX_LEVEL) return;
+    // ダイヤで「レベル上限」を+1（お買い物タブ・恒久・MAX_LEVEL まで）。実レベルは上げない。
+    // live=実行中のダイヤ / false=引継ぎダイヤ。非liveでも他種の上限を壊さぬよう保存前に同期する。
+    function raiseCapDiamond(mt, live) {
+        Object.assign(monsterCap, loadMonsterCaps());   // ストレージと同期（タイトルからでも整合）
+        if (monsterCap[mt] >= MAX_LEVEL) { playSE('error'); return; }
         if (live) {
             if (diamond < 1) { playSE('error'); return; }
             diamond -= 1;
-            monsterLevels[mt]++;
-            saveMonsterLevels();
             saveCarryDiamond(diamond);
-            applyMonsterLevel(mt);
-            updateLevelPanel();
-            updateGoldUI();
         } else {
             const carryDia = loadCarryDiamond();
             if (carryDia < 1) { playSE('error'); return; }
             saveCarryDiamond(carryDia - 1);
-            monsterLevels[mt]++;
-            saveMonsterLevels();
         }
+        monsterCap[mt] = Math.min(MAX_LEVEL, monsterCap[mt] + 1);
+        saveMonsterCaps();
         playSE('buy');
+        if (live) { updateLevelPanel(); updateGoldUI(); }
         renderShopInto(document.getElementById('shopList'), document.getElementById('shopDiamondAmount'), false);
         renderShopInto(document.getElementById('igShopList'), document.getElementById('igShopDiamondAmount'), true);
     }
@@ -2281,6 +2233,20 @@
     function saveMonsterLevels() {
         localStorage.setItem('magika_monsterlevels', JSON.stringify(monsterLevels));
     }
+    // レベル上限（初期5・最大MAX_LEVEL）。旧セーブ救済として既存レベル以上・5以上を保証。
+    function loadMonsterCaps() {
+        const caps = { slime: 5, goblin: 5, golem: 5, wraith: 5 };
+        try {
+            const saved = JSON.parse(localStorage.getItem('magika_monstercaps'));
+            if (saved) Object.assign(caps, saved);
+        } catch (e) {}
+        const lv = loadMonsterLevels();
+        for (const mt of ALL_MTYPES) caps[mt] = Math.min(MAX_LEVEL, Math.max(5, caps[mt] || 5, lv[mt] || 1));
+        return caps;
+    }
+    function saveMonsterCaps() {
+        localStorage.setItem('magika_monstercaps', JSON.stringify(monsterCap));
+    }
     function loadRunCount() {
         return parseInt(localStorage.getItem('magika_runcount') || '0');
     }
@@ -2290,6 +2256,7 @@
     function resetCarryOver() {
         localStorage.removeItem('magika_carryover');
         localStorage.removeItem('magika_monsterlevels');
+        localStorage.removeItem('magika_monstercaps');
         localStorage.removeItem('magika_runcount');
         localStorage.removeItem('magika_diamond');
         updateStartScreenCarryOver();
@@ -2485,10 +2452,12 @@
         heroLevel = 0;
         heroPower = 20; // 初期ステータス合計(5+5+10)
         const savedLevels = loadMonsterLevels();
-        monsterLevels.slime = savedLevels.slime;
-        monsterLevels.goblin = savedLevels.goblin;
-        monsterLevels.golem = savedLevels.golem;
-        monsterLevels.wraith = savedLevels.wraith || 1;
+        const savedCaps = loadMonsterCaps();
+        // 上限（キャップ）を読み込み、実レベルは上限を超えないようクランプ
+        for (const mt of ALL_MTYPES) {
+            monsterCap[mt] = savedCaps[mt];
+            monsterLevels[mt] = Math.min(savedLevels[mt] || 1, monsterCap[mt]);
+        }
         // ランダムボーナスはセッション限定リセット。装備宝物のアフィックス（全モンスター攻/敏/HP）を初期値に反映
         const eqAtk = tzAffix.atk || 0, eqAgi = tzAffix.agi || 0, eqHp = tzAffix.hp || 0;
         randBonus.slime  = {atk:eqAtk, agi:eqAgi, hp:eqHp};
@@ -2496,7 +2465,6 @@
         randBonus.golem  = {atk:eqAtk, agi:eqAgi, hp:eqHp};
         randBonus.wraith = {atk:eqAtk, agi:eqAgi, hp:eqHp};
         rageBonus = { atk: 0, agi: 0, hp: 0 };
-        randCount.slime = 0; randCount.goblin = 0; randCount.golem = 0; randCount.wraith = 0;
         heroGold = 0;
         
         updateGoldUI();

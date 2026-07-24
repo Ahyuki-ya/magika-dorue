@@ -1375,18 +1375,22 @@
     //   非伝説4種:  並[80,60,40] 良[15,25,35] 稀[4,10,16] 極[1,4,7]
     //   伝説: 深度500未満は0%、500で1%、1000で2%（以降2%）。非伝説は「100−伝説%」に正規化。
     //   神(god)は常に0（合成専用）。
-    function rollRarityIndex(depth) {
+    // レバレッジ: 実効深度 dEff = 実深度 × L で分布を計算（高Lほど高レア＝深部相当）。
+    //   ただし伝説の解禁ゲートだけは「実深度500以上」を維持（高Lでも浅部で伝説は出さない）。
+    function rollRarityIndex(depth, lev = 1) {
         const d = Math.max(0, depth);
+        const dEff = d * (lev || 1);
         const lerp = (a, b, t) => a + (b - a) * t;
         const interp = (a0, a500, a1000) =>
-            d <= 500 ? lerp(a0, a500, d / 500)
-          : d <= 1000 ? lerp(a500, a1000, (d - 500) / 500)
+            dEff <= 500 ? lerp(a0, a500, dEff / 500)
+          : dEff <= 1000 ? lerp(a500, a1000, (dEff - 500) / 500)
           : a1000;
         const c = interp(80, 60, 40);
         const u = interp(15, 25, 35);
         const r = interp(4, 10, 16);
         const e = interp(1, 4, 7);
-        const leg = d < 500 ? 0 : Math.min(2, 1 + (d - 500) / 500); // 500で1%→1000で2%
+        // 解禁は実深度500以上、値は実効深度で 1%→2%（上限2%）
+        const leg = d < 500 ? 0 : Math.min(2, 1 + (dEff - 500) / 500);
         const nonLeg = c + u + r + e;
         const scale = nonLeg > 0 ? (100 - leg) / nonLeg : 0;
         const weights = [c * scale, u * scale, r * scale, e * scale, leg, 0]; // 並/良/稀/極/伝説/神
@@ -1400,7 +1404,7 @@
         return pool.map(a => ({ key: a.key, value: rollAffixValue(a, mult) }));
     }
     function rollTreasure(depth) {
-        const ri = rollRarityIndex(depth);
+        const ri = rollRarityIndex(depth, leverage.mult); // レバレッジLでレア度分布を強化
         const rar = RARITIES[ri];
         const pool = TREASURE_NAMES[rar.key];
         return {
@@ -1982,8 +1986,8 @@
     function generateRow(y) {
         const { pCopper, pMoss } = oreProbAt(y);
         let { pDark, pGem } = extraOreAt(y);
-        // 宝石鉱脈：ハードは標準の2倍（深度1000で 標準0.5% → ハード1.0%）
-        if (gameMode === 'hard') pGem *= 2;
+        // 宝石鉱脈：レバレッジ倍率 L を掛ける（standard=×1、hard=×L）。深度1000で 標準0.5%×L。
+        pGem *= leverage.mult;
         pGem = Math.min(0.4, pGem);
         const row = [];
         for (let x = 0; x < COLS; x++) {

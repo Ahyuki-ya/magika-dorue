@@ -2012,6 +2012,7 @@
         }
         ROWS = map.length;
         canvas.height = ROWS * TILE_SIZE;
+        __p5_bumpTerrain(); // P5-2 マップ拡張で城距離場を無効化
     }
 
     function generateMap() {
@@ -2057,6 +2058,7 @@
             }
         }
         map = newMap;
+        __p5_bumpTerrain(); // P5-2 マップ生成で城距離場を無効化
     }
 
     function updateGoldUI() {
@@ -2795,6 +2797,7 @@
                 gold -= 1; updateGoldUI();
                 spawnDebris(x, y, tile);
                 map[y][x] = 0;
+                __p5_bumpTerrain(); // P5-2 掘削で城距離場を無効化
                 playSE('dig');
 
                 if (tile === 8) {
@@ -3111,6 +3114,7 @@
     let __pfParent = new Int32Array(0);   // parent flat index（-2=出発点、それ以外=前セル）
     let __pfStamp  = new Int32Array(0);   // 訪問世代スタンプ
     let __pfQueue  = new Int32Array(0);   // BFSキュー（flat index）
+    let __pfDist   = new Int32Array(0);   // BFS距離（P5-4 ホライズン判定用）
     let __pfGen = 0;                       // 現世代
     function __pfEnsure() {
         const n = ROWS * COLS;
@@ -3118,64 +3122,99 @@
             __pfParent = new Int32Array(n);
             __pfStamp  = new Int32Array(n);
             __pfQueue  = new Int32Array(n);
+            __pfDist   = new Int32Array(n);
             __pfGen = 0;                   // 新配列はstamp=0なのでgenをリセット
         }
     }
+    // P5-4 追跡BFSのホライズン半径 = horizonFactor * entity.range（バランス調整点）
+    const PATHFIND_CONFIG = { horizonFactor: 3 };
     function __pfNextGen() {
         __pfGen++;
         if (__pfGen === 2147483647) { __pfStamp.fill(0); __pfGen = 1; } // 32bitラップ保護
         return __pfGen;
     }
 
-    function getNextStepTowardsCastle(entity) {
-        if (!castlePos || (entity.x === castlePos.x && entity.y === castlePos.y)) return null;
-        const sx = entity.x, sy = entity.y;
+    // ── P5-2 城フローフィールド（保存則1：軌道一致）──────────────────────
+    // getNextStepTowardsCastle の全呼び出し（勇者の城直行・スピード型・既定移動・
+    // 繁殖モンスターの城直行）は素の isPassable（空域許可）を使い monsterOnly を課さない。
+    // また城を目標とする getNextStepTowards 呼び出しは存在しない（ターゲットは常に敵）。
+    // ゆえに単一クラス（全域）の距離場で足りる。城を単一源とする逆向きBFSで距離場を作り
+    // （無向4近傍グリッドなので d(v)=v→城の最短距離）、地形/城が変わった時のみ再計算。
+    // 参照時は dirs 順に「d が1減る最初の近傍」を返す（距離場等価定理：局所貪欲の方向順を
+    // 前向きBFSの dirs と一致させれば同一の D-辞書式最小最短路の第一手が得られる）。
+    // 計算量: O(M·V)/tick → O(V)/地形変更。
+    let __ffDist = new Int32Array(0);      // 城距離場（-1=到達不能）
+    let __ffQueue = new Int32Array(0);     // 距離場構築用キュー（flat index）
+    let __ffDirty = true;                   // 要再計算フラグ
+    let __ffValidFor = null;                // 距離場を作った時の castlePos 参照（同一性ガード）
+    function __p5_bumpTerrain() { __ffDirty = true; } // dig/placeCastle/expandMap で呼ぶ
+    function __ffRebuild() {
+        const n = ROWS * COLS;
+        if (__ffDist.length < n) { __ffDist = new Int32Array(n); __ffQueue = new Int32Array(n); }
+        const dist = __ffDist;
+        dist.fill(-1);
+        __ffDirty = false;
+        __ffValidFor = castlePos;
+        if (!castlePos) return;
         const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
-
-        __pfEnsure();
-        const gen = __pfNextGen();
-        const parent = __pfParent, stamp = __pfStamp, queue = __pfQueue;
-        const startIdx = sy * COLS + sx;
-        parent[startIdx] = -2; stamp[startIdx] = gen;
-
+        const queue = __ffQueue;
+        const cIdx = castlePos.y * COLS + castlePos.x;
+        dist[cIdx] = 0;
         let head = 0, tail = 0;
-        queue[tail++] = startIdx;
+        queue[tail++] = cIdx;
         while (head < tail) {
             const cur = queue[head++];
             const cx = cur % COLS, cy = (cur - cx) / COLS;
+            const nd = dist[cur] + 1;
             for (const d of dirs) {
                 const nx = cx + d.x, ny = cy + d.y;
-                if (nx === castlePos.x && ny === castlePos.y) {
-                    return bfsTraceback(parent, cx, cy, nx, ny);
-                }
+                if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
                 const nIdx = ny * COLS + nx;
-                if (isPassable(nx, ny) && stamp[nIdx] !== gen) {
-                    parent[nIdx] = cy * COLS + cx;
-                    stamp[nIdx] = gen;
-                    queue[tail++] = nIdx;
-                }
+                if (dist[nIdx] !== -1) continue;
+                if (!isPassable(nx, ny)) continue;
+                dist[nIdx] = nd;
+                queue[tail++] = nIdx;
             }
+        }
+    }
+
+    function getNextStepTowardsCastle(entity) {
+        if (!castlePos || (entity.x === castlePos.x && entity.y === castlePos.y)) return null;
+        if (__ffDirty || __ffValidFor !== castlePos) __ffRebuild();
+        const dist = __ffDist;
+        const sIdx = entity.y * COLS + entity.x;
+        const dS = dist[sIdx];
+        if (dS <= 0) return null;   // -1=到達不能 / 0=既に城上（前段でガード済みだが保険）
+        const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+        for (const d of dirs) {
+            const nx = entity.x + d.x, ny = entity.y + d.y;
+            if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+            if (dist[ny * COLS + nx] === dS - 1) return { x: nx, y: ny };
         }
         return null;
     }
 
     // 汎用BFS：任意の目標座標への次ステップを返す（目標の隣接1マスまで）
-    function getNextStepTowards(entity, tx, ty, monsterOnly = false) {
-        if (Math.abs(entity.x - tx) + Math.abs(entity.y - ty) <= 1) return null;
+    // ── P5-4 ホライズン化（保存則1：軌道一致）───────────────────────────
+    // まず半径 H(=horizonFactor*range) 内で BFS。見つからなければ全域BFSへフォールバック。
+    // BFS距離を追跡し「距離 < H のセルのみ展開・ターゲット隣接returnは常時チェック」とすると、
+    // 最短距離 D≤H+1 なら展開順が全域BFSと同一（第一手一致）、D>H+1 なら全域へ落ちて一致
+    // ＝Hの値によらず強保存。訪問セル数 ≤ 2H(H+1)+1 で深度非依存（フォールバックは稀）。
+    function __bfsToward(entity, tx, ty, monsterOnly, maxDist) {
         const sx = entity.x, sy = entity.y;
         const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
-
         __pfEnsure();
         const gen = __pfNextGen();
-        const parent = __pfParent, stamp = __pfStamp, queue = __pfQueue;
+        const parent = __pfParent, stamp = __pfStamp, queue = __pfQueue, distA = __pfDist;
         const startIdx = sy * COLS + sx;
-        parent[startIdx] = -2; stamp[startIdx] = gen;
+        parent[startIdx] = -2; stamp[startIdx] = gen; distA[startIdx] = 0;
 
         let head = 0, tail = 0;
         queue[tail++] = startIdx;
         while (head < tail) {
             const cur = queue[head++];
             const cx = cur % COLS, cy = (cur - cx) / COLS;
+            const expand = distA[cur] < maxDist;   // これ以上先へ広げるか（ホライズン制限）
             for (const d of dirs) {
                 const nx = cx + d.x, ny = cy + d.y;
                 if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
@@ -3187,14 +3226,26 @@
                 if (adjToTarget && isPassable(nx, ny)) {
                     return bfsTraceback(parent, cx, cy, nx, ny);
                 }
-                if (isPassable(nx, ny)) {
+                if (expand && isPassable(nx, ny)) {
                     parent[nIdx] = cy * COLS + cx;
                     stamp[nIdx] = gen;
+                    distA[nIdx] = distA[cur] + 1;
                     queue[tail++] = nIdx;
                 }
             }
         }
-        return null;
+        // 全域(maxDist=Infinity)で尽きた=到達不能→null。ホライズンで尽きた→フォールバック要求(undefined)。
+        return (maxDist === Infinity) ? null : undefined;
+    }
+
+    function getNextStepTowards(entity, tx, ty, monsterOnly = false) {
+        if (Math.abs(entity.x - tx) + Math.abs(entity.y - ty) <= 1) return null;
+        const H = PATHFIND_CONFIG.horizonFactor * (entity.range || 0);
+        if (H > 0) {
+            const r = __bfsToward(entity, tx, ty, monsterOnly, H);
+            if (r !== undefined) return r; // ホライズン内で解決（step または到達不能null）※到達不能はここではundefined
+        }
+        return __bfsToward(entity, tx, ty, monsterOnly, Infinity); // 全域フォールバック（強保存の要）
     }
 
     // 勇者の家：条件を満たせば現在地に設置し、以降のスポーン地点を前進させる
@@ -3224,6 +3275,7 @@
                 map[ny][nx] = 0;
             }
         }
+        __p5_bumpTerrain(); // P5-2 勇者の家の四方破壊で城距離場を無効化
         playSE('buy');
         spawnFloatingText(entity.x, entity.y - 1, '🏠 勇者の家!', '#ffdd55', 14);
         spawnBurst(entity.x, entity.y, ['#ffdd55', '#ffffff', '#cc8844'], 14);

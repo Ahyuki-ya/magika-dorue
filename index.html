@@ -1628,6 +1628,24 @@
         }
     }
 
+    // ===== 開発者コマンド：タイトル画面で Shift+Cmd(Meta)+Enter → 銀行残高を自由設定 =====
+    document.addEventListener('keydown', (e) => {
+        const titleEl = document.getElementById('titleScreen');
+        const titleVisible = titleEl && titleEl.style.display !== 'none';
+        if (!titleVisible) return;
+        if (e.shiftKey && (e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.code === 'Enter')) {
+            e.preventDefault();
+            const cur = loadCarryOver();
+            const input = prompt(`【開発者コマンド】銀行残高を設定\n現在: ${cur} G\n新しい残高を入力してください（マイナス可）:`, String(cur));
+            if (input === null) return;                       // キャンセル
+            const v = Math.trunc(Number(input));
+            if (!Number.isFinite(v)) { alert('数値を入力してください'); return; }
+            saveCarryOver(v);
+            updateStartScreenCarryOver();                     // タイトルの銀行表示を更新
+            alert(`銀行残高を ${v} G に設定しました`);
+        }
+    });
+
     function openSubScreen(which) {
         // ゲーム中なら中断状態を記録してポーズ
         if (isGameRunning) {

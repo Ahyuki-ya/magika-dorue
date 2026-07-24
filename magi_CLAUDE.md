@@ -19,7 +19,7 @@ No build tools, no dependencies, no server required. Open any `.html` file direc
 - 過去の `magiNN.html` / 名前付き変種 / `magi_claudN.html` はすべて **`archive/` に退避**（バックアップとして git 追跡下に残す。編集しない）
 - `index.html` の内容系譜: かつての `magi_claud.html → … → magi_claud6.html` を経て、現行 `index.html` は `magi_claud6.html` 相当
 
-> **Future roadmap:** 次期大型改修（ハードモードのレバレッジ化・レア度付き宝物・プレイヤー間取引）の要件ドラフトは [FABLE_要件定義_大型改修.md](FABLE_要件定義_大型改修.md) を参照。実装未着手・方針合意が前提。
+> **Roadmap:** 大型改修の要件ドラフトは [FABLE_要件定義_大型改修.md](FABLE_要件定義_大型改修.md)。①ハードモードのレバレッジ化＝**Phase 1 実装済み**（2026-07-24, 下記 Recent Session Changes 参照）。②レア度付き宝物＋インベントリ＋時価売却／③取引コード／④オンライン市場は未着手。設計思想の全経緯はメモリ `leverage-design.md`。
 
 ## Architecture
 
@@ -158,6 +158,30 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - `[...curr.path]` スプレッドは完全に除去
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
+
+## Recent Session Changes (2026-07-24)
+
+作業ファイルは **`index.html`（git正典・GitHub接続済み）** に一本化。旧スナップショットは `archive/` へ退避。
+
+### リポジトリ整理・GitHub接続
+- git 化し `Ahyuki-ya/magika-dorue`（public）へ接続。`index.html` を唯一の正典（作業＆Pages公開）に。旧 magi*.html は全て `archive/`。GitHubアカウントは login `Ahyuki-ya` / 表示名 `ei721605`。
+
+### Phase 1: ハードモードの「負債レバレッジ」化（ロードマップ①・実装済み）
+> 設計思想の全経緯とλ較正方針はメモリ `leverage-design.md` 参照。数値定数はすべて後でシミュレーションで調整可。
+
+- **モード分離**: スタンダードは**引継ぎゴールド非連動**（`enterGameScreen` で開始gold=`20+shopStartGold*15`、`triggerGameOver` で銀行不変）。レバレッジ経済は**ハード専用**。ダイヤは両モードで引継ぎ継続。
+- **負債レバレッジ（証拠金取引モデル）**:
+  - モード選択のハード→`#hardConfig` パネルで**借入額 D をスライダー選択**（0〜`LEV_MAX_DEBT=5000`）。L・開始ゴールド・銀行残高をライブ表示。`startHardRun()`→`enterGameScreen('hard', D)`
+  - D を**開始ゴールドに注入**（`gold = 20 + shopStartGold*15 + D`）
+  - **報酬倍率 L = c·√D（逓減型, `LEV_C=0.3`）** を討伐G・ダイヤ率に乗算（`levMultOf`）。逓減型の理由: 線形/逓増は全員最大借入で判断消失。逓減なら最適借入が腕(K)で決まり最大純益∝K²＝最強常に得＋選ぶ楽しさ両立
+  - **複利返済 `R(t)=D·(1+r)^(t−grace)`**（`LEV_R=0.05`/wave, `LEV_GRACE=3`, t=heroLevel=ウェーブ数）。`levRepayment()`
+- **🏳 撤退（利確）ボタン**（HUD常時・ハード限定, `retreatCashOut`）: 確認ダイアログで純益提示→`triggerGameOver(true)`。城陥落は強制清算。**精算 `levSettle`: ΔB = 手持ちgold − R を引継ぎ銀行へ加算（マイナス=真の負債を次ランへ持ち越し可）**
+- **レバレッジHUD `#levHUD`**（返済R・純益・ゾーン表示, `updateLevHUD`）。ゾーン=ρ判定（稼ぎ時/最適点付近/赤字ゾーン）
+- **2軸分離**: 深度スコア（`maxDepth`/`resDepth`/`maxDepthEver`）＝栄光・競争軸で常に深潜を称える。お金＝複利で最適利確点が存在する商人軸。同じ一掘りが栄光に＋・お金に−＝利確ジレンマ
+- **ρ駆動EV負スポーン**: `levRho()=限界負債d(t)/限界稼ぎm(t)`（d=R·r既知, m=直近3ウェーブ獲得G実測=`levEarnWindow`）。`levTreasureFactor()` が ρ<0.7=素/0.7〜1.0=1→3倍/ρ>1=3→15倍で `generateRow` の宝石鉱脈(8)・闇水晶(7)湧きを変調（動的層生成に自然統合）。**期待宝価値の目安 λ·d（`LEV_LAMBDA=0.6`）＝赤字ゾーンで毎wave(1−λ)を確定搾取、宝の山は高分散クラスタで見せる**。厳密なλ較正はシミュレーション待ち
+- **リザルト**: `#resLevBox`（借入D・×L・複利返済R・手持ち・純益ΔB）。撤退時は 🏳 WITHDRAWN、陥落時は 💀 表示切替
+- **検証**: node構文OK・div 160/160・全参照ID/ハンドラ存在確認・DOMスタブ全ロード成功・精算/モード分離/ρカーブの数値ロジックテスト合格
+- **未実装（次段）**: バランス較正（利確ジレンマの交差点を面白い深度に寄せる）／Phase2で宝石湧き口をレア度・アフィックス付き「宝物」＋インベントリ＋時価売却へ格上げ
 
 ## Recent Session Changes (2026-07-02 その4)
 

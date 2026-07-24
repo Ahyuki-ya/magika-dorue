@@ -651,16 +651,39 @@
                     <div class="btn-mode-desc">通常難易度でプレイ</div>
                 </div>
             </button>
-            <button class="btn-mode btn-mode-hard" onclick="enterGameScreen('hard')">
+            <button class="btn-mode btn-mode-hard" onclick="openHardConfig()">
                 <div class="btn-mode-icon">💀</div>
                 <div>
                     <div class="btn-mode-name">ハード</div>
-                    <div class="btn-mode-desc">高難易度でプレイ</div>
+                    <div class="btn-mode-desc">負債を借りてレバレッジ</div>
                 </div>
             </button>
         </div>
-        <button class="btn-start" onclick="resetCarryOver()" style="font-size:0.95rem; padding:10px 28px; background:#555; border-color:#444;">🗑 引継ぎリセット</button>
-        <button class="btn-back" onclick="showMainMenu()">← 戻る</button>
+
+        <!-- ハード：レバレッジ設定 -->
+        <div id="hardConfig" style="display:none; margin-top:6px; width:min(440px,92vw); background:rgba(0,8,32,0.9); border:2px solid #ff4466; border-radius:2px; padding:16px 20px; text-align:left; color:#f0f0f0;">
+            <div style="text-align:center; color:#ff6688; font-weight:bold; letter-spacing:2px; margin-bottom:12px;">— レバレッジ設定 —</div>
+            <div style="font-size:0.9rem; margin-bottom:6px;">💸 借入額 D（開始ゴールドに注入）</div>
+            <input type="range" id="debtSlider" min="0" max="5000" step="100" value="1000" oninput="updateHardConfig()" style="width:100%;">
+            <div style="display:flex; justify-content:space-between; font-size:1.1rem; color:#ffcc00; margin:4px 0 12px;">
+                <span>D = <span id="debtVal">1000</span> G</span>
+                <span>報酬倍率 <span id="levMultVal" style="color:#00ffee;">×9.5</span></span>
+            </div>
+            <div style="font-size:0.82rem; line-height:1.7; color:#aab; border-top:1px solid #334; padding-top:10px;">
+                🏦 開始ゴールド: <span id="startGoldVal" style="color:#ffcc00;">?</span> G<br>
+                📈 討伐G・ダイヤが <b style="color:#00ffee;">L 倍</b>（L = 0.3·√D の逓減型）<br>
+                📉 返済 複利 <b>5%/ウェーブ</b>（最初の3ウェーブは猶予）<br>
+                🏳 いつでも「撤退」で利確／城陥落で強制清算<br>
+                🏦 引継ぎ銀行残高: <span id="bankVal" style="color:#ffcc00;">0</span> G（負けるとマイナスも）
+            </div>
+            <div style="display:flex; gap:10px; margin-top:14px;">
+                <button class="btn-start" onclick="startHardRun()" style="flex:1; background:#aa2244; border-color:#ff4466;">▶ ハード開始</button>
+                <button class="btn-start" onclick="closeHardConfig()" style="background:#555; border-color:#444; padding:10px 18px;">← 戻る</button>
+            </div>
+        </div>
+
+        <button class="btn-start" id="modeResetBtn" onclick="resetCarryOver()" style="font-size:0.95rem; padding:10px 28px; background:#555; border-color:#444;">🗑 引継ぎリセット</button>
+        <button class="btn-back" id="modeBackBtn" onclick="showMainMenu()">← 戻る</button>
     </div>
 
     <!-- ダイヤショップ画面 -->
@@ -749,9 +772,15 @@
                 <div id="diamondUI">💎 <span id="diamondAmount">0</span></div>
                 <div id="goldUI">💰 <span id="goldAmount">50</span> G</div>
             </div>
+            <div id="levHUD" style="display:none; position:absolute; top:96px; left:0; background:rgba(30,0,10,0.9); border:1px solid #ff4466; border-radius:2px; padding:5px 9px; font-size:11px; color:#f0d0d8; z-index:100; line-height:1.5;">
+                <div>📉 返済 <span id="levRepay" style="color:#ff8899;">0</span> G</div>
+                <div>💹 純益 <span id="levNet" style="color:#ffcc00;">0</span> G</div>
+                <div id="levZone" style="font-size:10px; color:#8899cc;">安全圏</div>
+            </div>
             <button id="speedBtn" onclick="toggleSpeed()" style="position:absolute; top:36px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">▶▶ 早送り</button>
             <button id="pauseBtn" onclick="togglePause()" style="position:absolute; top:62px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">⏸ ポーズ</button>
             <button id="muteBtn" onclick="toggleMute()" style="position:absolute; top:88px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">🔊 音</button>
+            <button id="retreatBtn" onclick="retreatCashOut()" style="display:none; position:absolute; top:114px; right:0; font-size:0.75rem; padding:4px 10px; background:#aa2244; border:1px solid #ff4466; border-radius:4px; color:white; cursor:pointer; z-index:100;">🏳 撤退</button>
 
             <div id="dashboard">
                 <div class="btn-group">
@@ -859,9 +888,18 @@
     <div id="gameOverScreen" class="screen">
         <div class="result-container">
             <div class="result-header">
-                <div class="result-icon">💀</div>
-                <h1 class="result-title">TO BE CONTINUED...</h1>
-                <p class="result-subtitle">あくま部屋が勇者に破壊された。次の拠点はどこにしよう。</p>
+                <div class="result-icon" id="resIcon">💀</div>
+                <h1 class="result-title" id="resTitle">TO BE CONTINUED...</h1>
+                <p class="result-subtitle" id="resSubtitle">あくま部屋が勇者に破壊された。次の拠点はどこにしよう。</p>
+            </div>
+
+            <!-- ハード：レバレッジ精算サマリ -->
+            <div id="resLevBox" style="display:none; margin:0 auto 14px; width:min(420px,90vw); background:rgba(30,0,10,0.85); border:2px solid #ff4466; border-radius:2px; padding:12px 18px; text-align:left; color:#f0d0d8; font-size:0.9rem; line-height:1.9;">
+                <div style="text-align:center; color:#ff6688; font-weight:bold; letter-spacing:2px; margin-bottom:6px;">— レバレッジ精算 —</div>
+                <div style="display:flex; justify-content:space-between;"><span>💸 借入 D（×<span id="resLevMult">1.0</span>）</span><span id="resLevDebt" style="color:#ffcc00;">0</span></div>
+                <div style="display:flex; justify-content:space-between;"><span>📉 複利返済 R</span><span id="resLevRepay" style="color:#ff8899;">0</span></div>
+                <div style="display:flex; justify-content:space-between;"><span>🏦 手持ちゴールド</span><span id="resLevHold" style="color:#ffcc00;">0</span></div>
+                <div style="display:flex; justify-content:space-between; border-top:1px solid #553; margin-top:4px; padding-top:4px; font-weight:bold;"><span>💹 純益 ΔB</span><span id="resLevDelta" style="color:#ffcc00; font-size:1.2rem;">0</span></div>
             </div>
 
             <div class="result-stats">
@@ -1407,6 +1445,104 @@
     let defeatedHeroesCount = 0;
     let totalEarnedGold = 0;
     let totalEarnedDiamond = 0;
+
+    // ===== レバレッジ経済（ハードモード限定） =====
+    // 負債レバレッジ：開始時に負債Dを借りて開始ゴールドに注入。
+    //   報酬倍率 L = c·√D（逓減型・討伐G/ダイヤに乗る）
+    //   返済 R(t) = D·(1+r)^(t-grace) 複利（t=ウェーブ数=heroLevel、最初のgraceウェーブは利子ゼロ）
+    //   撤退（利確）or 城陥落で精算：ΔB = 手持ちgold − R を引継ぎ銀行に加算（マイナス可）
+    const LEV_C = 0.3;        // 倍率係数 L = c·√D
+    const LEV_R = 0.05;       // 複利利率 / ウェーブ
+    const LEV_GRACE = 3;      // 利子ゼロの猶予ウェーブ数
+    const LEV_LAMBDA = 0.6;   // EV負スポーンの搾取率（期待宝価値 = λ·限界負債）
+    const LEV_MAX_DEBT = 5000;// 借入上限
+    let leverage = { active: false, debt: 0, mult: 1 };
+    let levEarnWindow = [];   // 直近ウェーブの獲得ゴールド（ρ算出用）
+    let levEarnThisWave = 0;  // 現ウェーブの獲得ゴールド累計
+
+    // 倍率 L = c·√D（D=0 のときは 1.0 = ボーナス無し）
+    function levMultOf(debt) {
+        return debt > 0 ? Math.max(1, LEV_C * Math.sqrt(debt)) : 1;
+    }
+    // 現時点の複利返済額 R(t) = D·(1+r)^(t-grace)、t=heroLevel（ウェーブ数）
+    function levRepayment() {
+        if (!leverage.active) return 0;
+        const t = Math.max(0, heroLevel - LEV_GRACE);
+        return Math.round(leverage.debt * Math.pow(1 + LEV_R, t));
+    }
+    // 限界負債 d(t) = R(t)·r（次ウェーブで増える利子）
+    function levMarginalDebt() {
+        if (!leverage.active) return 0;
+        return levRepayment() * LEV_R;
+    }
+    // 圧力比 ρ = 限界負債 / 限界稼ぎ。ρ<1=最適点手前, ρ≈1=最適点, ρ>1=赤字ゾーン
+    function levRho() {
+        if (!leverage.active || heroLevel < 1) return 0;
+        const d = levMarginalDebt();
+        const m = levEarnWindow.length
+            ? levEarnWindow.reduce((a, b) => a + b, 0) / levEarnWindow.length
+            : (d || 1);
+        if (m <= 0) return 2;           // 稼げていない → 赤字ゾーン扱い
+        return d / m;
+    }
+    // ρ駆動の宝スポーン倍率：最適点接近で徐々に、超過で宝の山を増殖
+    // （期待宝価値の上限は λ·d 目安。厳密なλ較正はシミュレーションで詰める）
+    function levTreasureFactor() {
+        if (!leverage.active) return 1;
+        const rho = levRho();
+        if (rho < 0.7) return 1;                        // 接近前：素の確率
+        if (rho < 1.0) return 1 + 2 * (rho - 0.7) / 0.3; // 接近：1→3倍
+        return 3 + Math.min(12, 8 * (rho - 1));         // 赤字ゾーン：3→最大15倍
+    }
+    // 精算：ΔB = 手持ちgold − 返済R を引継ぎ銀行に加算（マイナス可）。結果を返す
+    function levSettle() {
+        const R = levRepayment();
+        const delta = gold - R;
+        const bank = loadCarryOver() + delta;
+        saveCarryOver(bank);
+        return { R, delta, bank };
+    }
+    // レバレッジHUDの返済額・純益・ゾーン表示を更新
+    function updateLevHUD() {
+        if (!leverage.active) return;
+        const R = levRepayment();
+        const net = gold - R;
+        const repayEl = document.getElementById('levRepay');
+        const netEl = document.getElementById('levNet');
+        const zoneEl = document.getElementById('levZone');
+        if (repayEl) repayEl.innerText = R;
+        if (netEl) {
+            netEl.innerText = (net >= 0 ? '+' : '') + net;
+            netEl.style.color = net >= 0 ? '#ffcc00' : '#ff5566';
+        }
+        if (zoneEl) {
+            const rho = levRho();
+            if (heroLevel < 1)      { zoneEl.innerText = '猶予中';       zoneEl.style.color = '#8899cc'; }
+            else if (rho < 0.7)     { zoneEl.innerText = '📈 稼ぎ時';    zoneEl.style.color = '#66dd88'; }
+            else if (rho < 1.0)     { zoneEl.innerText = '⚖ 最適点付近'; zoneEl.style.color = '#ffcc00'; }
+            else                    { zoneEl.innerText = '🔥 赤字ゾーン'; zoneEl.style.color = '#ff5566'; }
+        }
+    }
+    // 撤退（利確）：確認後に自主精算してゲーム終了
+    function retreatCashOut() {
+        if (!isGameRunning || !leverage.active) return;
+        if (!isWaveStarted) {
+            msgDiv.innerText = "防衛を開始してから撤退できます";
+            setTimeout(() => { if (msgDiv.innerText.includes("撤退")) msgDiv.innerText = ""; }, 1500);
+            return;
+        }
+        const R = levRepayment();
+        const delta = gold - R;
+        const sign = delta >= 0 ? '+' : '';
+        const msg = `🏳 ここで撤退（利確）しますか？\n\n`
+            + `手持ちゴールド: ${gold} G\n`
+            + `複利返済: ${R} G\n`
+            + `── 純益: ${sign}${delta} G ──\n\n`
+            + `この純益が引継ぎ銀行に確定します。`;
+        if (confirm(msg)) {
+            triggerGameOver(true);
+        }
+    }
     
     let isFirstCastlePlaced = false;
     let isWaveStarted = false;
@@ -1446,7 +1582,10 @@
 
     function generateRow(y) {
         const { pCopper, pMoss } = oreProbAt(y);
-        const { pDark, pGem } = extraOreAt(y);
+        let { pDark, pGem } = extraOreAt(y);
+        // ハードのレバレッジ経済：最適点付近で良鉱、赤字ゾーンで宝の山が増える（EV負の誘惑）
+        const tf = levTreasureFactor();
+        if (tf !== 1) { pDark = Math.min(0.4, pDark * tf); pGem = Math.min(0.4, pGem * tf); }
         const row = [];
         for (let x = 0; x < COLS; x++) {
             // 深層鉱石は先行ロール（当選しなければ既存分布ロールへ）
@@ -1534,6 +1673,7 @@
         goldSpan.innerText = gold;
         document.getElementById('diamondAmount').innerText = diamond;
         updateLevelPanel();
+        if (leverage.active) updateLevHUD();
         // ゲーム内ショップ表示中はライブなダイヤ残高・購入可否を追従
         if (isInGamePanelOpen && inGamePanelTab === 'shop') renderShopLive();
     }
@@ -1745,6 +1885,42 @@
     function showModeSelect() {
         showScreenOnly('modeSelectScreen');
         updateStartScreenCarryOver();
+        closeHardConfig();
+    }
+
+    // ===== ハード：レバレッジ設定パネル =====
+    function openHardConfig() {
+        document.getElementById('hardConfig').style.display = 'block';
+        // モード選択ボタン群を隠して設定に集中
+        document.querySelector('#modeSelectScreen .mode-select').style.display = 'none';
+        document.getElementById('modeResetBtn').style.display = 'none';
+        document.getElementById('modeBackBtn').style.display = 'none';
+        document.getElementById('debtSlider').max = LEV_MAX_DEBT;
+        updateHardConfig();
+    }
+    function closeHardConfig() {
+        const hc = document.getElementById('hardConfig');
+        if (hc) hc.style.display = 'none';
+        const ms = document.querySelector('#modeSelectScreen .mode-select');
+        if (ms) ms.style.display = '';
+        const rb = document.getElementById('modeResetBtn');
+        const bb = document.getElementById('modeBackBtn');
+        if (rb) rb.style.display = '';
+        if (bb) bb.style.display = '';
+    }
+    function updateHardConfig() {
+        const D = parseInt(document.getElementById('debtSlider').value, 10) || 0;
+        const L = levMultOf(D);
+        const startGold = 20 + shopData.startGold * 15 + D;
+        document.getElementById('debtVal').innerText = D;
+        document.getElementById('levMultVal').innerText = '×' + L.toFixed(1);
+        document.getElementById('startGoldVal').innerText = startGold;
+        document.getElementById('bankVal').innerText = loadCarryOver();
+    }
+    function startHardRun() {
+        const D = parseInt(document.getElementById('debtSlider').value, 10) || 0;
+        closeHardConfig();
+        enterGameScreen('hard', D);
     }
 
     function updateStartScreenCarryOver() {
@@ -1796,12 +1972,18 @@
     }
     window.addEventListener('resize', adjustResultScale);
 
-    function enterGameScreen(mode = 'standard') {
+    function enterGameScreen(mode = 'standard', debtAmount = 0) {
         gameMode = mode;
+        // レバレッジ経済はハード限定。負債D・倍率L・稼ぎ計測を初期化
+        leverage.active = (mode === 'hard');
+        leverage.debt = leverage.active ? debtAmount : 0;
+        leverage.mult = leverage.active ? levMultOf(debtAmount) : 1;
+        levEarnWindow = [];
+        levEarnThisWave = 0;
         showScreenOnly('gameScreen');
         initSidePanelState();
         adjustMobileScale();
-        
+
         generateMap();
         maxDepth = 0;
         document.getElementById('depthUI').innerText = 0;
@@ -1809,8 +1991,8 @@
         castlePos = null; castleHp = CASTLE_MAX_HP;
         
         // パラメータの初期化（ショップ「初期ゴールド増加」を反映）
-        const carryOver = loadCarryOver();
-        gold = 20 + carryOver + shopData.startGold * 15;
+        // スタンダード：引継ぎゴールド非連動。ハード：負債Dを開始ゴールドに注入（引継ぎ銀行は精算時のみ増減）
+        gold = 20 + shopData.startGold * 15 + (leverage.active ? leverage.debt : 0);
         diamond = loadCarryDiamond();
         defeatedHeroesCount = 0;
         totalEarnedGold = 0;
@@ -1822,6 +2004,10 @@
         document.getElementById('wraith-card').style.display = shopData.wraith ? '' : 'none';
         document.getElementById('legendWraith').style.display = shopData.wraith ? '' : 'none';
         document.getElementById('legendDark').style.display = shopData.wraith ? '' : 'none';
+        // レバレッジHUD（ハード限定：撤退ボタン＆返済/純益表示）
+        document.getElementById('retreatBtn').style.display = leverage.active ? 'block' : 'none';
+        document.getElementById('levHUD').style.display = leverage.active ? 'block' : 'none';
+        updateLevHUD();
         // ボスUIリセット
         document.getElementById('bossHpUI').style.display = 'none';
         bossUIVisible = false;
@@ -1864,18 +2050,25 @@
         setTimeout(() => { if(msgDiv.innerText.includes("配置")) msgDiv.innerText = ""; }, 4000);
     }
 
-    function triggerGameOver() {
+    function triggerGameOver(voluntary = false) {
         isGameRunning = false;
         closeInGamePanel();
         playSE('gameover');
         if (heroTimerId) clearInterval(heroTimerId);
         if (countdownTimerId) clearInterval(countdownTimerId);
         countdownTimerId = null;
+        document.getElementById('retreatBtn').style.display = 'none';
 
-        // 引継ぎゴールド＆モンスターレベル＆ダイヤを保存（残ゴールド・ダイヤを累積）
-        const prevCarry = loadCarryOver();
-        const newCarry = prevCarry + gold;
-        saveCarryOver(newCarry);
+        // === 精算 ===
+        //  スタンダード：引継ぎゴールドと非連動（銀行は不変）
+        //  ハード：ΔB = 手持ちgold − 複利返済R を引継ぎ銀行へ加算（マイナス可）
+        let newCarry, levResult = null;
+        if (leverage.active) {
+            levResult = levSettle();          // 銀行を精算・保存
+            newCarry = levResult.bank;
+        } else {
+            newCarry = loadCarryOver();        // 変更なし
+        }
         saveCarryDiamond(diamond);
         saveMonsterLevels();
         saveRunCount(loadRunCount() + 1);
@@ -1888,6 +2081,32 @@
         rec.maxHeroLevel = Math.max(rec.maxHeroLevel, heroLevel);
         rec.diamondsEarned += totalEarnedDiamond;
         saveRecords(rec);
+
+        // ヘッダ（撤退＝利確 / 陥落＝強制清算）
+        if (voluntary) {
+            document.getElementById('resIcon').innerText = '🏳';
+            document.getElementById('resTitle').innerText = 'WITHDRAWN';
+            document.getElementById('resSubtitle').innerText = '深部から撤退し、利益を確定した。次はどこまで潜る？';
+        } else {
+            document.getElementById('resIcon').innerText = '💀';
+            document.getElementById('resTitle').innerText = 'TO BE CONTINUED...';
+            document.getElementById('resSubtitle').innerText = 'あくま部屋が勇者に破壊された。次の拠点はどこにしよう。';
+        }
+
+        // ハード：レバレッジ精算サマリ
+        const levBox = document.getElementById('resLevBox');
+        if (levResult) {
+            levBox.style.display = 'block';
+            document.getElementById('resLevMult').innerText = leverage.mult.toFixed(1);
+            document.getElementById('resLevDebt').innerText = leverage.debt;
+            document.getElementById('resLevRepay').innerText = levResult.R;
+            document.getElementById('resLevHold').innerText = gold;
+            const dEl = document.getElementById('resLevDelta');
+            dEl.innerText = (levResult.delta >= 0 ? '+' : '') + levResult.delta + ' G';
+            dEl.style.color = levResult.delta >= 0 ? '#44cc66' : '#ff5566';
+        } else {
+            levBox.style.display = 'none';
+        }
 
         // リザルト画面への値の代入
         document.getElementById('resHeroes').innerText = defeatedHeroesCount;
@@ -2129,6 +2348,7 @@
                     // 宝石鉱脈：ゴールド + 稀にダイヤ
                     const gain = 10 + Math.floor(Math.random() * 21); // 10〜30G
                     gold += gain; totalEarnedGold += gain;
+                    if (leverage.active) levEarnThisWave += gain;   // ρ算出用に宝収入も計上
                     if (Math.random() < 0.10) {
                         diamond++; totalEarnedDiamond++;
                         spawnFloatingText(x, y - 1, '+1💎', '#00cfff');
@@ -2196,7 +2416,15 @@
     function spawnHero() {
         if(!isGameRunning || !isWaveStarted) return;
 
+        // レバレッジ：直前ウェーブの稼ぎを記録し、ρ（圧力比）を更新
+        if (leverage.active) {
+            levEarnWindow.push(levEarnThisWave);
+            if (levEarnWindow.length > 3) levEarnWindow.shift();
+            levEarnThisWave = 0;
+        }
+
         heroLevel++;
+        if (leverage.active) updateLevHUD();
 
         // 総合力の増分
         let powerGain;
@@ -2517,9 +2745,11 @@
                 if (target.hp <= 0 && target.isHero) {
                     const baseReward = gameMode === 'standard' ? 25 : 10 + Math.floor(heroLevel / 5);
                     const rageBonus = (gameMode === 'standard' && target.isEnraged) ? heroGold : 0;
-                    const reward = baseReward + rageBonus;
+                    // ハード：討伐Gにレバレッジ倍率 L を乗せる
+                    const reward = Math.round((baseReward + rageBonus) * leverage.mult);
                     gold += reward;
                     totalEarnedGold += reward;
+                    if (leverage.active) levEarnThisWave += reward;   // ρ算出用に稼ぎを計上
                     defeatedHeroesCount++;
 
                     // ボス（怒り勇者）撃破演出 / 通常撃破SE
@@ -2537,8 +2767,9 @@
                     if (gameMode === 'standard') {
                         diamondChancePct = Math.min(0.01 * heroLevel, 1);
                     } else {
-                        const base = heroLevel * 0.01 + 1;
-                        const cap = target.isEnraged ? Math.min(heroGold, 100) : 5;
+                        // ハード：ダイヤ率にも L を乗せる（上限100%）
+                        const base = (heroLevel * 0.01 + 1) * leverage.mult;
+                        const cap = target.isEnraged ? Math.min(heroGold, 100) : Math.min(5 * leverage.mult, 100);
                         diamondChancePct = Math.min(base, cap);
                     }
                     if (Math.random() * 100 < diamondChancePct) {

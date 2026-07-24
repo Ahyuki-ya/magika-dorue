@@ -640,24 +640,27 @@
     <div id="modeSelectScreen" class="screen">
         <p class="menu-heading">— Mode Select —</p>
         <div id="carryOverUI" style="margin-bottom:18px; font-size:1.1rem; color:#ffcc00; background:rgba(0,8,32,0.85); padding:10px 28px; border-radius:2px; border:2px solid #2244aa; display:none;">
-            🔄 引継ぎ回数: <span id="runCountAmount">0</span> 回<br>
-            💰 引継ぎゴールド: <span id="carryOverAmount">0</span> G
+            🏦 銀行残高: <span id="carryOverAmount">0</span> G<br>
+            <span style="font-size:0.82rem; color:#99aacc;">💎 <span id="startDiamondAmount">0</span> ／ ⚗ <span id="startLevAmount">-</span> ／ 🔄 <span id="runCountAmount">0</span> 回</span>
         </div>
         <div class="mode-select">
             <button class="btn-mode btn-mode-standard" onclick="enterGameScreen('standard')">
                 <div class="btn-mode-icon">⚔</div>
                 <div>
                     <div class="btn-mode-name">スタンダード</div>
-                    <div class="btn-mode-desc">通常難易度でプレイ</div>
+                    <div class="btn-mode-desc">安全に元手を稼ぐ</div>
                 </div>
             </button>
             <button class="btn-mode btn-mode-hard" onclick="openHardConfig()">
                 <div class="btn-mode-icon">💀</div>
                 <div>
                     <div class="btn-mode-name">ハード</div>
-                    <div class="btn-mode-desc">負債を借りてレバレッジ</div>
+                    <div class="btn-mode-desc">銀行を預入してレバレッジ</div>
                 </div>
             </button>
+        </div>
+        <div id="hardLockNote" style="display:none; margin-top:10px; font-size:0.85rem; color:#ff6688; background:rgba(30,0,10,0.7); border:1px solid #ff4466; border-radius:2px; padding:8px 16px;">
+            🔒 ハードには銀行残高が <b>100 G 以上</b> 必要です。まず<b>スタンダード</b>で元手を稼いでください。
         </div>
 
         <!-- ハード：レバレッジ設定 -->
@@ -673,7 +676,7 @@
                 📈 討伐G・ダイヤが <b style="color:#00ffee;">L 倍</b>（複利なし）<br>
                 🏳 「撤退」は<b>波の合間のみ</b>。手持ちが資本を超えていれば利益確定<br>
                 💀 城陥落＝清算。<b style="color:#ff6688;">最大 <span id="maxLossVal">1000</span> G</b> を失う（銀行マイナス可）<br>
-                🏦 引継ぎ銀行残高: <span id="bankVal" style="color:#ffcc00;">0</span> G
+                🏦 銀行残高: <span id="bankVal" style="color:#ffcc00;">0</span> G
             </div>
             <div style="display:flex; gap:10px; margin-top:14px;">
                 <button class="btn-start" onclick="startHardRun()" style="flex:1; background:#aa2244; border-color:#ff4466;">▶ ハード開始</button>
@@ -681,7 +684,7 @@
             </div>
         </div>
 
-        <button class="btn-start" id="modeResetBtn" onclick="resetCarryOver()" style="font-size:0.95rem; padding:10px 28px; background:#555; border-color:#444;">🗑 引継ぎリセット</button>
+        <button class="btn-start" id="modeResetBtn" onclick="resetCarryOver()" style="font-size:0.95rem; padding:10px 28px; background:#555; border-color:#444;">🗑 データリセット</button>
         <button class="btn-back" id="modeBackBtn" onclick="showMainMenu()">← 戻る</button>
     </div>
 
@@ -933,19 +936,19 @@
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
-                    <span class="result-stat-label">📦 累積引継ぎゴールド</span>
+                    <span class="result-stat-label">🏦 銀行残高</span>
                     <span class="result-stat-value" id="resCarryOver" style="color:#44cc66;">0</span>
                     <span class="result-stat-unit">G</span>
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
-                    <span class="result-stat-label">💎 累積引継ぎダイヤ</span>
+                    <span class="result-stat-label">💎 ダイヤ残高</span>
                     <span class="result-stat-value" id="resCarryDiamond" style="color:#00ffee;">0</span>
                     <span class="result-stat-unit">個</span>
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item result-stat-sub">
-                    <span class="result-stat-label">⚗ 引継ぎレベル</span>
+                    <span class="result-stat-label">⚗ モンスターLv</span>
                     <span class="result-stat-value result-stat-value-small" id="resMonsterLevels" style="color:#44cc66;">-</span>
                 </div>
             </div>
@@ -1451,11 +1454,11 @@
     //   撤退（波の合間のみ）or 城陥落で精算：ΔB = 手持ちgold − S×L を引継ぎ銀行に加算（マイナス可＝清算・無限責任）。
     //   勝てば預入＋利益が戻り、負ければ最大 S×L を失う。
     const LEV_MAX_STAKE = 3000;      // 預入の絶対上限
-    const LEV_MIN_STAKE = 100;       // 最低ライン（銀行が乏しくても這い上がれる）
+    const LEV_MIN_STAKE = 100;       // ハード参加に必要な最低銀行残高（＝最小預入）
     const LEV_TIERS = [2, 3, 5, 10]; // レバレッジ倍率の選択肢
-    // 預入の実効上限：自分の銀行残高まで（ただし最低ラインは常に確保、絶対上限で頭打ち）
+    // 預入の実効上限：自分の銀行残高まで（絶対上限で頭打ち）。銀行が乏しければハード不可
     function levMaxStake() {
-        return Math.min(LEV_MAX_STAKE, Math.max(loadCarryOver(), LEV_MIN_STAKE));
+        return Math.min(LEV_MAX_STAKE, Math.max(0, loadCarryOver()));
     }
     // 宝の湧きは深度で増える（深追いの誘惑。EV負性は「深い＝勇者が強い＝死んでS×Lを失う」で担保）
     const LEV_TREASURE_DEPTH0 = 30;  // この深度から宝が増え始める
@@ -1886,11 +1889,22 @@
         showScreenOnly('modeSelectScreen');
         updateStartScreenCarryOver();
         closeHardConfig();
+        updateHardLock();
     }
 
     // ===== ハード：レバレッジ設定パネル（預入モデルA） =====
     let selectedLevTier = 2;
+    // 銀行残高が最低額未満ならハードをロック（standardで元手を作る前提）
+    function updateHardLock() {
+        const locked = loadCarryOver() < LEV_MIN_STAKE;
+        const btn = document.querySelector('.btn-mode-hard');
+        const note = document.getElementById('hardLockNote');
+        if (btn) { btn.style.opacity = locked ? '0.45' : '1'; btn.style.filter = locked ? 'grayscale(0.6)' : ''; }
+        if (note) note.style.display = locked ? 'block' : 'none';
+        return locked;
+    }
     function openHardConfig() {
+        if (loadCarryOver() < LEV_MIN_STAKE) { updateHardLock(); return; } // 銀行不足はロック
         document.getElementById('hardConfig').style.display = 'block';
         // モード選択ボタン群を隠して設定に集中
         document.querySelector('#modeSelectScreen .mode-select').style.display = 'none';
@@ -1956,9 +1970,12 @@
         const runCount = loadRunCount();
         const ui = document.getElementById('carryOverUI');
         const span = document.getElementById('carryOverAmount');
-        if (saved > 0 || savedDiamond > 0 || lvs.slime > 1 || lvs.goblin > 1 || lvs.golem > 1 || runCount > 0) {
+        if (saved !== 0 || savedDiamond > 0 || lvs.slime > 1 || lvs.goblin > 1 || lvs.golem > 1 || runCount > 0) {
+            span.innerText = saved;
+            span.style.color = saved < 0 ? '#ff6688' : '#ffcc00';
+            document.getElementById('startDiamondAmount').innerText = savedDiamond;
+            document.getElementById('startLevAmount').innerText = `🪨${lvs.slime} 🌿${lvs.goblin} 🟤${lvs.golem}`;
             document.getElementById('runCountAmount').innerText = runCount;
-            span.innerHTML = `${saved} G &nbsp;／&nbsp; 💎 ${savedDiamond} &nbsp;／&nbsp; 🪨Lv.${lvs.slime} 🌿Lv.${lvs.goblin} 🟤Lv.${lvs.golem}`;
             ui.style.display = 'block';
         } else {
             ui.style.display = 'none';

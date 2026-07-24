@@ -840,6 +840,7 @@
 
             <div id="canvasContainer">
                 <canvas id="gameCanvas"></canvas>
+                <canvas id="minimap" width="66" height="140" title="タップでカメラ移動" style="position:absolute; left:6px; z-index:50; border:2px solid #4466cc; background:rgba(0,8,32,0.85); cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.5);"></canvas>
             </div>
         </div>
 
@@ -999,6 +1000,71 @@
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+
+    // ===== ミニマップ（全体マップ・あくま部屋/勇者部屋を強調・タップでカメラ移動） =====
+    const minimap = document.getElementById('minimap');
+    const mmctx = minimap.getContext('2d');
+    let minimapTick = 0;
+    function positionMinimap() {
+        const c = document.getElementById('canvasContainer');
+        minimap.style.top = (c.scrollTop + c.clientHeight - minimap.height - 6) + 'px';
+    }
+    function drawMinimap() {
+        if (!map || !map.length) return;
+        const mmW = minimap.width, mmH = minimap.height;
+        const rows = map.length, cols = COLS;
+        const sx = mmW / cols, sy = mmH / rows;
+        mmctx.clearRect(0, 0, mmW, mmH);
+        mmctx.fillStyle = '#0d1330'; mmctx.fillRect(0, 0, mmW, mmH);
+        // 地形（掘削済み/空/鉱脈を色分け、岩盤は背景色）
+        for (let y = 0; y < rows; y++) {
+            const row = map[y];
+            for (let x = 0; x < cols; x++) {
+                const t = row[x];
+                let col = null;
+                if (t === 0) col = '#3a4a6a';
+                else if (t === 4) col = '#6fb7e0';
+                else if (t === 8) col = '#b89a3a';
+                else if (t === 7) col = '#5d3b85';
+                if (col) { mmctx.fillStyle = col; mmctx.fillRect(x * sx, y * sy, Math.max(1, sx), Math.max(1, sy)); }
+            }
+        }
+        // 勇者部屋（オレンジ・強調）
+        mmctx.fillStyle = '#ff8c1a';
+        for (const hh of heroHouses) {
+            mmctx.fillRect(hh.x * sx - 1.5, hh.y * sy - 1.5, Math.max(4, sx + 3), Math.max(4, sy + 3));
+        }
+        // あくま部屋（赤＋白枠・強調）
+        if (castlePos) {
+            const cx = castlePos.x * sx, cy = castlePos.y * sy, cs = 6;
+            mmctx.fillStyle = '#ff2b4e';
+            mmctx.fillRect(cx - cs / 2, cy - cs / 2, cs, cs);
+            mmctx.strokeStyle = '#ffffff'; mmctx.lineWidth = 1;
+            mmctx.strokeRect(cx - cs / 2 + 0.5, cy - cs / 2 + 0.5, cs, cs);
+        }
+        // ビューポート枠（現在の表示範囲）
+        const c = document.getElementById('canvasContainer');
+        const totalH = rows * TILE_SIZE;
+        if (totalH > 0) {
+            const vpTop = (c.scrollTop / totalH) * mmH;
+            const vpH = Math.max(3, (c.clientHeight / totalH) * mmH);
+            mmctx.strokeStyle = 'rgba(255,255,255,0.9)'; mmctx.lineWidth = 1;
+            mmctx.strokeRect(0.5, vpTop + 0.5, mmW - 1, Math.min(mmH - vpTop - 1, vpH));
+        }
+    }
+    minimap.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const c = document.getElementById('canvasContainer');
+        const rect = minimap.getBoundingClientRect();
+        const frac = (e.clientY - rect.top) / rect.height;      // getBoundingClientRect は transform scale 補正済み
+        const totalH = (map ? map.length : ROWS) * TILE_SIZE;
+        let target = frac * totalH - c.clientHeight / 2;
+        target = Math.max(0, Math.min(Math.max(0, totalH - c.clientHeight), target));
+        c.scrollTop = target;
+        positionMinimap(); drawMinimap();
+    });
+    document.getElementById('canvasContainer').addEventListener('scroll', () => { positionMinimap(); drawMinimap(); });
+
     const msgDiv = document.getElementById('message');
     const castleBtn = document.getElementById('castleBtn');
     const goldSpan = document.getElementById('goldAmount');
@@ -3713,6 +3779,9 @@
                 ctx.restore();
             }
         }
+
+        // ミニマップ（6フレームごとに再描画、位置は毎回追従）
+        if ((minimapTick = (minimapTick + 1) % 6) === 0) { positionMinimap(); drawMinimap(); }
 
         requestAnimationFrame(gameLoop);
     }

@@ -159,6 +159,15 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
 
+## Recent Session Changes (2026-07-24 その5)
+
+### ミニマップ（プレイ画面左下）
+- `#minimap`（canvasContainer内・66×140px・`position:absolute; left:6px`、`positionMinimap()` で `top=scrollTop+clientHeight-h-6` にしビューポート下部へ追従）。
+- `drawMinimap()`: 全体マップ（掘削済み/空/鉱脈を色分け）＋**あくま部屋（赤+白枠）/勇者部屋（オレンジ）を強調**＋現在の表示範囲を白枠で表示。gameLoopで6フレームごと再描画、scroll時は即再描画。
+- **タップでカメラ移動**: クリックYの割合→`canvasContainer.scrollTop` を該当深度が中央に来るよう設定（`getBoundingClientRect` でtransform scale補正）。
+
+### 宝物庫UIをソシャゲ風グリッド＋ゲーム内アクセスに（その4の宝物庫項に統合済み）
+
 ## Recent Session Changes (2026-07-24 その4：Phase 2 レア度付き宝物システム v1)
 
 ロードマップ②に着手。宝石鉱脈から**レア度付き宝物**をドロップ、収集→装備でランに効果を反映するところまで実装（v1＝収集＋装備）。時価売却/取引は次段。

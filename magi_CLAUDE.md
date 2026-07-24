@@ -10,17 +10,14 @@ No build tools, no dependencies, no server required. Open any `.html` file direc
 
 ## Versioning Convention
 
-Each `magiNN.html` file is a save-point snapshot (magi0.html → magi50.html). **The highest-numbered file is the canonical working version.** When making changes, save a new version (e.g., copy magi50.html → magi51.html) before editing — do not overwrite existing snapshots.
+> **2026-07-24 更新:** リポジトリを git 化し GitHub リモート（`Ahyuki-ya/magika-dorue`, public）に接続。バージョン管理は git に一本化した。
 
-Named variants exist alongside the numbered sequence:
-- `magiα.html` — alpha/experimental branch
-- `magiB.html`, `magiC.html`, `magiD.html` — named feature branches
-- `magi_claud6.html` — **current main working file (always edit the highest-numbered `magi_claudN.html`)**
-- `magi_claud.html` / `magi_claud1.html` — older reference files (do not edit)
+**`index.html` が唯一の正典（作業ファイル兼公開ファイ）。** これを直接編集し、コミット＆プッシュする。GitHub Pages が自動で公開する（https://ahyuki-ya.github.io/magika-dorue/ ）。以前の「手動アップロード」「コピーして番号を上げる」運用は廃止。
 
-Working-file lineage: `magi_claud.html` → `magi_claud2` → `magi_claud3` → `magi_claud4` → `magi_claud5` → `magi_claud6`. Each session copies the latest to a new number before editing.
-
-`index.html` is the GitHub Pages published copy. The user manages this separately by copying from the current working file.
+- 意味のある変更ごとに `index.html` を編集 → `git commit` → `git push origin main`
+- スナップショットは git 履歴が担う。ファイルを複製して番号を増やす必要はない
+- 過去の `magiNN.html` / 名前付き変種 / `magi_claudN.html` はすべて **`archive/` に退避**（バックアップとして git 追跡下に残す。編集しない）
+- `index.html` の内容系譜: かつての `magi_claud.html → … → magi_claud6.html` を経て、現行 `index.html` は `magi_claud6.html` 相当
 
 > **Future roadmap:** 次期大型改修（ハードモードのレバレッジ化・レア度付き宝物・プレイヤー間取引）の要件ドラフトは [FABLE_要件定義_大型改修.md](FABLE_要件定義_大型改修.md) を参照。実装未着手・方針合意が前提。
 

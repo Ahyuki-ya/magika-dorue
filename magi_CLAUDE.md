@@ -159,6 +159,15 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
 
+## Recent Session Changes (2026-07-24 その7：ミニマップ勇者・宝物合成・ゴッドレア)
+
+- **ミニマップに勇者を動的表示**: `drawMinimap` で生存勇者を水色ドット（怒りはピンク大）で描画。6フレームごと再描画で位置追従。
+- **ゴッドレア追加**: `RARITIES` に `god`（名:神, 色:#ff44dd, affixCount4, mult4.5, **weight0＝ドロップしない合成専用**）。`RARITY_ORDER.god=5`、`TREASURE_NAMES.god`、`RARITY_KEYS`/`nextRarityKey` 追加。
+- **合成（進化）システム**: 同レア度の追加 `SYNTH_FODDER=10` 個 ＋ ベース1個 → 次レア度1個（計11消費）。`synthesize(baseId)`=fodder10+base消費し `evolveTreasure` で生成。**ベースの系統（affix種）を継承**し、次レア度のaffixCountまで補完・値は次レア度multで再ロール。装備中は fodder に使わない／消費品が装備中なら解除。神は最上位で進化不可。レジェンド→神が「金10集める」ルールの具体例。
+- **合成UI**: 宝物庫の詳細モーダルに「🔨 進化 → {次レア度}」ボタン（fodder10個以上で有効、不足時は残り必要数を表示）。`tzSynthesize(id)` が確認→生成→`renderTreasuryAll`→新アイテムの詳細表示。
+- **書き込み用宝物表 `宝物リスト.md`** を新規作成（レア度別のアイコン/名前/メモ表＋効果種一覧）。ユーザーが追記→`TREASURE_NAMES` へ反映する運用。
+- 検証: 構文OK・div188/188・合成（11→1・god生成・系統継承・神ドロップ0・神進化不可）・全関数存在 合格。
+
 ## Recent Session Changes (2026-07-24 その6：モンスターLv 100化・線形ステータス・ダイヤ強化)
 
 - **ステータスを線形化**: 旧 `MONSTER_STATS`（5段階配列）を廃止し `MONSTER_GROWTH`（base+slope）＋`mstatsAt(mt,lv)` に。各モンスターの特性を slope に反映（slime=均等 / goblin=agi高成長・長射程・低hp / golem=hp高成長・低agi / wraith=atk高成長・低hp・最長射程）。Lv100例: goblin agi101 / golem hp143 / wraith atk122 / slime 51-31-72。射程は固定。**全ステータス参照（dig召喚・繁殖・成長・randomUpgrade・levelUp/Down・panel）を mstatsAt に統一**。

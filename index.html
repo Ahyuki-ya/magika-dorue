@@ -1047,6 +1047,13 @@
             mmctx.strokeStyle = '#ffffff'; mmctx.lineWidth = 1;
             mmctx.strokeRect(cx - cs / 2 + 0.5, cy - cs / 2 + 0.5, cs, cs);
         }
+        // 勇者（動的・生存中のみ。怒りは赤ピンク）
+        for (const h of heroes) {
+            if (h.hp <= 0) continue;
+            mmctx.fillStyle = h.isEnraged ? '#ff5588' : '#5dc8ff';
+            const hs = h.isEnraged ? 4 : 3;
+            mmctx.fillRect(h.x * sx - hs / 2, h.y * sy - hs / 2, hs, hs);
+        }
         // ビューポート枠（現在の表示範囲）
         const c = document.getElementById('canvasContainer');
         const totalH = rows * TILE_SIZE;
@@ -1310,14 +1317,22 @@
     function saveRecords(r) { localStorage.setItem('magika_records', JSON.stringify(r)); }
 
     // ===== 宝物システム（レア度付きアイテム・magika_inventory / magika_equipped） =====
+    // weight=0 のレア度はドロップしない（合成専用）。合成: 同レア度10個(fodder)＋ベース1個 → 次レア度1個（ベースの系統を継承）
     const RARITIES = [
         { key:'common',    name:'並',   color:'#95a5a6', weight:60, affixCount:1, mult:0.7 },
         { key:'uncommon',  name:'良',   color:'#2ecc71', weight:25, affixCount:1, mult:1.0 },
         { key:'rare',      name:'稀',   color:'#3498db', weight:10, affixCount:2, mult:1.4 },
         { key:'epic',      name:'極',   color:'#9b59b6', weight:4,  affixCount:2, mult:2.0 },
         { key:'legendary', name:'伝説', color:'#ffcc00', weight:1,  affixCount:3, mult:3.0 },
+        { key:'god',       name:'神',   color:'#ff44dd', weight:0,  affixCount:4, mult:4.5 }, // 合成専用（レジェンド10+1）
     ];
     const RARITY_BY_KEY = Object.fromEntries(RARITIES.map(r => [r.key, r]));
+    const RARITY_KEYS = RARITIES.map(r => r.key);
+    const SYNTH_FODDER = 10; // 進化に必要な同レア度の追加個数（＋ベース1 = 計11）
+    function nextRarityKey(key) {
+        const i = RARITY_KEYS.indexOf(key);
+        return (i >= 0 && i < RARITY_KEYS.length - 1) ? RARITY_KEYS[i + 1] : null;
+    }
     // アフィックス（装備でランに適用される効果）。value = base×レア度mult
     const AFFIX_TYPES = [
         { key:'startGold', base:[8,36], fmt:v => `初期ゴールド +${v}` },
@@ -1333,6 +1348,7 @@
         rare:      { icons:['💍','🔮','⚱️'], names:['苔むした王笏','蒼の宝珠','秘めた指輪','古代の香炉'] },
         epic:      { icons:['👑','🗡️','💠'], names:['深淵のクリスタル','漆黒の刃','魔石の宝冠'] },
         legendary: { icons:['🌟','🐉','🔱'], names:['魔王の宝冠','竜の心臓','世界樹の雫'] },
+        god:       { icons:['✨','🌈','⭐'], names:['神々の遺宝','創世のカケラ','無限の宝珠'] },
     };
     const EQUIP_SLOTS = 3;
 
@@ -1380,6 +1396,52 @@
         return totals;
     }
 
+    // ===== 合成（進化）: 同レア度の追加10個 ＋ ベース1個 → 次レア度1個（ベースの系統=affix種を継承） =====
+    // 装備中の宝物は fodder に使わない
+    function synthFodderIds(rarity, excludeId) {
+        const eq = loadEquipped();
+        return loadInventory()
+            .filter(t => t.rarity === rarity && t.id !== excludeId && !eq.includes(t.id))
+            .map(t => t.id);
+    }
+    function canSynthesize(item) {
+        if (!item) return false;
+        if (!nextRarityKey(item.rarity)) return false;               // 神は最上位（進化なし）
+        return synthFodderIds(item.rarity, item.id).length >= SYNTH_FODDER;
+    }
+    function evolveTreasure(base, nxtKey) {
+        const rar = RARITY_BY_KEY[nxtKey];
+        // ベースの系統(affix種)を継承し、次レア度のアフィックス数まで補完、値は次レア度multで再ロール
+        const keys = [...new Set(base.affixes.map(a => a.key))];
+        const pool = AFFIX_TYPES.map(a => a.key).filter(k => !keys.includes(k)).sort(() => Math.random() - 0.5);
+        while (keys.length < rar.affixCount && pool.length) keys.push(pool.shift());
+        const affixes = keys.slice(0, rar.affixCount).map(k => {
+            const [lo, hi] = AFFIX_BY_KEY[k].base;
+            return { key: k, value: Math.max(1, Math.round((lo + Math.random() * (hi - lo)) * rar.mult)) };
+        });
+        const pool2 = TREASURE_NAMES[nxtKey];
+        return {
+            id: 'tz_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+            name: tzPick(pool2.names), icon: tzPick(pool2.icons), rarity: nxtKey,
+            affixes, bornDepth: base.bornDepth, bornRun: loadRunCount(), createdAt: Date.now(), evolvedFrom: base.rarity
+        };
+    }
+    // 成功したら新アイテムを返す
+    function synthesize(baseId) {
+        const inv = loadInventory();
+        const base = inv.find(t => t.id === baseId);
+        if (!base) return null;
+        const nxt = nextRarityKey(base.rarity);
+        if (!nxt) return null;
+        const fodder = synthFodderIds(base.rarity, baseId).slice(0, SYNTH_FODDER);
+        if (fodder.length < SYNTH_FODDER) return null;
+        const consume = new Set([baseId, ...fodder]);
+        const newItem = evolveTreasure(base, nxt);
+        saveInventory(inv.filter(t => !consume.has(t.id)).concat([newItem]));
+        saveEquipped(loadEquipped().filter(id => !consume.has(id)));  // 消費品が装備中なら解除
+        return newItem;
+    }
+
     const ACHIEVEMENTS = [
         { name: 'はじめての討伐', desc: '勇者を1人討伐する', test: r => r.kills >= 1 },
         { name: '魔王の風格',     desc: '勇者を累計50人討伐する', test: r => r.kills >= 50 },
@@ -1400,7 +1462,7 @@
     }
 
     // ===== 宝物庫（Treasury）UI（ソシャゲ風グリッド＋詳細モーダル） =====
-    const RARITY_ORDER = { legendary:4, epic:3, rare:2, uncommon:1, common:0 };
+    const RARITY_ORDER = { god:5, legendary:4, epic:3, rare:2, uncommon:1, common:0 };
     // 全画面版とゲーム内ドロワー版、2つのコンテナへ描画
     const TZ_FULL = { row:'tzEquippedRow', list:'tzInventoryList', count:'tzEquipCount', max:'tzEquipMax' };
     const TZ_IG   = { row:'igTzEquippedRow', list:'igTzInventoryList', count:'igTzEquipCount', max:'igTzEquipMax' };
@@ -1482,6 +1544,18 @@
         if (isEq) btn = `<button class="btn-start" style="background:#555; width:100%;" onclick="tzUnequip('${id}')">装備を解除</button>`;
         else if (full) btn = `<button class="btn-start" disabled style="opacity:0.4; width:100%;">装備枠が満杯（3/3）</button>`;
         else btn = `<button class="btn-start" style="width:100%; background:#3a2a5a; border-color:#9b59b6;" onclick="tzEquip('${id}')">装備する</button>`;
+        // 合成（進化）ボタン
+        let synth = '';
+        const nxt = nextRarityKey(t.rarity);
+        if (nxt) {
+            const have = synthFodderIds(t.rarity, id).length;
+            const nrar = RARITY_BY_KEY[nxt];
+            if (have >= SYNTH_FODDER) {
+                synth = `<button class="btn-start" style="width:100%; margin-top:8px; background:#5a2a4a; border-color:${nrar.color};" onclick="tzSynthesize('${id}')">🔨 進化 → <span style="color:${nrar.color};">${nrar.name}</span>（同レア${SYNTH_FODDER}個消費）</button>`;
+            } else {
+                synth = `<div style="margin-top:8px; font-size:0.72rem; color:#889;">🔨 進化には同レア度あと <b style="color:#ffcc00;">${SYNTH_FODDER - have}</b> 個（計${SYNTH_FODDER}）必要 → ${nrar.name}</div>`;
+            }
+        }
         document.getElementById('tzDetailCard').style.borderColor = rar.color;
         document.getElementById('tzDetailCard').innerHTML =
             `<div style="font-size:3.4rem; line-height:1;">${t.icon}</div>`
@@ -1489,9 +1563,22 @@
             + `<div style="display:inline-block; margin:8px 0; padding:2px 12px; border-radius:12px; color:${rar.color}; font-size:0.8rem; border:1px solid ${rar.color};">［${rar.name}］</div>`
             + `<div style="border-top:1px solid #334; border-bottom:1px solid #334; margin:8px 0; padding:8px 0;">${affix}</div>`
             + `<div style="font-size:0.72rem; color:#889; margin-bottom:14px;">深度 ${t.bornDepth} で出土</div>`
-            + btn
+            + btn + synth
             + `<button class="btn-back" style="margin-top:10px;" onclick="tzCloseDetail()">閉じる</button>`;
         document.getElementById('tzDetailModal').style.display = 'flex';
+    }
+    function tzSynthesize(id) {
+        const base = loadInventory().find(x => x.id === id);
+        if (!base) return;
+        const nxt = nextRarityKey(base.rarity);
+        if (!nxt) return;
+        const nrar = RARITY_BY_KEY[nxt];
+        if (!confirm(`「${base.name}」を核に、同じ［${RARITY_BY_KEY[base.rarity].name}］の宝物 ${SYNTH_FODDER} 個を消費して\n［${nrar.name}］へ進化させますか？\n\n※消費した宝物は失われます（系統は継承）`)) return;
+        const made = synthesize(id);
+        if (!made) { playSE('error'); return; }
+        playSE('gem');
+        renderTreasuryAll();
+        tzShowDetail(made.id);   // 生成された新アイテムの詳細を表示
     }
     function tzCloseDetail() {
         document.getElementById('tzDetailModal').style.display = 'none';

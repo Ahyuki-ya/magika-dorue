@@ -2458,7 +2458,9 @@
         
         isFirstCastlePlaced = false;
         isWaveStarted = false;
-        
+        gameTime = 0;          // P5-6 論理時刻をラン開始でリセット
+        lastFrameTime = 0;
+
         heroBaseAtk = 5; heroBaseAgi = 5; heroBaseHp = 10;
         heroLevel = 0;
         heroPower = 20; // 初期ステータス合計(5+5+10)
@@ -3101,26 +3103,56 @@
         return {x: prevIdx % COLS, y: Math.floor(prevIdx / COLS)};
     }
 
+    // ── P5-1 世代スタンプ法（保存則1：軌道一致）─────────────────────────
+    // BFSのクエリごとに `new Int32Array(ROWS*COLS)` を確保していたのを、モジュール
+    // スコープの共有スクラッチに置換。「訪問済み ⇔ stamp[i]===現世代」で判定し、
+    // クエリ初期化を O(V)→O(1)、確保由来のGC圧をゼロ化する。挙動は完全不変
+    // （同一の方向順・FIFO順・通行判定クラス）＝自明に強保存。
+    let __pfParent = new Int32Array(0);   // parent flat index（-2=出発点、それ以外=前セル）
+    let __pfStamp  = new Int32Array(0);   // 訪問世代スタンプ
+    let __pfQueue  = new Int32Array(0);   // BFSキュー（flat index）
+    let __pfGen = 0;                       // 現世代
+    function __pfEnsure() {
+        const n = ROWS * COLS;
+        if (__pfParent.length < n) {       // expandMapでROWSが増えた時のみ再確保
+            __pfParent = new Int32Array(n);
+            __pfStamp  = new Int32Array(n);
+            __pfQueue  = new Int32Array(n);
+            __pfGen = 0;                   // 新配列はstamp=0なのでgenをリセット
+        }
+    }
+    function __pfNextGen() {
+        __pfGen++;
+        if (__pfGen === 2147483647) { __pfStamp.fill(0); __pfGen = 1; } // 32bitラップ保護
+        return __pfGen;
+    }
+
     function getNextStepTowardsCastle(entity) {
         if (!castlePos || (entity.x === castlePos.x && entity.y === castlePos.y)) return null;
         const sx = entity.x, sy = entity.y;
         const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
 
-        const parent = new Int32Array(ROWS * COLS).fill(-1);
-        parent[sy * COLS + sx] = -2;
+        __pfEnsure();
+        const gen = __pfNextGen();
+        const parent = __pfParent, stamp = __pfStamp, queue = __pfQueue;
+        const startIdx = sy * COLS + sx;
+        parent[startIdx] = -2; stamp[startIdx] = gen;
 
-        const queue = [sx, sy];
-        let head = 0;
-        while (head < queue.length) {
-            const cx = queue[head++], cy = queue[head++];
+        let head = 0, tail = 0;
+        queue[tail++] = startIdx;
+        while (head < tail) {
+            const cur = queue[head++];
+            const cx = cur % COLS, cy = (cur - cx) / COLS;
             for (const d of dirs) {
                 const nx = cx + d.x, ny = cy + d.y;
                 if (nx === castlePos.x && ny === castlePos.y) {
                     return bfsTraceback(parent, cx, cy, nx, ny);
                 }
-                if (isPassable(nx, ny) && parent[ny * COLS + nx] === -1) {
-                    parent[ny * COLS + nx] = cy * COLS + cx;
-                    queue.push(nx, ny);
+                const nIdx = ny * COLS + nx;
+                if (isPassable(nx, ny) && stamp[nIdx] !== gen) {
+                    parent[nIdx] = cy * COLS + cx;
+                    stamp[nIdx] = gen;
+                    queue[tail++] = nIdx;
                 }
             }
         }
@@ -3133,17 +3165,22 @@
         const sx = entity.x, sy = entity.y;
         const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
 
-        const parent = new Int32Array(ROWS * COLS).fill(-1);
-        parent[sy * COLS + sx] = -2;
+        __pfEnsure();
+        const gen = __pfNextGen();
+        const parent = __pfParent, stamp = __pfStamp, queue = __pfQueue;
+        const startIdx = sy * COLS + sx;
+        parent[startIdx] = -2; stamp[startIdx] = gen;
 
-        const queue = [sx, sy];
-        let head = 0;
-        while (head < queue.length) {
-            const cx = queue[head++], cy = queue[head++];
+        let head = 0, tail = 0;
+        queue[tail++] = startIdx;
+        while (head < tail) {
+            const cur = queue[head++];
+            const cx = cur % COLS, cy = (cur - cx) / COLS;
             for (const d of dirs) {
                 const nx = cx + d.x, ny = cy + d.y;
                 if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
-                if (parent[ny * COLS + nx] !== -1) continue;
+                const nIdx = ny * COLS + nx;
+                if (stamp[nIdx] === gen) continue;
                 if (monsterOnly && ny < SKY_LAYERS) continue;
 
                 const adjToTarget = Math.abs(nx - tx) + Math.abs(ny - ty) <= 1;
@@ -3151,8 +3188,9 @@
                     return bfsTraceback(parent, cx, cy, nx, ny);
                 }
                 if (isPassable(nx, ny)) {
-                    parent[ny * COLS + nx] = cy * COLS + cx;
-                    queue.push(nx, ny);
+                    parent[nIdx] = cy * COLS + cx;
+                    stamp[nIdx] = gen;
+                    queue[tail++] = nIdx;
                 }
             }
         }
@@ -3281,7 +3319,7 @@
 
             if (entity.isHero) {
                 // スタック検出：2秒以上同じ位置にいたら5秒間あくま部屋へ直行
-                const now = Date.now();
+                const now = gameTime; // P5-6 論理時刻（ポーズ中は進まない）
                 if (entity.lastMoveTime === undefined) {
                     entity.lastMoveTime = now;
                     entity.lastX = entity.x; entity.lastY = entity.y;
@@ -3388,6 +3426,10 @@
     const TARGET_FPS = 45;
     const FRAME_INTERVAL = 1000 / TARGET_FPS;
     let lastFrameTime = 0;
+    // P5-6 ゲーム内時計：非ポーズ時のみ Δt を積分するミリ秒カウンタ。ロジックが参照する
+    // 時刻をこれに一本化し、ポーズ中に壁時計だけが進む不整合（再開直後の一斉城直行・
+    // 即成体化）を解消する。視覚専用のDate.now()（レイスの揺らめき等）は対象外。
+    let gameTime = 0;
     let isFastMode = false;
     let isPaused = false;
     let gameMode = 'standard'; // 'standard' | 'hard'
@@ -3444,9 +3486,14 @@
             requestAnimationFrame(gameLoop);
             return;
         }
-        lastFrameTime = timestamp;
+        // P5-5 キャリー方式：lastFrameTime を interval ぶん繰り越すことで平均周期を
+        // 正確に interval へ一致させる（代入方式だとディスプレイ周期の格子に量子化され、
+        // 高リフレッシュ環境で早送りが実効的に遅くなる）。大きく遅延した場合は再同期。
+        if (timestamp - lastFrameTime > interval * 3) lastFrameTime = timestamp;
+        else lastFrameTime += interval;
 
         if (!isPaused) {
+            gameTime += interval; // P5-6 非ポーズ時のみ論理時刻を前進
             // 早送り時はACTION_THRESHOLDを60、通常は100
             const threshold = isFastMode ? 60 : ACTION_THRESHOLD;
 
@@ -3495,7 +3542,7 @@
                     agi:   Math.max(1, Math.floor((s.agi + rb.agi) / 2)),
                     range: s.range, isHero: false,
                     color: a.color, mtype: mt,
-                    isBaby: true, bornAt: Date.now(), fertile: false
+                    isBaby: true, bornAt: gameTime, fertile: false
                 });
                 monsters.push(baby);
                 sessionBreeds++;
@@ -3508,7 +3555,7 @@
         }
 
         // ちびモンスターの成長（BABY_GROW_MS 後に成体化・ショップで短縮可能）
-        const now = Date.now();
+        const now = gameTime; // P5-6 論理時刻
         const newborns = [];
         monsters = monsters.filter(m => {
             if (!m.isBaby) return true;
@@ -3852,7 +3899,7 @@
 
             // ちびの成長バー
             if (entity.isBaby) {
-                const progress = Math.min(1, (Date.now() - entity.bornAt) / BABY_GROW_MS);
+                const progress = Math.min(1, (gameTime - entity.bornAt) / BABY_GROW_MS);
                 const bw = 12, bh = 2, bx = cx - bw/2, by = cy + 8;
                 ctx.fillStyle = '#333'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
                 ctx.fillStyle = '#e91e96'; ctx.fillRect(bx, by, bw * progress, bh);

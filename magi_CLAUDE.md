@@ -159,7 +159,30 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
 
-## Recent Session Changes (2026-07-24)
+## Recent Session Changes (2026-07-24 その2：レバレッジを「預入モデルA」へ再設計)
+
+> **重要:** 下の「その1」で実装した**負債レバレッジ（D注入＋報酬×L逓減＋複利返済＋ρ駆動EV負スポーン）はプレイテストで廃止**。「借りた金しか賭けておらず精算がほぼ常にプラス＝賭けの緊張がない／複利の雪だるまが不快」との評価により、**自分の金を賭ける「預入モデルA」に作り直した**。設計思想の全経緯はメモリ `leverage-design.md`。
+
+### 預入モデルA（現行のハードモード経済）
+- モード選択のハード→`#hardConfig`: **預入 S**（スライダー, `LEV_MAX_STAKE=3000`）＋ **倍率 L**（ボタン `LEV_TIERS=[2,3,5,10]`）を選択。`startHardRun()`→`enterGameScreen('hard', S, L)`
+- **開始ゴールド = S×L（`levCapital()`）＝損益分岐＝最大損失**。討伐G・ダイヤは **×L**（`leverage.mult=L`）。**複利は撤廃**（`levRepayment`/`levRho`/`levMarginalDebt`/`levMultOf`/`levEarn*` および定数 `LEV_C/R/GRACE/LAMBDA/MAX_DEBT` を全削除）
+- **精算 `levSettle()`: ΔB = 手持ちgold − S×L** を引継ぎ銀行に加算。勝てば預入＋利益が戻り、負ければ最大 S×L を失う（gold=0で丁度 −S×L）。**マイナス持ち越し可＝清算・無限責任**
+- **🏳 撤退は「波の合間」（勇者不在時）のみ**（`retreatCashOut` で `heroes.some(h=>h.hp>0)` ガード。ボタンは在場時 dim＋「波の合間に」表示）。城陥落＝強制清算
+- **HUD `#levHUD`**: 🎯資本(損益分岐)・💹純益(gold−S×L)・状態（利益ゾーン/元本割れ）。リザルト `#resLevBox`: 預入S×L・開始資本・手持ち・純益ΔB
+- **停止圧力は「深いほど勇者が強い」で作る**（複利の代替）
+
+### 勇者の富スケールを `totalEarnedGold` 基準に変更
+- 前回 `gold` 基準で入れた富スケールを **`totalEarnedGold`（累計獲得G, `heroWealth`）** 基準に変更。理由: 開始資本S×L（現在gold）基準だと高レバレッジで wave1 即死＋spend-to-weaken 悪用。累計獲得なら wave1 は弱く、稼ぐほどランプし、高Lほど×L稼ぎで敵も速く強くなる＝高Lの自然なデメリット
+- 非怒り=`floor(1.5·√w)`、怒り=`floor(4·√w)`（`HERO_GOLD_SCALE`/`RAGE_GOLD_SCALE`）。√圧縮で爆発しない
+
+### 宝スポーンを深度駆動に
+- `levTreasureFactor()` を ρ駆動→**maxDepth 線形**（`DEPTH0=30`, `SLOPE=0.06`, `MAX=12`）。深いほど宝の山＝深追いの誘惑。EV負性は「深い＝勇者が強い＝死んで S×L を失う」で担保
+
+### 検証
+- node構文OK・div 162/162・全参照ID/関数存在・DOMスタブ全ロード・モデルA精算（勝ち+700/負け−1300/全損=−S×L/宝倍率 深度80×4・250×12）ロジック合格
+- **次段**: 実プレイでの体感較正（S/L刻み・宝の湧き・敵スケール）／Phase2で宝湧き口をレア度・アフィックス・インベントリ・時価売却へ
+
+## Recent Session Changes (2026-07-24 その1)
 
 作業ファイルは **`index.html`（git正典・GitHub接続済み）** に一本化。旧スナップショットは `archive/` へ退避。
 

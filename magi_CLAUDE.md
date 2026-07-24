@@ -160,6 +160,14 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
 
+## Recent Session Changes (2026-07-24 その10：宝物レア度分布刷新・効果拡張・宝石鉱脈レート)
+
+- **宝石鉱脈(8)ポップ率**: `extraOreAt` を深度比例に。`pGem = 0.005 × min(1, depth/1000)`（深度1000で標準0.5%）。generateRow で **ハードは2倍**（1000で1.0%）。`levTreasureFactor` は宝石鉱脈から切り離し闇水晶(pDark)のみに適用。
+- **レア度分布** `rollRarityIndex` 再設計: 深度0/500/1000のアンカーを線形補間（1000超頭打ち）。非伝説 並[80,60,40]良[15,25,35]稀[4,10,16]極[1,4,7]、**伝説は深度500未満0%・500で1%・1000で2%**、非伝説を100−伝説%に正規化。神は常に0。
+- **アフィックス拡張**（全モンスター適用）: 旧 atk/agi/hp は**キー据え置き**で表示名を「基礎攻撃/基礎敏捷性/基礎体力」に変更（加算）。新規 **mulAtk/mulAgi/mulHp**（攻撃/敏捷/体力倍率＝base[0,1]×レア度mult の小数%、`×(1+合計%/100)`）、**range**（射程＝攻撃可能距離、既定1→加算で遠隔攻撃可）、**sight**（索敵＝探知距離 entity.range に加算）。`rollAffixValue`（pct=小数2桁・0許容 / それ以外=整数最低1）を rollAffixes と evolveTreasure で共用。
+- **`effStat(mt)` 導入（C-5）**: `{atk,agi,hp,range,atkRange}` を「基礎(mstatsAt)＋装備加算(randBonus) ×装備倍率(equipMul)、range=基礎+索敵、atkRange=1+射程」で返す。**掘削召喚・繁殖(子)・成長・applyMonsterLevel の全経路をこれ経由に統一**。攻撃判定 `minDist <= (entity.atkRange||1)` で遠隔攻撃対応（勇者はatkRange未設定=1のまま近接）。装備倍率/射程/索敵は enterGameScreen で `equipMul/equipRange/equipSight` に確定。⚗パネル表示も effStat（攻/敏/HP/索/射、基礎超は黄色）。
+- 検証: verify.sh ✅ PASS（経路探索/sim不変）。実測 レア度(epilogue_rarity)・宝石鉱脈率(epilogue_gem)・effStat/遠隔(epilogue_affix) 合格。
+
 ## Recent Session Changes (2026-07-24 その9：レベル上限方式・ランダム強化廃止・開発コマンド)
 
 - **レベル上限（cap）方式に変更**: モンスターのレベルアップは「ダイヤ=上限解放 / ゴールド=実レベル」の二段。上限 `monsterCap`（初期5・最大 `MAX_LEVEL`=100・**恒久**、`magika_monstercaps`）を **1💎で+1**（`raiseCapDiamond`。旧 `levelUpDiamond` は廃止＝ダイヤで実レベルを上げるのをやめた）。ゲーム内ゴールドの `levelUp` は `monsterCap[mt]` までしか上げられず、到達時はメッセージ＋error音。`loadMonsterCaps()` は**旧セーブ救済**として `max(5, 既存レベル)` を保証。`enterGameScreen` で cap 読込＋実レベルを cap にクランプ。お買い物タブ＝「上限+1 💎1／Lv X ／上限 N/100」表示（非live時はストレージ値を参照＝タイトルからも正しい）。ゲーム内⚗パネルも上限表示・上限到達でロック。`resetCarryOver` は caps も削除。

@@ -2447,8 +2447,8 @@
         heroPower += powerGain;
 
         const isEnraged = (heroLevel % 10 === 0);
-        // 富スケールは累計獲得ゴールド基準（開始資本での即死回避＋自分で下げられない）
-        const heroWealth = Math.max(0, totalEarnedGold);
+        // 富スケールはハード（レバレッジ経済）限定。standardは従来の heroPower のみ＝気楽なまま
+        const heroWealth = leverage.active ? Math.max(0, totalEarnedGold) : 0;
         const enragedBonus = isEnraged ? Math.floor(RAGE_GOLD_SCALE * Math.sqrt(heroWealth)) : 0;
 
         // タイプ決定（怒りモード時は強制的に怒りタイプ）

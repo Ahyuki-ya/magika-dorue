@@ -1933,23 +1933,26 @@
     }
 
     // 深層限定鉱石の確率（既存の銅/苔の分布式には手を加えず、別ロールで上乗せ）
-    // 闇水晶(7): レイス解禁時のみ。深度100から出現し、深度300で12%上限まで線形上昇
-    // 宝石鉱脈(8): 深度20から出現。0.4%〜深度200で1.2%まで線形上昇
+    // 闇水晶(7): レイス解禁時のみ。深度100から出現し、深度300で12%上限まで線形上昇（後で調整予定）
+    // 宝石鉱脈(8): 深度20から出現。深度に比例し、深度1000で最大＝標準0.5%（ハードはgenerateRowで2倍＝1.0%）。
     function extraOreAt(y) {
         const depth = y - (SKY_LAYERS + 1);
         const dDark = Math.max(0, Math.min(1, (depth - 100) / 200));
         const pDark = shopData.wraith ? 0.12 * dDark : 0;
-        const dGem = Math.max(0, Math.min(1, (depth - 20) / 180));
-        const pGem = depth >= 20 ? 0.004 + 0.008 * dGem : 0;
+        const dGem = Math.max(0, Math.min(1, depth / 1000)); // 深度1000で最大
+        const pGem = depth >= 20 ? 0.005 * dGem : 0;         // 標準：深度1000で0.5%
         return { pDark, pGem };
     }
 
     function generateRow(y) {
         const { pCopper, pMoss } = oreProbAt(y);
         let { pDark, pGem } = extraOreAt(y);
-        // ハードのレバレッジ経済：最適点付近で良鉱、赤字ゾーンで宝の山が増える（EV負の誘惑）
+        // 闇水晶はハードのレバレッジ経済（maxDepth由来の宝倍率）で変調（後で議論）
         const tf = levTreasureFactor();
-        if (tf !== 1) { pDark = Math.min(0.4, pDark * tf); pGem = Math.min(0.4, pGem * tf); }
+        if (tf !== 1) pDark = Math.min(0.4, pDark * tf);
+        // 宝石鉱脈：ハードは標準の2倍（深度1000で 標準0.5% → ハード1.0%）
+        if (gameMode === 'hard') pGem *= 2;
+        pGem = Math.min(0.4, pGem);
         const row = [];
         for (let x = 0; x < COLS; x++) {
             // 深層鉱石は先行ロール（当選しなければ既存分布ロールへ）

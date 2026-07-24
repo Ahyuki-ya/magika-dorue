@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>2Dドット絵ダンジョン迎撃ゲーム</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #222;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        #dashboard {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        button:hover { background-color: #2980b9; }
+        canvas {
+            background-color: #ecf0f1;
+            border: 4px solid #555;
+            cursor: crosshair;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .legend {
+            margin-top: 10px;
+            display: flex;
+            gap: 15px;
+            font-size: 14px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .color-box {
+            display: inline-block;
+            width: 15px; height: 15px;
+            vertical-align: middle; margin-right: 5px;
+            border-radius: 2px;
+        }
+        .dot-box {
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="dashboard">
+        <h2>地下ダンジョン防衛線</h2>
+        <button onclick="spawnHero()">⚔️ 勇者をテスト召喚</button>
+        <div class="legend">
+            <span><div class="color-box dot-box" style="background:#3498db;"></div>勇者</span>
+            <span><div class="color-box dot-box" style="background:#2c3e50;"></div>石スライム</span>
+            <span><div class="color-box dot-box" style="background:#2ecc71;"></div>苔ゴブリン</span>
+            <span><div class="color-box" style="background:#95a5a6;"></div>普通の石</span>
+            <span><div class="color-box" style="background:#7f8c8d;"></div>苔石</span>
+            <span><div class="color-box" style="background:#795548;"></div>土層</span>
+            <span><div class="color-box" style="background:#87CEEB;"></div>空</span>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // グリッド設定
+    const COLS = 20;
+    const ROWS = 20;
+    const TILE_SIZE = 30; // 1マスのピクセルサイズ
+    canvas.width = COLS * TILE_SIZE;
+    canvas.height = ROWS * TILE_SIZE;
+
+    // ゲームデータ
+    let map = []; // 0: 空間, 1: 石, 2: 苔石, 3: 土(破壊不可), 4: 空
+    let heroes = [];
+    let monsters = [];
+    let isDragging = false;
+
+    // ダンジョンの入り口のX座標（中央）
+    const ENTRANCE_X = Math.floor(COLS / 2);
+
+    // マップ初期化
+    for (let y = 0; y < ROWS; y++) {
+        map[y] = [];
+        for (let x = 0; x < COLS; x++) {
+            if (y === 0) {
+                // y=0 は空の層
+                map[y][x] = 4;
+            } else if (y === 1) {
+                // y=1 は土層。ただし入り口部分は空間(0)
+                map[y][x] = (x === ENTRANCE_X) ? 0 : 3;
+            } else if (y === 2 && x === ENTRANCE_X) {
+                // 入り口の直下は空間を確保
+                map[y][x] = 0;
+            } else {
+                // 地下は8割が普通の石、2割が苔むした石
+                map[y][x] = Math.random() < 0.2 ? 2 : 1;
+            }
+        }
+    }
+
+    // 操作イベント
+    canvas.addEventListener('mousedown', (e) => { isDragging = true; dig(e); });
+    canvas.addEventListener('mousemove', (e) => { if (isDragging) dig(e); });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+    canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+    // 掘削＆召喚処理
+    function dig(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+        const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+
+        if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+
+        if (map[y][x] === 1) {
+            map[y][x] = 0;
+            monsters.push({ x: x, y: y, hp: 3, maxHp: 3, atk: 1, agi: 1, cd: 0, color: '#2c3e50' });
+        } else if (map[y][x] === 2) {
+            map[y][x] = 0;
+            monsters.push({ x: x, y: y, hp: 2, maxHp: 2, atk: 1, agi: 2, cd: 0, color: '#2ecc71' });
+        }
+    }
+
+    // 勇者召喚 (空の一番左からスポーン)
+    function spawnHero() {
+        // 重複スポーン防止: 初期位置に誰かいる場合は少し待つ想定ですが、今回は単純に生成
+        heroes.push({ x: 0, y: 0, hp: 5, maxHp: 5, atk: 5, agi: 5, cd: 0, color: '#3498db' });
+    }
+
+    // 1分(60000ms)に1回、自動で勇者が攻めてくる
+    setInterval(spawnHero, 60000);
+
+    const ACTION_THRESHOLD = 60;
+
+    // 指定座標のマップが移動可能か判定（空(4)または空間(0)）
+    function isPassable(x, y) {
+        return (x >= 0 && x < COLS && y >= 0 && y < ROWS && (map[y][x] === 0 || map[y][x] === 4));
+    }
+
+    // 指定座標にエンティティが存在するか判定（排他制御）
+    function getEntityAt(x, y) {
+        let h = heroes.find(e => e.x === x && e.y === y);
+        if (h) return h;
+        return monsters.find(e => e.x === x && e.y === y);
+    }
+
+    // マップが通行可能であり、かつ他のエンティティがいないか
+    function canMoveTo(x, y) {
+        return isPassable(x, y) && !getEntityAt(x, y);
+    }
+
+    function updateEntity(entity, enemies, isHero) {
+        entity.cd += entity.agi;
+        if (entity.cd >= ACTION_THRESHOLD) {
+            entity.cd -= ACTION_THRESHOLD;
+
+            let target = null;
+            let minDist = Infinity;
+
+            // 最も近い敵を探す（マンハッタン距離）
+            enemies.forEach(enemy => {
+                const dist = Math.abs(enemy.x - entity.x) + Math.abs(enemy.y - entity.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    target = enemy;
+                }
+            });
+
+            if (target && minDist === 1) {
+                // 距離1（隣接）の場合は攻撃
+                target.hp -= entity.atk;
+            } else if (target) {
+                // ターゲットへ向かって移動（障害物・他MOBを迂回）
+                const dx = target.x - entity.x;
+                const dy = target.y - entity.y;
+                let stepX = Math.sign(dx);
+                let stepY = Math.sign(dy);
+
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    if (stepX !== 0 && canMoveTo(entity.x + stepX, entity.y)) {
+                        entity.x += stepX;
+                    } else if (stepY !== 0 && canMoveTo(entity.x, entity.y + stepY)) {
+                        entity.y += stepY;
+                    }
+                } else {
+                    if (stepY !== 0 && canMoveTo(entity.x, entity.y + stepY)) {
+                        entity.y += stepY;
+                    } else if (stepX !== 0 && canMoveTo(entity.x + stepX, entity.y)) {
+                        entity.x += stepX;
+                    }
+                }
+            } else if (isHero) {
+                // 敵がいない場合の勇者のナビゲーション
+                if (entity.y === 0) {
+                    // 空にいる場合は入り口を目指す
+                    if (entity.x < ENTRANCE_X && canMoveTo(entity.x + 1, entity.y)) {
+                        entity.x++;
+                    } else if (entity.x === ENTRANCE_X && canMoveTo(entity.x, entity.y + 1)) {
+                        entity.y++;
+                    }
+                } else {
+                    // ダンジョン内ではとりあえず下へ直進を試みる
+                    if (canMoveTo(entity.x, entity.y + 1)) {
+                        entity.y++;
+                    }
+                }
+            }
+        }
+    }
+
+    // メインゲームループ
+    function gameLoop() {
+        heroes.forEach(h => updateEntity(h, monsters, true));
+        monsters.forEach(m => updateEntity(m, heroes, false));
+
+        // 死亡判定
+        heroes = heroes.filter(h => h.hp > 0);
+        monsters = monsters.filter(m => m.hp > 0);
+
+        // 描画処理
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // マップ描画
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (map[y][x] === 1) {
+                    ctx.fillStyle = '#95a5a6'; // 普通の石
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#7f8c8d';
+                    ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 2) {
+                    ctx.fillStyle = '#7f8c8d'; // 苔むした石
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#555';
+                    ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 3) {
+                    ctx.fillStyle = '#795548'; // 破壊不可の土
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#5D4037';
+                    ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 4) {
+                    ctx.fillStyle = '#87CEEB'; // 空
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+
+        // エンティティ（点）とHPバーの描画
+        function drawEntity(entity) {
+            // 中心座標を計算して円を描画
+            const centerX = entity.x * TILE_SIZE + TILE_SIZE / 2;
+            const centerY = entity.y * TILE_SIZE + TILE_SIZE / 2;
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 6, 0, Math.PI * 2); // 半径6pxの点
+            ctx.fillStyle = entity.color;
+            ctx.fill();
+            
+            // HPバー (少し小さめに調整)
+            const barWidth = 14;
+            const barHeight = 3;
+            const barX = centerX - barWidth / 2;
+            const barY = centerY - 12;
+
+            ctx.fillStyle = 'red';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            
+            ctx.fillStyle = '#2ecc71';
+            const hpRatio = Math.max(0, entity.hp) / entity.maxHp;
+            ctx.fillRect(barX, barY, barWidth * hpRatio, barHeight);
+        }
+
+        monsters.forEach(drawEntity);
+        heroes.forEach(drawEntity);
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+</script>
+</body>
+</html>

@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Magika・Dorue γ版</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #000; color: #fff;
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; position: relative;
+        }
+        .screen {
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center;
+            width: 100%; height: 100%;
+        }
+        #startScreen { display: flex; background-color: #111; }
+        #gameScreen {
+            flex-direction: row; justify-content: center; align-items: flex-start;
+            padding-top: 15px; gap: 14px;
+            background-color: #222; position: relative;
+            height: 100%; box-sizing: border-box;
+        }
+        #gameCenter {
+            display: flex; flex-direction: column; align-items: center;
+            flex-shrink: 0; position: relative;
+        }
+        
+        .title { font-size: 4rem; margin-bottom: 30px; color: #f1c40f; text-shadow: 2px 2px #8e44ad, 4px 4px #2c3e50; letter-spacing: 5px; }
+        .gameover-title { font-size: 4rem; color: #e74c3c; margin-bottom: 20px; }
+
+        #dashboard { margin-bottom: 10px; text-align: center; z-index: 10; flex-shrink: 0; }
+        .btn-group { margin-bottom: 8px; }
+        button {
+            padding: 8px 16px; font-size: 14px; cursor: pointer;
+            color: white; border: none; border-radius: 5px; font-weight: bold;
+            margin: 0 4px; transition: 0.2s;
+        }
+        .btn-start { background-color: #e67e22; font-size: 1.5rem; padding: 15px 40px; border: 2px solid #d35400; }
+        .btn-start:hover { background-color: #d35400; }
+        .btn-castle { background-color: #8e44ad; padding: 10px 20px; font-size: 16px;}
+        .btn-castle:hover { background-color: #732d91; }
+        .btn-castle.active { background-color: #e74c3c; box-shadow: 0 0 10px #e74c3c; }
+        
+        #canvasContainer {
+            width: 600px; height: 600px; 
+            overflow-y: auto; overflow-x: hidden;
+            border: 4px solid #555; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            position: relative; background-color: #ecf0f1;
+        }
+        #canvasContainer::-webkit-scrollbar { width: 12px; }
+        #canvasContainer::-webkit-scrollbar-track { background: #222; }
+        #canvasContainer::-webkit-scrollbar-thumb { background: #555; border-radius: 6px; }
+        #canvasContainer::-webkit-scrollbar-thumb:hover { background: #777; }
+
+        canvas { display: block; cursor: crosshair; }
+
+        .legend {
+            margin-top: 5px; display: flex; gap: 15px; font-size: 13px;
+            justify-content: center; flex-wrap: wrap; max-width: 600px;
+        }
+        .color-box {
+            display: inline-block; width: 12px; height: 12px;
+            vertical-align: middle; margin-right: 4px; border-radius: 2px;
+        }
+        .dot-box { border-radius: 50%; }
+        #message { height: 20px; color: #e74c3c; font-weight: bold; margin-bottom: 5px; }
+
+        #goldUI {
+            position: absolute; top: 0; right: 0;
+            font-size: 18px; font-weight: bold; color: #f1c40f;
+            background: rgba(0, 0, 0, 0.75); padding: 6px 12px;
+            border-radius: 6px; border: 1px solid #f39c12; z-index: 100;
+        }
+        #heroStatsUI {
+            position: absolute; top: 0; left: 0;
+            font-size: 12px; font-weight: bold; color: #ecf0f1;
+            background: rgba(0, 0, 0, 0.75); padding: 8px 12px;
+            border-radius: 6px; border: 1px solid #3498db; z-index: 100;
+            text-align: left; min-width: 130px;
+        }
+        #heroStatsUI .hero-lv-label {
+            font-size: 10px; color: #85c1e9; letter-spacing: 1px; margin-bottom: 3px;
+        }
+        #heroStatsUI .hero-lv-value {
+            font-size: 18px; color: #f1c40f; font-weight: bold;
+            text-shadow: 0 0 8px rgba(241,196,15,0.5);
+        }
+        #heroStatsUI .hero-stat-row {
+            display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
+        }
+        #heroStatsUI .hero-stat-chip {
+            background: rgba(255,255,255,0.07); border-radius: 3px;
+            padding: 1px 5px; font-size: 11px; color: #bdc3c7;
+        }
+        #heroStatsUI .hero-stat-chip span { color: #e74c3c; font-weight: bold; }
+
+        /* ===== レベルアップパネル ===== */
+        #levelPanel {
+            width: 180px; flex-shrink: 0;
+            background: rgba(0,0,0,0.6); border: 1px solid #444;
+            border-radius: 8px; padding: 10px 8px;
+            display: flex; flex-direction: column; gap: 10px;
+            align-self: flex-start; margin-top: 0;
+            max-height: 90vh; overflow-y: auto;
+        }
+        #levelPanel::-webkit-scrollbar { width: 4px; }
+        #levelPanel::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+        .lv-panel-title {
+            text-align: center; font-size: 11px; color: #aaa;
+            letter-spacing: 2px; border-bottom: 1px solid #333; padding-bottom: 6px;
+        }
+        .lv-card {
+            background: rgba(255,255,255,0.04); border: 1px solid #333;
+            border-radius: 6px; padding: 8px 8px 6px;
+        }
+        .lv-card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 6px;
+        }
+        .lv-card-name { font-size: 12px; font-weight: bold; }
+        .lv-card-name.slime  { color: #bdc3c7; }
+        .lv-card-name.goblin { color: #2ecc71; }
+        .lv-card-name.golem  { color: #e59866; }
+        .lv-badge {
+            font-size: 11px; font-weight: bold; color: #f1c40f;
+            background: rgba(241,196,15,0.15); border: 1px solid rgba(241,196,15,0.3);
+            border-radius: 3px; padding: 1px 6px;
+        }
+        .lv-bar-track { display: flex; gap: 3px; flex: 1; }
+        .lv-pip {
+            flex: 1; height: 10px; border-radius: 2px;
+            background: #2a2a2a; border: 1px solid #3a3a3a; transition: background 0.25s;
+        }
+        .lv-pip.filled.slime  { background: #95a5a6; border-color: #bdc3c7; box-shadow: 0 0 3px rgba(189,195,199,0.4); }
+        .lv-pip.filled.goblin { background: #27ae60; border-color: #2ecc71; box-shadow: 0 0 3px rgba(46,204,113,0.4); }
+        .lv-pip.filled.golem  { background: #ca6f1e; border-color: #e59866; box-shadow: 0 0 3px rgba(229,152,102,0.4); }
+        .lv-controls {
+            display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+        }
+        .lv-pm-btn {
+            width: 26px; height: 26px; flex-shrink: 0;
+            font-size: 16px; line-height: 1; font-weight: bold;
+            border-radius: 4px; cursor: pointer; border: 1px solid transparent;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.15s; color: white; padding: 0;
+        }
+        .lv-pm-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+        .lv-minus.slime  { background: #3d4f56; border-color: #566573; }
+        .lv-minus.slime:hover:not(:disabled)  { background: #566573; }
+        .lv-minus.goblin { background: #1a5c34; border-color: #1e8449; }
+        .lv-minus.goblin:hover:not(:disabled) { background: #1e8449; }
+        .lv-minus.golem  { background: #5c330e; border-color: #784212; }
+        .lv-minus.golem:hover:not(:disabled)  { background: #784212; }
+        .lv-plus.slime  { background: #566573; border-color: #95a5a6; }
+        .lv-plus.slime:hover:not(:disabled)  { background: #717d7e; }
+        .lv-plus.goblin { background: #1e8449; border-color: #2ecc71; }
+        .lv-plus.goblin:hover:not(:disabled) { background: #27ae60; }
+        .lv-plus.golem  { background: #784212; border-color: #e59866; }
+        .lv-plus.golem:hover:not(:disabled)  { background: #a04000; }
+        .lv-cost-hint {
+            font-size: 10px; color: #777; text-align: center;
+            margin-bottom: 4px; min-height: 13px;
+        }
+        .lv-stats-grid {
+            display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 4px;
+        }
+        .lv-stats-grid .hero-stat-chip {
+            background: rgba(255,255,255,0.07); border-radius: 3px;
+            padding: 1px 5px; font-size: 10px; color: #bdc3c7;
+        }
+        .lv-stats-grid .hero-stat-chip span { color: #e74c3c; font-weight: bold; }
+        .lv-rand-btn {
+            width: 100%; padding: 4px 0; font-size: 10px; margin-top: 5px;
+            border-radius: 4px; cursor: pointer; border: 1px dashed;
+            font-weight: bold; transition: 0.15s; color: white; background: transparent;
+        }
+        .lv-rand-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .lv-rand-btn.slime  { border-color: #717d7e; color: #bdc3c7; }
+        .lv-rand-btn.slime:hover:not(:disabled)  { background: rgba(149,165,166,0.15); }
+        .lv-rand-btn.goblin { border-color: #27ae60; color: #2ecc71; }
+        .lv-rand-btn.goblin:hover:not(:disabled) { background: rgba(46,204,113,0.15); }
+        .lv-rand-btn.golem  { border-color: #ca6f1e; color: #e59866; }
+        .lv-rand-btn.golem:hover:not(:disabled)  { background: rgba(229,152,102,0.15); }
+        .lv-btn-row .lv-btn { flex: 1; }
+        .lv-btn-down { flex: 0 0 32px !important; background: #4a4a4a !important; font-size: 13px; }
+        .lv-btn-down:hover:not(:disabled) { background: #666 !important; }
+
+        .result-box {
+            background: rgba(0, 0, 0, 0.5); border: 2px solid #555;
+            padding: 20px 40px; border-radius: 10px; margin-bottom: 30px;
+            text-align: center; font-size: 1.5rem; line-height: 1.8;
+        }
+
+        /* ===== リザルト画面 ===== */
+        #gameOverScreen {
+            background: radial-gradient(ellipse at 50% 30%, #1a0a2e 0%, #0d0d0d 70%);
+        }
+        .result-container {
+            display: flex; flex-direction: column; align-items: center;
+            width: 100%; max-width: 480px; padding: 40px 20px;
+        }
+        .result-header { text-align: center; margin-bottom: 36px; }
+        .result-icon { font-size: 3.5rem; margin-bottom: 10px; animation: floatIcon 2.5s ease-in-out infinite; }
+        @keyframes floatIcon {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .result-title {
+            font-size: 2.8rem; font-weight: bold; letter-spacing: 4px;
+            color: #e74c3c;
+            text-shadow: 0 0 20px rgba(231,76,60,0.6), 2px 2px 0 #8e1a0e;
+            margin: 0 0 10px;
+        }
+        .result-subtitle {
+            font-size: 0.95rem; color: #8e8e9e; margin: 0; letter-spacing: 1px;
+        }
+        .result-stats {
+            width: 100%; background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; padding: 8px 0; margin-bottom: 36px;
+            backdrop-filter: blur(4px);
+        }
+        .result-stat-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 28px; gap: 12px;
+        }
+        .result-stat-sub { opacity: 0.7; padding: 12px 28px; }
+        .result-stat-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 0 20px; }
+        .result-stat-label { font-size: 0.95rem; color: #a0a0b8; letter-spacing: 1px; flex: 1; }
+        .result-stat-value {
+            font-size: 2rem; font-weight: bold; color: #f1c40f;
+            text-shadow: 0 0 10px rgba(241,196,15,0.5);
+            min-width: 60px; text-align: right;
+        }
+        .result-stat-value-small { font-size: 1.3rem; color: #bdc3c7; text-shadow: none; }
+        .result-stat-unit { font-size: 0.85rem; color: #6c6c80; min-width: 16px; }
+        .btn-result {
+            font-size: 1rem; padding: 14px 40px; letter-spacing: 2px;
+            background: linear-gradient(135deg, #8e44ad, #6c3483);
+            border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 4px 20px rgba(142,68,173,0.4);
+            transition: all 0.2s;
+        }
+        .btn-result:hover {
+            background: linear-gradient(135deg, #9b59b6, #7d3c98);
+            box-shadow: 0 6px 24px rgba(142,68,173,0.6);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="startScreen" class="screen">
+        <h1 class="title">Magika・Dorue γ版</h1>
+        <div id="carryOverUI" style="margin-bottom:18px; font-size:1.1rem; color:#f1c40f; background:rgba(0,0,0,0.5); padding:10px 28px; border-radius:8px; border:1px solid #f39c12; display:none;">
+            💰 引継ぎゴールド: <span id="carryOverAmount">0</span> G
+        </div>
+        <button class="btn-start" onclick="enterGameScreen()">ゲーム開始</button>
+        <button class="btn-start" onclick="resetCarryOver()" style="margin-top:10px; font-size:1rem; padding:10px 28px; background:#555; border-color:#444;">🗑 引継ぎリセット</button>
+    </div>
+
+    <div id="gameScreen" class="screen">
+        <div id="gameCenter">
+            <div id="heroStatsUI">
+                <div class="hero-lv-label">⚔ 勇者</div>
+                <div>Lv. <span class="hero-lv-value" id="hLv">1</span> <span id="hType" style="font-size:10px; color:#aaa; letter-spacing:1px;"></span></div>
+                <div class="hero-stat-row">
+                    <div class="hero-stat-chip">攻 <span id="hAtk">-</span></div>
+                    <div class="hero-stat-chip">敏 <span id="hAgi">-</span></div>
+                    <div class="hero-stat-chip">HP <span id="hHp">-</span></div>
+                </div>
+                <div style="font-size:10px; color:#f1c40f; margin-top:4px;">🕳 深度 <span id="depthUI">0</span> m</div>
+            </div>
+            <div id="goldUI">💰 <span id="goldAmount">50</span> G</div>
+            <button id="speedBtn" onclick="toggleSpeed()" style="position:absolute; top:36px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">▶▶ 早送り</button>
+
+            <div id="dashboard">
+                <div class="btn-group">
+                    <button class="btn-castle" id="castleBtn" onclick="toggleCastleMode()">🏰 あくま部屋作成(0 Gold)</button>
+                </div>
+                <div id="message"></div>
+                <div class="legend">
+                    <span><div class="color-box dot-box" style="background:#3498db;"></div>勇者</span>
+                    <span><div class="color-box dot-box" style="background:#95a5a6;"></div>石スライム</span>
+                    <span><div class="color-box dot-box" style="background:#2ecc71;"></div>苔ゴブリン</span>
+                    <span><div class="color-box dot-box" style="background:#d35400;"></div>銅ゴーレム</span><br>
+                    <span><div class="color-box" style="background:#8e44ad;"></div>あくま部屋</span>
+                    <span><div class="color-box" style="background:#95a5a6;"></div>石</span>
+                    <span><div class="color-box" style="background:#7b8d41;"></div>苔石</span>
+                    <span><div class="color-box" style="background:#9A6229;"></div>銅</span>
+                </div>
+            </div>
+
+            <div id="canvasContainer">
+                <canvas id="gameCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- レベルアップパネル -->
+        <div id="levelPanel">
+            <div class="lv-panel-title">⚗ 強化パネル</div>
+
+            <!-- 石スライム -->
+            <div class="lv-card">
+                <div class="lv-card-header">
+                    <span class="lv-card-name slime">🪨 石スライム</span>
+                    <span class="lv-badge" id="slime-lv-badge">Lv.1</span>
+                </div>
+                <div class="lv-controls">
+                    <button class="lv-pm-btn lv-minus slime" id="slime-btn-down" onclick="levelDown('slime')">－</button>
+                    <div class="lv-bar-track" id="slime-bar"></div>
+                    <button class="lv-pm-btn lv-plus slime" id="slime-btn" onclick="levelUp('slime')">＋</button>
+                </div>
+                <div class="lv-cost-hint" id="slime-cost"></div>
+                <div class="lv-stats-grid" id="slime-stats"></div>
+                <button class="lv-rand-btn slime" id="slime-rand-btn" onclick="randomUpgrade('slime')">🎲 5G ランダム強化</button>
+            </div>
+
+            <!-- 苔ゴブリン -->
+            <div class="lv-card">
+                <div class="lv-card-header">
+                    <span class="lv-card-name goblin">🌿 苔ゴブリン</span>
+                    <span class="lv-badge" id="goblin-lv-badge">Lv.1</span>
+                </div>
+                <div class="lv-controls">
+                    <button class="lv-pm-btn lv-minus goblin" id="goblin-btn-down" onclick="levelDown('goblin')">－</button>
+                    <div class="lv-bar-track" id="goblin-bar"></div>
+                    <button class="lv-pm-btn lv-plus goblin" id="goblin-btn" onclick="levelUp('goblin')">＋</button>
+                </div>
+                <div class="lv-cost-hint" id="goblin-cost"></div>
+                <div class="lv-stats-grid" id="goblin-stats"></div>
+                <button class="lv-rand-btn goblin" id="goblin-rand-btn" onclick="randomUpgrade('goblin')">🎲 5G ランダム強化</button>
+            </div>
+
+            <!-- 銅ゴーレム -->
+            <div class="lv-card">
+                <div class="lv-card-header">
+                    <span class="lv-card-name golem">🟤 銅ゴーレム</span>
+                    <span class="lv-badge" id="golem-lv-badge">Lv.1</span>
+                </div>
+                <div class="lv-controls">
+                    <button class="lv-pm-btn lv-minus golem" id="golem-btn-down" onclick="levelDown('golem')">－</button>
+                    <div class="lv-bar-track" id="golem-bar"></div>
+                    <button class="lv-pm-btn lv-plus golem" id="golem-btn" onclick="levelUp('golem')">＋</button>
+                </div>
+                <div class="lv-cost-hint" id="golem-cost"></div>
+                <div class="lv-stats-grid" id="golem-stats"></div>
+                <button class="lv-rand-btn golem" id="golem-rand-btn" onclick="randomUpgrade('golem')">🎲 5G ランダム強化</button>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <div id="gameOverScreen" class="screen">
+        <div class="result-container">
+            <div class="result-header">
+                <div class="result-icon">💀</div>
+                <h1 class="result-title">TO BE CONTINUED...</h1>
+                <p class="result-subtitle">あくま部屋が勇者に破壊された。次の拠点はどこにしよう。</p>
+            </div>
+
+            <div class="result-stats">
+                <div class="result-stat-item">
+                    <span class="result-stat-label">⚔️ 討伐した勇者</span>
+                    <span class="result-stat-value" id="resHeroes">0</span>
+                    <span class="result-stat-unit">人</span>
+                </div>
+                <div class="result-stat-divider"></div>
+                <div class="result-stat-item">
+                    <span class="result-stat-label">💰 稼いだゴールド</span>
+                    <span class="result-stat-value" id="resEarnedGold">0</span>
+                    <span class="result-stat-unit">G</span>
+                </div>
+                <div class="result-stat-divider"></div>
+                <div class="result-stat-item">
+                    <span class="result-stat-label">🕳 最大深度</span>
+                    <span class="result-stat-value" id="resDepth" style="color:#f1c40f;">0</span>
+                    <span class="result-stat-unit">m</span>
+                </div>
+                    <span class="result-stat-value result-stat-value-small" id="resFinalGold">0</span>
+                    <span class="result-stat-unit">G</span>
+                </div>
+                <div class="result-stat-divider"></div>
+                <div class="result-stat-item">
+                    <span class="result-stat-label">📦 累積引継ぎゴールド</span>
+                    <span class="result-stat-value" id="resCarryOver" style="color:#2ecc71;">0</span>
+                    <span class="result-stat-unit">G</span>
+                </div>
+                <div class="result-stat-divider"></div>
+                <div class="result-stat-item result-stat-sub">
+                    <span class="result-stat-label">⚗ 引継ぎレベル</span>
+                    <span class="result-stat-value result-stat-value-small" id="resMonsterLevels" style="color:#2ecc71;">-</span>
+                </div>
+            </div>
+
+            <button class="btn-start btn-result" onclick="location.reload()">🏠 タイトルへ戻る</button>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const msgDiv = document.getElementById('message');
+    const castleBtn = document.getElementById('castleBtn');
+    const goldSpan = document.getElementById('goldAmount');
+    
+    const hAtkSpan = document.getElementById('hAtk');
+    const hAgiSpan = document.getElementById('hAgi');
+    const hHpSpan = document.getElementById('hHp');
+    const hLvSpan  = document.getElementById('hLv');
+
+    // ===== レベルシステム =====
+    // フィボナッチコスト（初期値5G）: Lv1→2:5G, 2→3:8G, 3→4:13G, 4→5:21G
+    const LV_COSTS = [0, 5, 8, 13, 21]; // index=現在Lv
+
+    const MONSTER_STATS = {
+        slime: {
+            atk:   [1,1,2,2,4],
+            agi:   [1,2,2,2,3],
+            hp:    [3,4,4,5,6],
+            range: [4,4,4,4,4]
+        },
+        goblin: {
+            atk:   [1,2,3,3,4],
+            agi:   [2,3,4,5,7],
+            hp:    [2,2,2,3,4],
+            range: [10,10,10,10,10]
+        },
+        golem: {
+            atk:   [2,3,3,3,4],
+            agi:   [1,1,2,2,2],
+            hp:    [4,6,7,8,10],
+            range: [3,4,4,4,4]
+        }
+    };
+
+    const monsterLevels = { slime: 1, goblin: 1, golem: 1 };
+    // セッション限定ランダムボーナス（引継ぎなし）
+    const randBonus = { slime: {atk:0,agi:0,hp:0}, goblin: {atk:0,agi:0,hp:0}, golem: {atk:0,agi:0,hp:0} };
+    const randCount = { slime: 0, goblin: 0, golem: 0 };
+    let heroGold = 0; // 勇者の内部ゴールド（画面非表示） // 強化回数（費用計算用）
+
+    // ランダム強化の確率テーブル（atk/agi/hp）
+    const RAND_WEIGHTS = {
+        slime:  [1, 1, 1],        // 均等
+        goblin: [3, 3, 1],        // 攻・敏重め
+        golem:  [1, 1, 4]         // 耐久重め
+    };
+
+    function randomUpgrade(mt) {
+        const RAND_BASE_COST = 5;
+        const cost = RAND_BASE_COST + randCount[mt];
+        if (gold < cost) {
+            msgDiv.innerText = `ゴールドが足りません！(必要: ${cost}G)`;
+            setTimeout(() => { if(msgDiv.innerText.includes('足りません')) msgDiv.innerText = ''; }, 1500);
+            return;
+        }
+        gold -= cost;
+        randCount[mt]++;
+        updateGoldUI();
+
+        // 重み付き抽選
+        const w = RAND_WEIGHTS[mt];
+        const total = w[0] + w[1] + w[2];
+        const roll = Math.random() * total;
+        let stat;
+        if (roll < w[0]) stat = 'atk';
+        else if (roll < w[0] + w[1]) stat = 'agi';
+        else stat = 'hp';
+
+        randBonus[mt][stat]++;
+
+        // 既存モンスターに即時反映
+        const idx = monsterLevels[mt] - 1;
+        const s = MONSTER_STATS[mt];
+        monsters.forEach(m => {
+            if (m.mtype !== mt) return;
+            m.atk   = s.atk[idx]   + randBonus[mt].atk;
+            m.agi   = s.agi[idx]   + randBonus[mt].agi;
+            m.maxHp = s.hp[idx]    + randBonus[mt].hp;
+            m.hp    = Math.min(m.hp + (stat === 'hp' ? 1 : 0), m.maxHp);
+            m.range = s.range[idx];
+        });
+
+        const statName = stat === 'atk' ? '攻撃力' : stat === 'agi' ? '敏捷性' : '耐久力';
+        spawnFloatingText(Math.floor(COLS/2), Math.floor(ROWS/4), `${statName} +1!`, '#f39c12');
+        updateLevelPanel();
+    }
+    let heroLevel = 1;
+    let heroPower = 0; // 勇者総合力（atk+agi+hp の合計）
+    
+    const COLS = 20;
+    const INITIAL_ROWS = 25;
+    const TILE_SIZE = 30;
+    let ROWS = INITIAL_ROWS; // 動的に増える
+
+    canvas.width = COLS * TILE_SIZE;
+    canvas.height = ROWS * TILE_SIZE;
+
+    // ゲーム内変数
+    let map = []; 
+    let heroes = [];
+    let monsters = [];
+    let particles = [];
+    let floatingTexts = [];
+    let isDragging = false;
+    let isPlacingCastle = false;
+    let castlePos = null;
+    let castleHp = 10;
+    const CASTLE_MAX_HP = 10;
+    let isGameRunning = false;
+    
+    // リソース＆リザルト用変数
+    let gold = 50; 
+    let defeatedHeroesCount = 0;
+    let totalEarnedGold = 0;
+    
+    let isFirstCastlePlaced = false;
+    let isWaveStarted = false;
+    let heroTimerId = null;
+
+    let heroBaseAtk = 5;
+    let heroBaseAgi = 5;
+    let heroBaseHp = 10;
+    const HERO_SEARCH_RANGE = 20;
+
+    let maxDepth = 0;
+    const DIG_RANGE_BELOW_CASTLE = 20;
+    const ENTRANCE_X = Math.floor(COLS / 2);
+    const SKY_LAYERS = 2;
+
+    function generateRow(y) {
+        const d = Math.min(1.0, (y - SKY_LAYERS) / 60);
+        const row = [];
+        for (let x = 0; x < COLS; x++) {
+            const r = Math.random();
+            const pCopper = 0.33 * d;
+            const pMoss   = 0.05 + 0.15 * d;
+            if      (r < pCopper)          row.push(6);
+            else if (r < pCopper + pMoss)  row.push(2);
+            else                           row.push(1);
+        }
+        return row;
+    }
+
+    function expandMap(targetRow) {
+        while (map.length <= targetRow) {
+            map.push(generateRow(map.length));
+        }
+        ROWS = map.length;
+        canvas.height = ROWS * TILE_SIZE;
+        maxDepth = Math.max(maxDepth, ROWS - INITIAL_ROWS);
+        document.getElementById('depthUI').innerText = maxDepth;
+    }
+
+    function generateMap() {
+        ROWS = INITIAL_ROWS;
+        canvas.height = ROWS * TILE_SIZE;
+        map = [];
+        for (let y = 0; y < INITIAL_ROWS; y++) {
+            map[y] = [];
+            for (let x = 0; x < COLS; x++) {
+                if (y < SKY_LAYERS) { map[y][x] = 4; }
+                else if (y === SKY_LAYERS) { map[y][x] = (x === ENTRANCE_X) ? 0 : 3; }
+                else if (y === SKY_LAYERS + 1 && x === ENTRANCE_X) { map[y][x] = 0; }
+                else { map[y][x] = 1; }
+            }
+        }
+
+        const undergroundRows = INITIAL_ROWS - SKY_LAYERS - 1;
+
+        for (let y = SKY_LAYERS + 1; y < INITIAL_ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (y === SKY_LAYERS + 1 && x === ENTRANCE_X) continue;
+                
+                let d = (y - (SKY_LAYERS + 1)) / (undergroundRows - 1); 
+                if (undergroundRows <= 1) d = 1.0;
+
+                let pCopper = 0.33 * d;
+                let pMossSeed = 0.05 + 0.15 * d;
+
+                let r = Math.random();
+                if (r < pCopper) {
+                    map[y][x] = 6; 
+                } else if (r < pCopper + pMossSeed) {
+                    map[y][x] = 2; 
+                }
+            }
+        }
+
+        let newMap = map.map(row => [...row]);
+        for (let y = SKY_LAYERS + 1; y < INITIAL_ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (map[y][x] === 1) { 
+                    let mossNeighbors = 0;
+                    const dirs = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+                    for(let dir of dirs) {
+                        let nx = x + dir[0], ny = y + dir[1];
+                        if(nx >= 0 && nx < COLS && ny >= SKY_LAYERS+1 && ny < INITIAL_ROWS) {
+                            if(map[ny][nx] === 2) mossNeighbors++;
+                        }
+                    }
+                    if (mossNeighbors >= 2 && Math.random() < 0.6) {
+                        newMap[y][x] = 2;
+                    }
+                }
+            }
+        }
+        map = newMap;
+    }
+
+    function updateGoldUI() { goldSpan.innerText = gold; updateLevelPanel(); }
+    
+    function updateHeroStatsUI(isEnraged, heroType) {
+        hLvSpan.innerText = heroLevel;
+        const ui = document.getElementById('heroStatsUI');
+        const typeSpan = document.getElementById('hType');
+
+        if (isEnraged) {
+            ui.style.borderColor = '#e74c3c';
+            ui.style.background = 'rgba(60,0,0,0.8)';
+        } else {
+            ui.style.borderColor = '#3498db';
+            ui.style.background = 'rgba(0,0,0,0.75)';
+        }
+
+        const typeLabels = {
+            normal: '普通', attack: '攻撃', defense: '防御',
+            speed: 'スピード', rage: '怒り'
+        };
+        const typeColors = {
+            normal: '#aaa', attack: '#e74c3c', defense: '#3498db',
+            speed: '#2ecc71', rage: '#e67e22'
+        };
+        if (heroType) {
+            typeSpan.innerText = `[${typeLabels[heroType]}]`;
+            typeSpan.style.color = typeColors[heroType];
+        }
+
+        if (heroes.length > 0) {
+            hAtkSpan.innerText = heroes[0].atk;
+            hAgiSpan.innerText = heroes[0].agi;
+            hHpSpan.innerText  = heroes[0].maxHp;
+        } else {
+            hAtkSpan.innerText = heroBaseAtk;
+            hAgiSpan.innerText = heroBaseAgi;
+            hHpSpan.innerText  = heroBaseHp;
+        }
+    }
+
+    // レベルパネルUI更新
+    function updateLevelPanel() {
+        ['slime','goblin','golem'].forEach(mt => {
+            const lv = monsterLevels[mt];
+            const stats = MONSTER_STATS[mt];
+
+            // バッジ
+            document.getElementById(`${mt}-lv-badge`).innerText = `Lv.${lv}`;
+
+            // ピップバー
+            const barEl = document.getElementById(`${mt}-bar`);
+            barEl.innerHTML = '';
+            for (let i = 1; i <= 5; i++) {
+                const pip = document.createElement('div');
+                pip.className = `lv-pip${i <= lv ? ' filled ' + mt : ''}`;
+                barEl.appendChild(pip);
+            }
+
+            // ステータス表示（ランダムボーナス込み）
+            const statsEl = document.getElementById(`${mt}-stats`);
+            const idx = lv - 1;
+            const rb = randBonus[mt];
+            const fmt = (base, bonus) => bonus > 0
+                ? `${base}<span style="color:#f39c12;font-size:9px">+${bonus}</span>`
+                : `${base}`;
+            statsEl.innerHTML =
+                `<div class="hero-stat-chip">攻 <span>${fmt(stats.atk[idx], rb.atk)}</span></div>` +
+                `<div class="hero-stat-chip">敏 <span>${fmt(stats.agi[idx], rb.agi)}</span></div>` +
+                `<div class="hero-stat-chip">HP <span>${fmt(stats.hp[idx], rb.hp)}</span></div>` +
+                `<div class="hero-stat-chip">索 <span>${stats.range[idx]}</span></div>`;
+
+            // ランダムボタン
+            const randBtn = document.getElementById(`${mt}-rand-btn`);
+            if (randBtn) {
+                const cost = 5 + randCount[mt];
+                randBtn.textContent = `🎲 ${cost}G ランダム強化`;
+                randBtn.disabled = (gold < cost);
+            }
+
+            // ＋ボタン
+            const btnUp = document.getElementById(`${mt}-btn`);
+            if (lv >= 5) {
+                btnUp.disabled = true; btnUp.title = 'MAX';
+            } else {
+                const cost = LV_COSTS[lv];
+                btnUp.disabled = (gold < cost);
+                btnUp.title = `${cost}G で Lv${lv+1}に強化`;
+            }
+
+            // －ボタン
+            const btnDown = document.getElementById(`${mt}-btn-down`);
+            btnDown.disabled = (lv <= 1);
+            if (lv > 1) {
+                btnDown.title = `Lv${lv-1}に戻す (+${LV_COSTS[lv-1]}G 返還)`;
+            }
+
+            // コストヒント
+            const costEl = document.getElementById(`${mt}-cost`);
+            if (lv >= 5) {
+                costEl.textContent = '🔥 MAX';
+                costEl.style.color = '#f1c40f';
+            } else {
+                const cost = LV_COSTS[lv];
+                const canAfford = gold >= cost;
+                costEl.textContent = `＋ ${cost}G  ／  － ${lv > 1 ? '+'+LV_COSTS[lv-1]+'G返還' : '不可'}`;
+                costEl.style.color = canAfford ? '#888' : '#c0392b';
+            }
+        });
+    }
+
+    function levelDown(mt) {
+        const lv = monsterLevels[mt];
+        if (lv <= 1) return;
+        const refund = LV_COSTS[lv - 1];
+        gold += refund;
+        monsterLevels[mt]--;
+        updateGoldUI();
+        updateLevelPanel();
+
+        const idx = monsterLevels[mt] - 1;
+        const s = MONSTER_STATS[mt];
+        monsters.forEach(m => {
+            if (m.mtype !== mt) return;
+            m.atk = s.atk[idx]; m.agi = s.agi[idx];
+            m.maxHp = s.hp[idx]; m.hp = Math.min(m.hp, m.maxHp);
+            m.range = s.range[idx];
+        });
+
+        spawnFloatingText(
+            Math.floor(COLS / 2), Math.floor(ROWS / 4),
+            `+${refund}G 返還`,
+            '#f1c40f'
+        );
+    }
+
+    function levelUp(mt) {
+        const lv = monsterLevels[mt];
+        if (lv >= 5) return;
+        const cost = LV_COSTS[lv];
+        if (gold < cost) {
+            msgDiv.innerText = `ゴールドが足りません！(必要: ${cost}G)`;
+            setTimeout(() => { if(msgDiv.innerText.includes('足りません')) msgDiv.innerText = ''; }, 1500);
+            return;
+        }
+        gold -= cost;
+        monsterLevels[mt]++;
+        updateGoldUI();
+        updateLevelPanel();
+
+        // 既存のそのタイプのモンスターにも即時反映
+        const idx = monsterLevels[mt] - 1;
+        const s = MONSTER_STATS[mt];
+        monsters.forEach(m => {
+            if (m.mtype !== mt) return;
+            m.atk = s.atk[idx]; m.agi = s.agi[idx];
+            m.maxHp = s.hp[idx]; m.hp = Math.min(m.hp, m.maxHp);
+            m.range = s.range[idx];
+        });
+
+        spawnFloatingText(
+            Math.floor(COLS / 2), Math.floor(ROWS / 4),
+            `${mt === 'slime' ? '石スライム' : mt === 'goblin' ? '苔ゴブリン' : '銅ゴーレム'} Lv.${monsterLevels[mt]}!`,
+            '#f1c40f'
+        );
+    }
+
+    // ===== 引継ぎゴールド＆モンスターレベル =====
+    function loadCarryOver() {
+        return parseInt(localStorage.getItem('magika_carryover') || '0');
+    }
+    function saveCarryOver(amount) {
+        localStorage.setItem('magika_carryover', String(amount));
+    }
+    function loadMonsterLevels() {
+        const saved = localStorage.getItem('magika_monsterlevels');
+        if (!saved) return { slime: 1, goblin: 1, golem: 1 };
+        try { return JSON.parse(saved); } catch { return { slime: 1, goblin: 1, golem: 1 }; }
+    }
+    function saveMonsterLevels() {
+        localStorage.setItem('magika_monsterlevels', JSON.stringify(monsterLevels));
+    }
+    function resetCarryOver() {
+        localStorage.removeItem('magika_carryover');
+        localStorage.removeItem('magika_monsterlevels');
+        updateStartScreenCarryOver();
+    }
+    function updateStartScreenCarryOver() {
+        const saved = loadCarryOver();
+        const lvs = loadMonsterLevels();
+        const ui = document.getElementById('carryOverUI');
+        const span = document.getElementById('carryOverAmount');
+        if (saved > 0 || lvs.slime > 1 || lvs.goblin > 1 || lvs.golem > 1) {
+            span.innerHTML = `${saved} G &nbsp;／&nbsp; 🪨Lv.${lvs.slime} 🌿Lv.${lvs.goblin} 🟤Lv.${lvs.golem}`;
+            ui.style.display = 'block';
+        } else {
+            ui.style.display = 'none';
+        }
+    }
+    // ページ読み込み時にスタート画面へ表示
+    updateStartScreenCarryOver();
+
+    function enterGameScreen() {
+        document.getElementById('startScreen').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'flex';
+        
+        generateMap();
+        maxDepth = 0;
+        document.getElementById('depthUI').innerText = 0;
+        heroes = []; monsters = []; particles = []; floatingTexts = [];
+        castlePos = null; castleHp = CASTLE_MAX_HP;
+        
+        // パラメータの初期化
+        const carryOver = loadCarryOver();
+        gold = 20 + carryOver;
+        defeatedHeroesCount = 0;
+        totalEarnedGold = 0;
+        
+        isPlacingCastle = false;
+        castleBtn.classList.remove('active');
+        castleBtn.innerText = "🏰 あくま部屋作成(0 Gold)";
+        
+        isFirstCastlePlaced = false;
+        isWaveStarted = false;
+        
+        heroBaseAtk = 5; heroBaseAgi = 5; heroBaseHp = 10;
+        heroLevel = 0;
+        heroPower = 20; // 初期ステータス合計(5+5+10)
+        const savedLevels = loadMonsterLevels();
+        monsterLevels.slime = savedLevels.slime;
+        monsterLevels.goblin = savedLevels.goblin;
+        monsterLevels.golem = savedLevels.golem;
+        // ランダムボーナスはセッション限定でリセット
+        randBonus.slime  = {atk:0, agi:0, hp:0};
+        randBonus.goblin = {atk:0, agi:0, hp:0};
+        randBonus.golem  = {atk:0, agi:0, hp:0};
+        randCount.slime = 0; randCount.goblin = 0; randCount.golem = 0;
+        heroGold = 0;
+        
+        updateGoldUI();
+        updateHeroStatsUI(false, null);
+        updateLevelPanel();
+        
+        isGameRunning = true;
+        gameLoop();
+
+        msgDiv.innerText = "あくま部屋を配置して防衛を開始してください！";
+        setTimeout(() => { if(msgDiv.innerText.includes("配置")) msgDiv.innerText = ""; }, 4000);
+    }
+
+    function triggerGameOver() {
+        isGameRunning = false;
+        if (heroTimerId) clearInterval(heroTimerId);
+        if (countdownTimerId) clearInterval(countdownTimerId);
+        countdownTimerId = null;
+
+        // 引継ぎゴールド＆モンスターレベルを保存（残ゴールドを累積）
+        const prevCarry = loadCarryOver();
+        const newCarry = prevCarry + gold;
+        saveCarryOver(newCarry);
+        saveMonsterLevels();
+
+        // リザルト画面への値の代入
+        document.getElementById('resHeroes').innerText = defeatedHeroesCount;
+        document.getElementById('resEarnedGold').innerText = totalEarnedGold;
+        document.getElementById('resFinalGold').innerText = gold;
+        document.getElementById('resDepth').innerText = maxDepth;
+        document.getElementById('resCarryOver').innerText = newCarry;
+        document.getElementById('resMonsterLevels').innerText =
+            `🪨Lv.${monsterLevels.slime} 🌿Lv.${monsterLevels.goblin} 🟤Lv.${monsterLevels.golem}`;
+
+        document.getElementById('gameScreen').style.display = 'none';
+        document.getElementById('gameOverScreen').style.display = 'flex';
+    }
+
+    function toggleCastleMode() {
+        isPlacingCastle = !isPlacingCastle;
+        castleBtn.classList.toggle('active', isPlacingCastle);
+        msgDiv.innerText = isPlacingCastle ? "配置したい空間をクリックしてください" : "";
+    }
+
+    function isReachable(startX, startY, targetX, targetY) {
+        if (startX === targetX && startY === targetY) return true;
+        let queue = [{x: startX, y: startY}];
+        let visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+        visited[startY][startX] = true;
+        const dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+        
+        while(queue.length > 0) {
+            let curr = queue.shift();
+            for (let d of dirs) {
+                let nx = curr.x + d.x; let ny = curr.y + d.y;
+                if (nx === targetX && ny === targetY) return true;
+                if (nx >= 0 && nx < COLS && ny >= SKY_LAYERS && ny < ROWS && !visited[ny][nx]) {
+                    if (map[ny][nx] === 0 || map[ny][nx] === 5) {
+                        visited[ny][nx] = true; queue.push({x: nx, y: ny});
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    function spawnDebris(x, y, type) {
+        let color = '#95a5a6'; 
+        if (type === 2) color = '#7b8d41'; 
+        if (type === 6) color = '#9A6229'; 
+
+        const numParticles = 6 + Math.floor(Math.random() * 4); 
+        for (let i = 0; i < numParticles; i++) {
+            particles.push({
+                x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2,
+                vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 1.2) * 6, 
+                life: 1.0, color: color, size: Math.random() * 3 + 2
+            });
+        }
+    }
+
+    canvas.addEventListener('mousedown', (e) => { 
+        if (isPlacingCastle) { placeCastle(e); } 
+        else { isDragging = true; dig(e); }
+    });
+    canvas.addEventListener('mousemove', (e) => { if (isDragging && !isPlacingCastle) dig(e); });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+    canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+    function spawnFloatingText(x, y, text, color) {
+        floatingTexts.push({
+            x: x * TILE_SIZE + TILE_SIZE / 2,
+            y: y * TILE_SIZE,
+            text, color,
+            life: 1.0,
+            vy: -1.2
+        });
+    }
+
+    function getJitter() { return (Math.random() - 0.5) * 4; }
+
+    function placeCastle(e) {
+        const x = Math.floor(e.offsetX / TILE_SIZE);
+        const y = Math.floor(e.offsetY / TILE_SIZE);
+
+        if (x < 0 || x >= COLS || y < SKY_LAYERS || y >= ROWS) return; 
+
+        if (map[y][x] === 0) {
+            if (isReachable(ENTRANCE_X, SKY_LAYERS, x, y)) {
+                
+                // コスト判定 (初回は0、2回目以降は50)
+                let cost = isFirstCastlePlaced ? 50 : 0;
+                if (gold < cost) {
+                    msgDiv.innerText = `あくま部屋を移動するには${cost}ゴールド必要です！`;
+                    setTimeout(() => { if(msgDiv.innerText.includes("ゴールド")) msgDiv.innerText = ""; }, 2000);
+                    return;
+                }
+
+                gold -= cost;
+                updateGoldUI();
+
+                if (castlePos) map[castlePos.y][castlePos.x] = 0;
+                map[y][x] = 5;
+                castlePos = {x: x, y: y};
+                castleHp = CASTLE_MAX_HP;
+                toggleCastleMode();
+
+                // あくま部屋の下20行を確保
+                expandMap(castlePos.y + DIG_RANGE_BELOW_CASTLE);
+
+                // あくま部屋が見えるようにスクロール
+                const container = document.getElementById('canvasContainer');
+                const castlePxY = castlePos.y * TILE_SIZE;
+                container.scrollTo({ top: castlePxY - 200, behavior: 'smooth' });
+                
+                if (!isWaveStarted) {
+                    isFirstCastlePlaced = true;
+                    isWaveStarted = true;
+                    castleBtn.innerText = "🏰 あくま部屋移動(50 Gold)";
+                    startHeroCountdown(isFastMode ? 5 : 10);
+                    msgDiv.innerText = "あくま部屋を配置しました！勇者の襲撃が始まります！";
+                } else {
+                    msgDiv.innerText = `あくま部屋を移動しました！(-${cost}G)`;
+                }
+                setTimeout(() => { if(msgDiv.innerText.includes("あくま部屋")) msgDiv.innerText = ""; }, 3000);
+            } else {
+                msgDiv.innerText = "そこは入り口から繋がっていないため配置できません！";
+            }
+        }
+    }
+
+    function dig(e) {
+        if(!isGameRunning) return;
+        const x = Math.floor(e.offsetX / TILE_SIZE);
+        const y = Math.floor(e.offsetY / TILE_SIZE);
+
+        if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+
+        // あくま部屋から下DIG_RANGE_BELOW_CASTLEマスまでしか掘れない
+        if (castlePos && y > castlePos.y + DIG_RANGE_BELOW_CASTLE) {
+            msgDiv.innerText = 'あくま部屋から遠すぎて掘れません！';
+            setTimeout(() => { if(msgDiv.innerText.includes('遠すぎ')) msgDiv.innerText = ''; }, 1500);
+            return;
+        }
+
+        if (map[y][x] === 1 || map[y][x] === 2 || map[y][x] === 6) {
+            if (gold >= 1) {
+                gold -= 1; updateGoldUI();
+                const type = map[y][x];
+                spawnDebris(x, y, type);
+                spawnFloatingText(x, y, '-1G', '#f1c40f');
+                map[y][x] = 0; 
+
+                if (type === 1) {
+                    const s = MONSTER_STATS.slime, idx = monsterLevels.slime - 1;
+                    const m = makeEntity(x, y, { hp: s.hp[idx], maxHp: s.hp[idx], atk: s.atk[idx], agi: s.agi[idx], range: s.range[idx], isHero: false, color: '#95a5a6', mtype: 'slime' });
+                    m.fertile = (Math.random() < 0.10); m.isBaby = false; monsters.push(m);
+                } else if (type === 2) {
+                    const s = MONSTER_STATS.goblin, idx = monsterLevels.goblin - 1;
+                    const m = makeEntity(x, y, { hp: s.hp[idx], maxHp: s.hp[idx], atk: s.atk[idx], agi: s.agi[idx], range: s.range[idx], isHero: false, color: '#2ecc71', mtype: 'goblin' });
+                    m.fertile = (Math.random() < 0.10); m.isBaby = false; monsters.push(m);
+                } else if (type === 6) {
+                    const s = MONSTER_STATS.golem, idx = monsterLevels.golem - 1;
+                    const m = makeEntity(x, y, { hp: s.hp[idx], maxHp: s.hp[idx], atk: s.atk[idx], agi: s.agi[idx], range: s.range[idx], isHero: false, color: '#d35400', mtype: 'golem' });
+                    m.fertile = (Math.random() < 0.10); m.isBaby = false; monsters.push(m);
+                }
+            } else {
+                if(!isDragging) {
+                    msgDiv.innerText = "ゴールドが足りません！";
+                    setTimeout(() => { if(msgDiv.innerText.includes("ゴールド")) msgDiv.innerText = ""; }, 1000);
+                }
+            }
+        }
+    }
+
+    let countdownTimerId = null;
+
+    function startHeroCountdown(sec) {
+        if (countdownTimerId) clearInterval(countdownTimerId);
+        let remaining = sec;
+        msgDiv.innerText = `次の勇者まで… ${remaining}秒`;
+        countdownTimerId = setInterval(() => {
+            if (!isGameRunning) { clearInterval(countdownTimerId); return; }
+            remaining--;
+            if (remaining > 0) {
+                msgDiv.innerText = `次の勇者まで… ${remaining}秒`;
+            } else {
+                clearInterval(countdownTimerId);
+                countdownTimerId = null;
+                msgDiv.innerText = '';
+                spawnHero();
+            }
+        }, 1000);
+    }
+
+    function spawnHero() {
+        if(!isGameRunning || !isWaveStarted) return;
+
+        heroLevel++;
+
+        // 総合力の増分
+        let powerGain;
+        if (heroLevel % 10 === 0) {
+            powerGain = 0;
+        } else if (heroLevel % 5 === 0) {
+            powerGain = 5;
+        } else {
+            powerGain = 1;
+        }
+        heroPower += powerGain;
+
+        const isEnraged = (heroLevel % 10 === 0);
+        const enragedBonus = isEnraged ? Math.floor(gold / 2.5) : 0;
+
+        // タイプ決定（怒りモード時は強制的に怒りタイプ）
+        let heroType;
+        if (isEnraged) {
+            heroType = 'rage';
+        } else {
+            const roll = Math.random();
+            if      (roll < 0.40) heroType = 'normal';
+            else if (roll < 0.65) heroType = 'attack';
+            else if (roll < 0.90) heroType = 'defense';
+            else                  heroType = 'speed';
+        }
+
+        // タイプ別の振り分け重み [atk, agi, hp]
+        const weights = {
+            normal:  [1,   1,   1  ],
+            attack:  [3,   1,   2  ],  // 攻撃50%相当
+            defense: [1,   1,   2  ],  // 防御50%相当
+            speed:   [1,   2,   1  ],  // 敏捷50%相当
+            rage:    [1,   1,   1  ],  // 基本均等（ボーナスは別）
+        };
+
+        // ランダム振り分け関数
+        function distribute(power, w) {
+            let a = 0, g = 0, h = 0;
+            const total = w[0] + w[1] + w[2];
+            for (let i = 0; i < power; i++) {
+                const r = Math.random() * total;
+                if      (r < w[0])           a++;
+                else if (r < w[0] + w[1])    g++;
+                else                         h++;
+            }
+            return [Math.max(1, a), Math.max(1, g), Math.max(1, h)];
+        }
+
+        // ベースステータス（UI表示・次レベルの基準）
+        const [ba, bg, bh] = distribute(heroPower, weights[heroType]);
+        heroBaseAtk = ba; heroBaseAgi = bg; heroBaseHp = bh;
+
+        // 実際のスポーンステータス（怒りボーナス込み）
+        let spawnAtk = ba, spawnAgi = bg, spawnHp = bh;
+        if (isEnraged && enragedBonus > 0) {
+            // 怒りタイプ：ボーナスは攻撃と耐久力に均等振り分け
+            for (let i = 0; i < enragedBonus; i++) {
+                if (Math.random() < 0.5) spawnAtk++;
+                else spawnHp++;
+            }
+        }
+
+        heroes.push(makeEntity(0, 1, {
+            hp: spawnHp, maxHp: spawnHp,
+            atk: spawnAtk, agi: spawnAgi,
+            range: HERO_SEARCH_RANGE,
+            isHero: true,
+            color: isEnraged ? '#e74c3c' : '#3498db',
+            isEnraged, heroType,
+            hasPotion: false, potionUsed: false,
+            hasShield: false, hasBoots: false
+        }));
+
+        // 装備購入（heroGoldを消費・タイプ別）
+        const h = heroes[heroes.length - 1];
+        let hg = heroGold;
+
+        if (heroType === 'rage') {
+            // 怒りタイプ：全アイテム1yで購入
+            if (hg >= 1) { h.hasShield = true; hg -= 1; }
+            if (hg >= 1) { h.hasBoots = true; hg -= 1; }
+            if (hg >= 1) { h.hasPotion = true; hg -= 1; }
+        } else if (heroType === 'attack') {
+            // 攻撃タイプ：20%で盾
+            if (Math.random() < 0.20 && hg >= 25) { h.hasShield = true; hg -= 25; }
+        } else if (heroType === 'speed') {
+            // スピードタイプ：20%で靴、さらに10%で盾
+            if (Math.random() < 0.20 && hg >= 25) { h.hasBoots = true; hg -= 25; }
+            if (Math.random() < 0.10 && hg >= 25) { h.hasShield = true; hg -= 25; }
+        } else if (heroType === 'defense') {
+            // 防御タイプ：20%でポーション、さらに10%で盾
+            if (Math.random() < 0.20 && hg >= 10) { h.hasPotion = true; hg -= 10; }
+            if (Math.random() < 0.10 && hg >= 25) { h.hasShield = true; hg -= 25; }
+        } else {
+            // 普通タイプ：20%の確率で順番に購入
+            if (Math.random() < 0.20 && hg >= 25) { h.hasShield = true; hg -= 25; }
+            if (Math.random() < 0.20 && hg >= 25) { h.hasBoots  = true; hg -= 25; }
+            if (Math.random() < 0.20 && hg >= 10) { h.hasPotion = true; hg -= 10; }
+        }
+
+        // 装備ステータス反映
+        if (h.hasShield) {
+            h.maxHp = Math.ceil(h.maxHp * 1.25);
+            h.hp    = h.maxHp;
+        }
+        if (h.hasBoots) {
+            h.agi = Math.ceil(h.agi * 1.25);
+        }
+
+        heroGold = hg;
+
+        if (isEnraged) spawnFloatingText(2, 2, '⚔ 怒れる勇者！', '#e74c3c');
+
+        updateHeroStatsUI(isEnraged, heroType);
+
+        // 勇者登場ごとに同種2体を繁殖可能にする
+        const mtypes = ['slime','goblin','golem'];
+        const shuffled = [...mtypes].sort(() => Math.random() - 0.5);
+        for (const mt of shuffled) {
+            const group = monsters.filter(m => m.mtype === mt && !m.isBaby && !m.fertile && m.hp > 0);
+            if (group.length >= 2) {
+                group.sort(() => Math.random() - 0.5).slice(0, 2).forEach(m => { m.fertile = true; });
+                break;
+            }
+        }
+    }
+
+    const ACTION_THRESHOLD = 100;
+    const LERP_SPEED = 0.18;
+
+    function makeEntity(x, y, props) {
+        const rx = x * TILE_SIZE + TILE_SIZE / 2 + getJitter();
+        const ry = y * TILE_SIZE + TILE_SIZE / 2 + getJitter();
+        return Object.assign({ x, y, rx, ry, ox: 0, oy: 0, cd: 0 }, props);
+    }
+
+    function isPassable(x, y) {
+        return (x >= 0 && x < COLS && y >= 0 && y < ROWS && (map[y][x] === 0 || map[y][x] === 4 || map[y][x] === 5));
+    }
+
+    function getNextStepTowardsCastle(entity) {
+        if (!castlePos || (entity.x === castlePos.x && entity.y === castlePos.y)) return null;
+
+        let queue = [{x: entity.x, y: entity.y, path: []}];
+        let visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+        visited[entity.y][entity.x] = true;
+        const dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+
+        while(queue.length > 0) {
+            let curr = queue.shift();
+            for (let d of dirs) {
+                let nx = curr.x + d.x; let ny = curr.y + d.y;
+                if (nx === castlePos.x && ny === castlePos.y) {
+                    return curr.path.length > 0 ? curr.path[0] : {x: nx, y: ny};
+                }
+                if (isPassable(nx, ny) && !visited[ny][nx]) {
+                    visited[ny][nx] = true;
+                    queue.push({x: nx, y: ny, path: [...curr.path, {x: nx, y: ny}]});
+                }
+            }
+        }
+        return null;
+    }
+
+    // 汎用BFS：任意の目標座標への次ステップを返す（目標の隣接1マスまで）
+    function getNextStepTowards(entity, tx, ty, monsterOnly = false) {
+        if (Math.abs(entity.x - tx) + Math.abs(entity.y - ty) <= 1) return null;
+
+        let queue = [{x: entity.x, y: entity.y, path: []}];
+        let visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+        visited[entity.y][entity.x] = true;
+        const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+
+        while (queue.length > 0) {
+            let curr = queue.shift();
+            for (let d of dirs) {
+                let nx = curr.x + d.x, ny = curr.y + d.y;
+                if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+                if (visited[ny][nx]) continue;
+                if (monsterOnly && ny < SKY_LAYERS) continue; // モンスターは空エリア侵入禁止
+
+                // 目標に隣接かつ通行可能なマスに到達 → ここが最終ステップ
+                const adjToTarget = Math.abs(nx - tx) + Math.abs(ny - ty) <= 1;
+                if (adjToTarget && isPassable(nx, ny)) {
+                    return curr.path.length > 0 ? curr.path[0] : {x: nx, y: ny};
+                }
+
+                if (isPassable(nx, ny)) {
+                    visited[ny][nx] = true;
+                    queue.push({x: nx, y: ny, path: [...curr.path, {x: nx, y: ny}]});
+                }
+            }
+        }
+        return null;
+    }
+
+    function updateEntity(entity, enemies, threshold) {
+        entity.cd += Math.log2(entity.agi + 1) * 4;
+        if (entity.cd >= ACTION_THRESHOLD) {
+            entity.cd -= ACTION_THRESHOLD;
+
+            if (entity.isHero && castlePos) {
+                const distToCastle = Math.abs(castlePos.x - entity.x) + Math.abs(castlePos.y - entity.y);
+                if (distToCastle <= 1) {
+                    castleHp -= entity.atk;
+                    if (castleHp <= 0) triggerGameOver();
+                    return; 
+                }
+            }
+
+            let target = null;
+            let minDist = Infinity;
+
+            enemies.forEach(enemy => {
+                if (enemy.hp <= 0) return;
+                if (!entity.isHero && enemy.y < SKY_LAYERS) return; 
+                
+                const dist = Math.abs(enemy.x - entity.x) + Math.abs(enemy.y - entity.y);
+                if (dist > entity.range) return;
+
+                if (dist < minDist) {
+                    minDist = dist; target = enemy;
+                }
+            });
+
+            if (target && minDist <= 1) {
+                target.hp -= entity.atk;
+                
+                // モンスターを倒した時の勇者ゴールド加算
+                if (target.hp <= 0 && entity.isHero && target.mtype) {
+                    const heroGoldGain = {slime: 2, goblin: 1, golem: 5};
+                    heroGold += heroGoldGain[target.mtype] || 0;
+                }
+
+                // 勇者のHPを0にした際の処理
+                if (target.hp <= 0 && target.isHero) {
+                    gold += 25; 
+                    totalEarnedGold += 25;
+                    defeatedHeroesCount++;
+                    updateGoldUI();
+                    spawnFloatingText(target.x, target.y, '+25G', '#f1c40f');
+                    
+                    let remainingHeroes = heroes.filter(h => h.hp > 0 && h !== target);
+                    if (remainingHeroes.length === 0 && isWaveStarted) {
+                        startHeroCountdown(isFastMode ? 5 : 10);
+                    }
+                }
+                return; 
+            }
+
+            if (entity.isHero) {
+                if (entity.y < SKY_LAYERS) {
+                    if (entity.x < ENTRANCE_X) { entity.x++; }
+                    else if (entity.x === ENTRANCE_X) { entity.y++; }
+                } else if (entity.heroType === 'speed') {
+                    // スピードタイプ：城を最優先、近距離のみ感知
+                    const shortRange = 3;
+                    let closeTarget = null;
+                    let closeDist = Infinity;
+                    enemies.forEach(enemy => {
+                        if (enemy.hp <= 0) return;
+                        const dist = Math.abs(enemy.x - entity.x) + Math.abs(enemy.y - entity.y);
+                        if (dist <= shortRange && dist < closeDist) {
+                            closeDist = dist; closeTarget = enemy;
+                        }
+                    });
+                    if (closeTarget && closeDist <= 1) {
+                        closeTarget.hp -= entity.atk;
+                    } else {
+                        // 基本は城へ直進
+                        let nextStep = getNextStepTowardsCastle(entity);
+                        if (nextStep) {
+                            entity.x = nextStep.x; entity.y = nextStep.y;
+                        } else if (isPassable(entity.x, entity.y + 1)) {
+                            entity.y++;
+                        }
+                    }
+                } else {
+                    if (target) {
+                        const step = getNextStepTowards(entity, target.x, target.y);
+                        if (step) { entity.x = step.x; entity.y = step.y; }
+                    } else {
+                        let nextStep = getNextStepTowardsCastle(entity);
+                        if (nextStep) {
+                            entity.x = nextStep.x; entity.y = nextStep.y;
+                        } else {
+                            if (isPassable(entity.x, entity.y + 1)) entity.y++;
+                        }
+                    }
+                }
+            } else {
+                if (target) {
+                    // BFSで障害物を避けて敵に近づく（空エリア侵入禁止）
+                    const step = getNextStepTowards(entity, target.x, target.y, true);
+                    if (step) { entity.x = step.x; entity.y = step.y; }
+                } else if (entity.fertile && castlePos) {
+                    // 繁殖可能 → あくま部屋の3×3範囲に入ったら待機
+                    const dx = Math.abs(entity.x - castlePos.x);
+                    const dy = Math.abs(entity.y - castlePos.y);
+                    if (dx > 1 || dy > 1) {
+                        const step = getNextStepTowardsCastle(entity);
+                        if (step) { entity.x = step.x; entity.y = step.y; }
+                    }
+                    // 3×3以内なら待機
+                } else {
+                    // 4マス先を見て通路が長い方向への確率を高めるランダムウォーク
+                    const dirs = [{x:0,y:-1},{x:0,y:1},{x:-1,y:0},{x:1,y:0}];
+                    const weights = dirs.map(d => {
+                        let count = 0;
+                        for (let i = 1; i <= 4; i++) {
+                            const nx = entity.x + d.x * i, ny = entity.y + d.y * i;
+                            if (isPassable(nx, ny) && ny >= SKY_LAYERS) count++;
+                            else break;
+                        }
+                        return count + 0.5; // 0マスでも最低0.5の重みを持つ
+                    });
+                    const total = weights.reduce((a, b) => a + b, 0);
+                    const r = Math.random() * total;
+                    let cum = 0, chosen = dirs[0];
+                    for (let i = 0; i < dirs.length; i++) {
+                        cum += weights[i];
+                        if (r < cum) { chosen = dirs[i]; break; }
+                    }
+                    const nx = entity.x + chosen.x, ny = entity.y + chosen.y;
+                    if (isPassable(nx, ny) && ny >= SKY_LAYERS) {
+                        entity.x = nx; entity.y = ny;
+                    }
+                }
+            }
+        }
+    }
+
+    const TARGET_FPS = 45;
+    const FRAME_INTERVAL = 1000 / TARGET_FPS;
+    let lastFrameTime = 0;
+    let isFastMode = false;
+
+    function toggleSpeed() {
+        isFastMode = !isFastMode;
+        const btn = document.getElementById('speedBtn');
+        if (isFastMode) {
+            btn.textContent = '⏸ 通常速度';
+            btn.style.background = '#c0392b';
+            btn.style.borderColor = '#e74c3c';
+        } else {
+            btn.textContent = '▶▶ 早送り';
+            btn.style.background = '#2c3e50';
+            btn.style.borderColor = '#7f8c8d';
+        }
+    }
+
+    function gameLoop(timestamp = 0) {
+        if(!isGameRunning) return;
+        const interval = isFastMode ? 1000 / 60 : FRAME_INTERVAL;
+        if (timestamp - lastFrameTime < interval) {
+            requestAnimationFrame(gameLoop);
+            return;
+        }
+        lastFrameTime = timestamp;
+        // 早送り時はACTION_THRESHOLDを60、通常は100
+        const threshold = isFastMode ? 60 : ACTION_THRESHOLD;
+
+        heroes.forEach(h => updateEntity(h, monsters, threshold));
+        monsters.forEach(m => updateEntity(m, heroes, threshold));
+
+        // ポーション自動発動（HP30%以下で一度だけ）
+        heroes.forEach(h => {
+            if (h.hasPotion && !h.potionUsed && h.hp > 0 && h.hp <= h.maxHp * 0.3) {
+                h.hp = Math.min(h.maxHp, h.hp + Math.ceil(h.maxHp * 0.5));
+                h.potionUsed = true;
+                spawnFloatingText(h.x, h.y, '💊 回復！', '#2ecc71');
+            }
+        });
+
+        heroes = heroes.filter(h => h.hp > 0);
+        monsters = monsters.filter(m => m.hp > 0);
+
+        // ===== 繁殖システム =====
+        if (castlePos && isWaveStarted) {
+            const BREED_MAX = 8;
+            const mtypes = ['slime','goblin','golem'];
+            for (const mt of mtypes) {
+                try {
+                if (monsters.filter(m => m.mtype === mt && m.isBaby).length >= BREED_MAX) continue;
+                const fertile = monsters.filter(m =>
+                    m.mtype === mt && !m.isBaby && m.fertile === true && m.hp > 0 &&
+                    Math.abs(m.x - castlePos.x) <= 1 && Math.abs(m.y - castlePos.y) <= 1
+                );
+                if (fertile.length < 2) continue;
+                const a = fertile[0], b = fertile[1];
+                const idx = monsterLevels[mt] - 1;
+                const s = MONSTER_STATS[mt];
+                const rb = randBonus[mt];
+                let sx = a.x, sy = a.y;
+                for (const d of [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}]) {
+                    const nx = castlePos.x + d.x, ny = castlePos.y + d.y;
+                    if (isPassable(nx, ny)) { sx = nx; sy = ny; break; }
+                }
+                const baby = makeEntity(sx, sy, {
+                    hp:    Math.max(1, Math.floor((s.hp[idx]  + rb.hp)  / 2)),
+                    maxHp: Math.max(1, Math.floor((s.hp[idx]  + rb.hp)  / 2)),
+                    atk:   Math.max(1, Math.floor((s.atk[idx] + rb.atk) / 2)),
+                    agi:   Math.max(1, Math.floor((s.agi[idx] + rb.agi) / 2)),
+                    range: s.range[idx], isHero: false,
+                    color: a.color, mtype: mt,
+                    isBaby: true, bornAt: Date.now(), fertile: false
+                });
+                monsters.push(baby);
+                a.fertile = false;
+                b.fertile = false;
+                const names = {slime:'ちび石スライム', goblin:'ちび苔ゴブリン', golem:'ちび銅ゴーレム'};
+                spawnFloatingText(sx, sy, `${names[mt]}誕生！`, '#e91e96');
+                } catch(e) {}
+            }
+        }
+
+        // ちびモンスターの成長（20秒後に成体化）
+        const now = Date.now();
+        const newborns = [];
+        monsters = monsters.filter(m => {
+            if (!m.isBaby) return true;
+            if (now - m.bornAt < 20000) return true;
+            const idx = monsterLevels[m.mtype] - 1;
+            const s = MONSTER_STATS[m.mtype];
+            const rb = randBonus[m.mtype];
+            const grown = makeEntity(m.x, m.y, {
+                hp: s.hp[idx] + rb.hp, maxHp: s.hp[idx] + rb.hp,
+                atk: s.atk[idx] + rb.atk, agi: s.agi[idx] + rb.agi,
+                range: s.range[idx], isHero: false,
+                color: m.color, mtype: m.mtype,
+                isBaby: false, fertile: false
+            });
+            newborns.push(grown);
+            spawnFloatingText(m.x, m.y, '成長！', '#f1c40f');
+            return false;
+        });
+        monsters.push(...newborns);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (map[y][x] === 1) {
+                    ctx.fillStyle = '#95a5a6'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#7f8c8d'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 2) {
+                    ctx.fillStyle = '#7b8d41'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#556b2f'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 3) {
+                    ctx.fillStyle = '#795548'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#5D4037'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 4) {
+                    ctx.fillStyle = '#87CEEB'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 5) {
+                    ctx.fillStyle = '#8e44ad'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#2c3e50'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = 'red'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - 6, TILE_SIZE, 4);
+                    ctx.fillStyle = '#f1c40f';
+                    const hpRatio = Math.max(0, castleHp) / CASTLE_MAX_HP;
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - 6, TILE_SIZE * hpRatio, 4);
+                } else if (map[y][x] === 6) {
+                    ctx.fillStyle = '#9A6229'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#6d4219'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+
+        function drawEntity(entity) {
+            // スムーズな補間移動 (lerp)
+            const targetX = entity.x * TILE_SIZE + TILE_SIZE / 2;
+            const targetY = entity.y * TILE_SIZE + TILE_SIZE / 2;
+            if (entity.rx === undefined) entity.rx = targetX;
+            if (entity.ry === undefined) entity.ry = targetY;
+            entity.rx += (targetX - entity.rx) * 0.22;
+            entity.ry += (targetY - entity.ry) * 0.22;
+
+            const cx = entity.rx;
+            const cy = entity.ry;
+
+            ctx.save();
+            // ちびは0.55倍に縮小
+            if (entity.isBaby) {
+                ctx.translate(cx, cy);
+                ctx.scale(0.55, 0.55);
+                ctx.translate(-cx, -cy);
+            }
+
+            if (entity.isHero) {
+                const r = 8;
+                const enraged = entity.isEnraged;
+                // 外側オーラ
+                const auraColor = enraged ? 'rgba(231,76,60,' : 'rgba(52,152,219,';
+                const aura = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.8);
+                aura.addColorStop(0, auraColor + '0.45)');
+                aura.addColorStop(1, auraColor + '0)');
+                ctx.beginPath();
+                ctx.arc(cx, cy, r * 1.8, 0, Math.PI * 2);
+                ctx.fillStyle = aura; ctx.fill();
+
+                // 影
+                ctx.beginPath();
+                ctx.ellipse(cx, cy + r * 0.8, r * 0.85, r * 0.25, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+
+                // 本体
+                const grad = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, 1, cx, cy, r);
+                if (enraged) {
+                    grad.addColorStop(0, '#ff9999');
+                    grad.addColorStop(0.6, '#e74c3c');
+                    grad.addColorStop(1, '#7b241c');
+                } else {
+                    grad.addColorStop(0, '#74b9ff');
+                    grad.addColorStop(0.6, '#3498db');
+                    grad.addColorStop(1, '#1a5276');
+                }
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.fillStyle = grad; ctx.fill();
+                ctx.strokeStyle = enraged ? '#e74c3c' : '#85c1e9';
+                ctx.lineWidth = 1.5; ctx.stroke();
+
+                // 剣マーク（十字）
+                ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.5;
+                ctx.lineCap = 'round';
+                ctx.beginPath(); ctx.moveTo(cx, cy - 4.5); ctx.lineTo(cx, cy + 4.5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx - 3, cy - 1.5); ctx.lineTo(cx + 3, cy - 1.5); ctx.stroke();
+
+                // HPバー（少し広め）
+                const bw = 18, bh = 3;
+                const bx = cx - bw/2, by = cy - r - 6;
+                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx-1, by-1, bw+2, bh+2);
+                ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
+                ctx.fillStyle = '#27ae60';
+                ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
+
+                // 装備アイコン（HPバーの上）
+                const icons = [];
+                if (entity.hasShield) icons.push('🛡');
+                if (entity.hasBoots)  icons.push('👟');
+                if (entity.hasPotion) icons.push(entity.potionUsed ? '🫙' : '💊');
+                if (icons.length > 0) {
+                    ctx.font = '7px serif';
+                    ctx.textAlign = 'center';
+                    const iconY = by - 5;
+                    const spacing = 8;
+                    const startX = cx - (icons.length - 1) * spacing / 2;
+                    icons.forEach((icon, i) => {
+                        ctx.globalAlpha = (icon === '🫙') ? 0.4 : 1.0;
+                        ctx.fillText(icon, startX + i * spacing, iconY);
+                    });
+                    ctx.globalAlpha = 1.0;
+                }
+
+            } else if (entity.mtype === 'slime') {
+                // ---- 石スライム：丸くて石っぽい模様 ----
+                const r = 5;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy + 1, r * 1.1, r * 0.85, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fill();
+
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, r * 1.1, r * 0.9, 0, 0, Math.PI * 2);
+                const sg = ctx.createRadialGradient(cx - 1.5, cy - 1.5, 0.5, cx, cy, r);
+                sg.addColorStop(0, '#d5d8dc');
+                sg.addColorStop(0.5, '#95a5a6');
+                sg.addColorStop(1, '#616a6b');
+                ctx.fillStyle = sg; ctx.fill();
+                ctx.strokeStyle = '#717d7e'; ctx.lineWidth = 1; ctx.stroke();
+
+                // 石の割れ目
+                ctx.strokeStyle = 'rgba(80,80,80,0.6)'; ctx.lineWidth = 0.8;
+                ctx.beginPath(); ctx.moveTo(cx - 1, cy - 2); ctx.lineTo(cx + 2, cy + 1); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx - 2, cy + 1); ctx.lineTo(cx, cy + 3); ctx.stroke();
+
+                // つぶらな目
+                ctx.fillStyle = '#2c3e50';
+                ctx.beginPath(); ctx.arc(cx - 1.8, cy - 0.5, 1, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 1.8, cy - 0.5, 1, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.beginPath(); ctx.arc(cx - 1.3, cy - 1, 0.35, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 2.3, cy - 1, 0.35, 0, Math.PI * 2); ctx.fill();
+
+                const bw = 10, bh = 2;
+                const bx = cx - bw/2, by = cy - r - 5;
+                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
+                ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
+                ctx.fillStyle = '#27ae60';
+                ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
+
+            } else if (entity.mtype === 'goblin') {
+                // ---- 苔ゴブリン：三角頭＋緑まだら ----
+                const r = 4.5;
+                // 影
+                ctx.beginPath();
+                ctx.ellipse(cx, cy + r * 0.8, r * 0.8, r * 0.22, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fill();
+
+                // 体（やや縦長）
+                ctx.beginPath();
+                ctx.ellipse(cx, cy + 1, r * 0.75, r, 0, 0, Math.PI * 2);
+                const gg = ctx.createRadialGradient(cx - 1, cy, 0.5, cx, cy, r);
+                gg.addColorStop(0, '#58d68d');
+                gg.addColorStop(0.5, '#27ae60');
+                gg.addColorStop(1, '#1d6a3a');
+                ctx.fillStyle = gg; ctx.fill();
+                ctx.strokeStyle = '#1a5632'; ctx.lineWidth = 0.8; ctx.stroke();
+
+                // 苔の斑点
+                ctx.fillStyle = 'rgba(130,224,170,0.55)';
+                [[cx-1.5, cy-0.5, 1.2],[cx+1.2, cy+1, 0.9],[cx-0.5, cy+2.2, 0.8]].forEach(([x,y,s]) => {
+                    ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI*2); ctx.fill();
+                });
+
+                // 耳（とんがり）
+                ctx.fillStyle = '#27ae60';
+                ctx.beginPath(); ctx.moveTo(cx - r*0.7, cy - r*0.5); ctx.lineTo(cx - r*1.1, cy - r*1.1); ctx.lineTo(cx - r*0.2, cy - r*0.7); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(cx + r*0.7, cy - r*0.5); ctx.lineTo(cx + r*1.1, cy - r*1.1); ctx.lineTo(cx + r*0.2, cy - r*0.7); ctx.fill();
+
+                // 目（赤く光る）
+                ctx.fillStyle = '#e74c3c';
+                ctx.beginPath(); ctx.arc(cx - 1.5, cy - 0.5, 1, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 1.5, cy - 0.5, 1, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(255,100,100,0.5)';
+                ctx.beginPath(); ctx.arc(cx - 1.5, cy - 0.5, 1.5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 1.5, cy - 0.5, 1.5, 0, Math.PI * 2); ctx.fill();
+
+                const bw = 10, bh = 2;
+                const bx = cx - bw/2, by = cy - r - 5;
+                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
+                ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
+                ctx.fillStyle = '#27ae60';
+                ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
+
+            } else if (entity.mtype === 'golem') {
+                // ---- 銅ゴーレム：四角くゴツい ----
+                const s = 5.5;
+                // 影
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(cx - s*0.9, cy + s*0.7, s*1.8, s*0.4);
+
+                // 本体（角丸四角）
+                const grd = ctx.createLinearGradient(cx - s, cy - s, cx + s, cy + s);
+                grd.addColorStop(0, '#e59866');
+                grd.addColorStop(0.4, '#ca6f1e');
+                grd.addColorStop(1, '#7e5109');
+                ctx.beginPath();
+                ctx.roundRect(cx - s, cy - s, s*2, s*2, 2);
+                ctx.fillStyle = grd; ctx.fill();
+                ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 1; ctx.stroke();
+
+                // 銅の継ぎ目ライン
+                ctx.strokeStyle = 'rgba(80,40,0,0.5)'; ctx.lineWidth = 0.8;
+                ctx.beginPath(); ctx.moveTo(cx - s, cy); ctx.lineTo(cx + s, cy); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx, cy + s); ctx.stroke();
+
+                // ボルト（四隅）
+                ctx.fillStyle = '#f39c12';
+                [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([dx,dy]) => {
+                    ctx.beginPath(); ctx.arc(cx + dx*(s-1.5), cy + dy*(s-1.5), 1, 0, Math.PI*2); ctx.fill();
+                });
+
+                // 目（黄色く光る）
+                ctx.fillStyle = '#f1c40f';
+                ctx.shadowColor = '#f1c40f'; ctx.shadowBlur = 4;
+                ctx.beginPath(); ctx.arc(cx - 1.8, cy - 1, 1.2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 1.8, cy - 1, 1.2, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+
+                const bw = 12, bh = 2;
+                const bx = cx - bw/2, by = cy - s - 6;
+                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
+                ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
+                ctx.fillStyle = '#27ae60';
+                ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
+            }
+
+            ctx.restore();
+
+            // ちびの成長バー
+            if (entity.isBaby) {
+                const progress = Math.min(1, (Date.now() - entity.bornAt) / 20000);
+                const bw = 12, bh = 2, bx = cx - bw/2, by = cy + 8;
+                ctx.fillStyle = '#333'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
+                ctx.fillStyle = '#e91e96'; ctx.fillRect(bx, by, bw * progress, bh);
+            }
+        }
+
+        monsters.forEach(drawEntity);
+        heroes.forEach(drawEntity);
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.life -= 0.04; 
+            if (p.life <= 0) {
+                particles.splice(i, 1);
+            } else {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        // フローティングテキスト描画
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+            let ft = floatingTexts[i];
+            ft.y += ft.vy;
+            ft.life -= 0.022;
+            if (ft.life <= 0) {
+                floatingTexts.splice(i, 1);
+            } else {
+                ctx.save();
+                ctx.globalAlpha = ft.life;
+                ctx.font = 'bold 13px "Courier New", monospace';
+                ctx.fillStyle = ft.color;
+                ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+                ctx.lineWidth = 3;
+                ctx.textAlign = 'center';
+                ctx.strokeText(ft.text, ft.x, ft.y);
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            }
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+</script>
+</body>
+</html>

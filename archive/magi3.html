@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>2Dドット絵ダンジョン迎撃ゲーム</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #222;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        #dashboard {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .btn-group {
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 0 5px;
+            transition: 0.2s;
+        }
+        .btn-hero { background-color: #3498db; }
+        .btn-hero:hover { background-color: #2980b9; }
+        .btn-castle { background-color: #8e44ad; }
+        .btn-castle:hover { background-color: #732d91; }
+        .btn-castle.active { background-color: #e74c3c; box-shadow: 0 0 10px #e74c3c; }
+        
+        canvas {
+            background-color: #ecf0f1;
+            border: 4px solid #555;
+            cursor: crosshair;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .legend {
+            margin-top: 10px;
+            display: flex;
+            gap: 15px;
+            font-size: 14px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .color-box {
+            display: inline-block;
+            width: 15px; height: 15px;
+            vertical-align: middle; margin-right: 5px;
+            border-radius: 2px;
+        }
+        .dot-box { border-radius: 50%; }
+        #message {
+            height: 20px; color: #e74c3c; font-weight: bold; margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="dashboard">
+        <h2>地下ダンジョン防衛線</h2>
+        <div class="btn-group">
+            <button class="btn-hero" onclick="spawnHero()">⚔️ 勇者をテスト召喚</button>
+            <button class="btn-castle" id="castleBtn" onclick="toggleCastleMode()">🏰 魔王の家を配置</button>
+        </div>
+        <div id="message"></div>
+        <div class="legend">
+            <span><div class="color-box dot-box" style="background:#3498db;"></div>勇者</span>
+            <span><div class="color-box dot-box" style="background:#2c3e50;"></div>石スライム</span>
+            <span><div class="color-box dot-box" style="background:#2ecc71;"></div>苔ゴブリン</span>
+            <span><div class="color-box" style="background:#8e44ad;"></div>魔王の家</span>
+            <span><div class="color-box" style="background:#95a5a6;"></div>普通の石</span>
+            <span><div class="color-box" style="background:#7f8c8d;"></div>苔石</span>
+            <span><div class="color-box" style="background:#795548;"></div>土層</span>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const msgDiv = document.getElementById('message');
+    const castleBtn = document.getElementById('castleBtn');
+    
+    // グリッド設定
+    const COLS = 20;
+    const ROWS = 20;
+    const TILE_SIZE = 30;
+    canvas.width = COLS * TILE_SIZE;
+    canvas.height = ROWS * TILE_SIZE;
+
+    // ゲームデータ
+    // 0: 空間, 1: 石, 2: 苔石, 3: 土(破壊不可), 4: 空, 5: 魔王の家
+    let map = []; 
+    let heroes = [];
+    let monsters = [];
+    let isDragging = false;
+    let isPlacingCastle = false;
+    let castlePos = null;
+
+    const ENTRANCE_X = Math.floor(COLS / 2);
+
+    // マップ初期化
+    for (let y = 0; y < ROWS; y++) {
+        map[y] = [];
+        for (let x = 0; x < COLS; x++) {
+            if (y === 0) {
+                map[y][x] = 4; // 空
+            } else if (y === 1) {
+                map[y][x] = (x === ENTRANCE_X) ? 0 : 3; // 土と入り口
+            } else if (y === 2 && x === ENTRANCE_X) {
+                map[y][x] = 0; // 入り口直下
+            } else {
+                map[y][x] = Math.random() < 0.2 ? 2 : 1; // 地下
+            }
+        }
+    }
+
+    // 操作モード切り替え
+    function toggleCastleMode() {
+        isPlacingCastle = !isPlacingCastle;
+        castleBtn.classList.toggle('active', isPlacingCastle);
+        if(isPlacingCastle) {
+            msgDiv.innerText = "配置したい空間（入り口と繋がっている場所）をクリックしてください";
+        } else {
+            msgDiv.innerText = "";
+        }
+    }
+
+    // 幅優先探索 (BFS) で到達可能かを判定
+    function isReachable(startX, startY, targetX, targetY) {
+        if (startX === targetX && startY === targetY) return true;
+        let queue = [{x: startX, y: startY}];
+        let visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+        visited[startY][startX] = true;
+
+        const dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+
+        while(queue.length > 0) {
+            let curr = queue.shift();
+            for (let d of dirs) {
+                let nx = curr.x + d.x;
+                let ny = curr.y + d.y;
+                if (nx === targetX && ny === targetY) return true;
+                if (nx >= 0 && nx < COLS && ny >= 1 && ny < ROWS && !visited[ny][nx]) {
+                    // 空間(0) または 魔王の家(5) なら通れる
+                    if (map[ny][nx] === 0 || map[ny][nx] === 5) {
+                        visited[ny][nx] = true;
+                        queue.push({x: nx, y: ny});
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // 操作イベント
+    canvas.addEventListener('mousedown', (e) => { 
+        if (isPlacingCastle) {
+            placeCastle(e);
+        } else {
+            isDragging = true; dig(e); 
+        }
+    });
+    canvas.addEventListener('mousemove', (e) => { if (isDragging && !isPlacingCastle) dig(e); });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+    canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+    // エンティティ生成用ユーティリティ（重なり防止のランダムオフセット）
+    function getJitter() {
+        return (Math.random() - 0.5) * 12; // -6px から +6px のズレ
+    }
+
+    // 魔王の家配置処理
+    function placeCastle(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+        const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+
+        if (x < 0 || x >= COLS || y < 1 || y >= ROWS) return; // 空(y=0)には置けない
+
+        if (map[y][x] === 0) {
+            if (isReachable(ENTRANCE_X, 1, x, y)) {
+                // 既存の魔王の家を消去
+                if (castlePos) map[castlePos.y][castlePos.x] = 0;
+                // 新しく配置
+                map[y][x] = 5;
+                castlePos = {x: x, y: y};
+                toggleCastleMode(); // モード解除
+                msgDiv.innerText = "魔王の家を配置しました！";
+                setTimeout(() => { if(msgDiv.innerText.includes("配置")) msgDiv.innerText = ""; }, 2000);
+            } else {
+                msgDiv.innerText = "そこは入り口から繋がっていないため配置できません！";
+            }
+        }
+    }
+
+    // 掘削処理
+    function dig(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+        const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+
+        if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+
+        if (map[y][x] === 1) {
+            map[y][x] = 0;
+            monsters.push({ x: x, y: y, ox: getJitter(), oy: getJitter(), hp: 3, maxHp: 3, atk: 1, agi: 1, cd: 0, color: '#2c3e50' });
+        } else if (map[y][x] === 2) {
+            map[y][x] = 0;
+            monsters.push({ x: x, y: y, ox: getJitter(), oy: getJitter(), hp: 2, maxHp: 2, atk: 1, agi: 2, cd: 0, color: '#2ecc71' });
+        }
+    }
+
+    function spawnHero() {
+        heroes.push({ x: 0, y: 0, ox: getJitter(), oy: getJitter(), hp: 5, maxHp: 5, atk: 5, agi: 5, cd: 0, color: '#3498db' });
+    }
+    setInterval(spawnHero, 60000);
+
+    const ACTION_THRESHOLD = 60;
+
+    function isPassable(x, y) {
+        return (x >= 0 && x < COLS && y >= 0 && y < ROWS && (map[y][x] === 0 || map[y][x] === 4 || map[y][x] === 5));
+    }
+
+    // 勇者用のBFS経路探索（魔王の家への最短ルート算出）
+    function getNextStepTowardsCastle(entity) {
+        if (!castlePos) return null;
+        // 現在地が城なら何もしない
+        if (entity.x === castlePos.x && entity.y === castlePos.y) return null;
+
+        let queue = [{x: entity.x, y: entity.y, path: []}];
+        let visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+        visited[entity.y][entity.x] = true;
+        const dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+
+        while(queue.length > 0) {
+            let curr = queue.shift();
+            for (let d of dirs) {
+                let nx = curr.x + d.x;
+                let ny = curr.y + d.y;
+                if (nx === castlePos.x && ny === castlePos.y) {
+                    return curr.path.length > 0 ? curr.path[0] : {x: nx, y: ny};
+                }
+                if (isPassable(nx, ny) && !visited[ny][nx]) {
+                    visited[ny][nx] = true;
+                    queue.push({x: nx, y: ny, path: [...curr.path, {x: nx, y: ny}]});
+                }
+            }
+        }
+        return null;
+    }
+
+    function updateEntity(entity, enemies, isHero) {
+        entity.cd += entity.agi;
+        if (entity.cd >= ACTION_THRESHOLD) {
+            entity.cd -= ACTION_THRESHOLD;
+
+            let target = null;
+            let minDist = Infinity;
+
+            // --- ターゲット選定 ---
+            enemies.forEach(enemy => {
+                // 【味方AI】: 勇者がダンジョン(y>=1)に入るまで無視
+                if (!isHero && enemy.y < 1) return;
+                
+                const dist = Math.abs(enemy.x - entity.x) + Math.abs(enemy.y - entity.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    target = enemy;
+                }
+            });
+
+            // 隣接していれば攻撃（優先）
+            if (target && minDist <= 1) {
+                target.hp -= entity.atk;
+                return; // 攻撃したら移動しない
+            }
+
+            // --- 移動ロジック ---
+            if (isHero) {
+                if (entity.y === 0) {
+                    // 空にいる場合は入り口を目指す
+                    if (entity.x < ENTRANCE_X) {
+                        entity.x++;
+                    } else if (entity.x === ENTRANCE_X) {
+                        entity.y++;
+                    }
+                } else {
+                    // ダンジョン内
+                    let nextStep = getNextStepTowardsCastle(entity);
+                    if (nextStep) {
+                        entity.x = nextStep.x;
+                        entity.y = nextStep.y;
+                    } else if (target) {
+                        // 城がない、または到達不能な場合は最も近い敵に向かう
+                        const dx = Math.sign(target.x - entity.x);
+                        const dy = Math.sign(target.y - entity.y);
+                        if (dx !== 0 && isPassable(entity.x + dx, entity.y)) entity.x += dx;
+                        else if (dy !== 0 && isPassable(entity.x, entity.y + dy)) entity.y += dy;
+                    } else {
+                        // 敵も城もない場合はとりあえず下へ
+                        if (isPassable(entity.x, entity.y + 1)) entity.y++;
+                    }
+                }
+            } else {
+                // 味方MOBの移動（ターゲットがいる場合のみ動く）
+                if (target) {
+                    const dx = Math.sign(target.x - entity.x);
+                    const dy = Math.sign(target.y - entity.y);
+                    if (dx !== 0 && isPassable(entity.x + dx, entity.y)) entity.x += dx;
+                    else if (dy !== 0 && isPassable(entity.x, entity.y + dy)) entity.y += dy;
+                }
+            }
+        }
+    }
+
+    // メインゲームループ
+    function gameLoop() {
+        heroes.forEach(h => updateEntity(h, monsters, true));
+        monsters.forEach(m => updateEntity(m, heroes, false));
+
+        // 死亡判定
+        heroes = heroes.filter(h => h.hp > 0);
+        monsters = monsters.filter(m => m.hp > 0);
+
+        // 描画
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (map[y][x] === 1) {
+                    ctx.fillStyle = '#95a5a6'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#7f8c8d'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 2) {
+                    ctx.fillStyle = '#7f8c8d'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#555'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 3) {
+                    ctx.fillStyle = '#795548'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#5D4037'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 4) {
+                    ctx.fillStyle = '#87CEEB'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 5) {
+                    ctx.fillStyle = '#8e44ad'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#2c3e50'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+
+        // エンティティ（極小サイズ＆重なり対応）
+        function drawEntity(entity) {
+            // Jitter（オフセット）を加えて中心座標を算出
+            const centerX = entity.x * TILE_SIZE + TILE_SIZE / 2 + entity.ox;
+            const centerY = entity.y * TILE_SIZE + TILE_SIZE / 2 + entity.oy;
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 3, 0, Math.PI * 2); // 半径3pxの点に縮小
+            ctx.fillStyle = entity.color;
+            ctx.fill();
+            
+            // HPバーは小さくして少し上に
+            const barWidth = 10;
+            const barHeight = 2;
+            const barX = centerX - barWidth / 2;
+            const barY = centerY - 6;
+
+            ctx.fillStyle = 'red';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            
+            ctx.fillStyle = '#2ecc71';
+            const hpRatio = Math.max(0, entity.hp) / entity.maxHp;
+            ctx.fillRect(barX, barY, barWidth * hpRatio, barHeight);
+        }
+
+        monsters.forEach(drawEntity);
+        heroes.forEach(drawEntity);
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+</script>
+</body>
+</html>

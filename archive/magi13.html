@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Magika・Dorue α版</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #000; color: #fff;
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; position: relative;
+        }
+        .screen {
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center;
+            width: 100%; height: 100%;
+        }
+        #startScreen { display: flex; background-color: #111; }
+        #gameScreen {
+            justify-content: flex-start; padding-top: 15px;
+            background-color: #222; position: relative;
+            height: 100%; box-sizing: border-box;
+        }
+        
+        .title { font-size: 4rem; margin-bottom: 30px; color: #f1c40f; text-shadow: 2px 2px #8e44ad, 4px 4px #2c3e50; letter-spacing: 5px; }
+        .gameover-title { font-size: 4rem; color: #e74c3c; margin-bottom: 20px; }
+
+        #dashboard { margin-bottom: 10px; text-align: center; z-index: 10; flex-shrink: 0; }
+        .btn-group { margin-bottom: 8px; }
+        button {
+            padding: 8px 16px; font-size: 14px; cursor: pointer;
+            color: white; border: none; border-radius: 5px; font-weight: bold;
+            margin: 0 4px; transition: 0.2s;
+        }
+        .btn-start { background-color: #e67e22; font-size: 1.5rem; padding: 15px 40px; border: 2px solid #d35400; }
+        .btn-start:hover { background-color: #d35400; }
+        .btn-castle { background-color: #8e44ad; padding: 10px 20px; font-size: 16px;}
+        .btn-castle:hover { background-color: #732d91; }
+        .btn-castle.active { background-color: #e74c3c; box-shadow: 0 0 10px #e74c3c; }
+        
+        #canvasContainer {
+            width: 600px; height: 600px; 
+            overflow-y: auto; overflow-x: hidden;
+            border: 4px solid #555; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            position: relative; background-color: #ecf0f1;
+        }
+        #canvasContainer::-webkit-scrollbar { width: 12px; }
+        #canvasContainer::-webkit-scrollbar-track { background: #222; }
+        #canvasContainer::-webkit-scrollbar-thumb { background: #555; border-radius: 6px; }
+        #canvasContainer::-webkit-scrollbar-thumb:hover { background: #777; }
+
+        canvas { display: block; cursor: crosshair; }
+
+        .legend {
+            margin-top: 5px; display: flex; gap: 15px; font-size: 13px;
+            justify-content: center; flex-wrap: wrap; max-width: 600px;
+        }
+        .color-box {
+            display: inline-block; width: 12px; height: 12px;
+            vertical-align: middle; margin-right: 4px; border-radius: 2px;
+        }
+        .dot-box { border-radius: 50%; }
+        #message { height: 20px; color: #e74c3c; font-weight: bold; margin-bottom: 5px; }
+
+        #goldUI {
+            position: absolute; top: 15px; right: 20px;
+            font-size: 20px; font-weight: bold; color: #f1c40f;
+            background: rgba(0, 0, 0, 0.7); padding: 8px 15px;
+            border-radius: 5px; border: 2px solid #f39c12; z-index: 100;
+        }
+        #heroStatsUI {
+            position: absolute; top: 15px; left: 20px;
+            font-size: 14px; font-weight: bold; color: #ecf0f1;
+            background: rgba(0, 0, 0, 0.7); padding: 8px 15px;
+            border-radius: 5px; border: 2px solid #3498db; z-index: 100;
+            text-align: left;
+        }
+        .stat-highlight { color: #e74c3c; font-size: 16px; }
+        
+        .result-box {
+            background: rgba(0, 0, 0, 0.5); border: 2px solid #555;
+            padding: 20px 40px; border-radius: 10px; margin-bottom: 30px;
+            text-align: center; font-size: 1.5rem; line-height: 1.8;
+        }
+
+        /* ===== リザルト画面 ===== */
+        #gameOverScreen {
+            background: radial-gradient(ellipse at 50% 30%, #1a0a2e 0%, #0d0d0d 70%);
+        }
+        .result-container {
+            display: flex; flex-direction: column; align-items: center;
+            width: 100%; max-width: 480px; padding: 40px 20px;
+        }
+        .result-header { text-align: center; margin-bottom: 36px; }
+        .result-icon { font-size: 3.5rem; margin-bottom: 10px; animation: floatIcon 2.5s ease-in-out infinite; }
+        @keyframes floatIcon {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .result-title {
+            font-size: 2.8rem; font-weight: bold; letter-spacing: 4px;
+            color: #e74c3c;
+            text-shadow: 0 0 20px rgba(231,76,60,0.6), 2px 2px 0 #8e1a0e;
+            margin: 0 0 10px;
+        }
+        .result-subtitle {
+            font-size: 0.95rem; color: #8e8e9e; margin: 0; letter-spacing: 1px;
+        }
+        .result-stats {
+            width: 100%; background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; padding: 8px 0; margin-bottom: 36px;
+            backdrop-filter: blur(4px);
+        }
+        .result-stat-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 28px; gap: 12px;
+        }
+        .result-stat-sub { opacity: 0.7; padding: 12px 28px; }
+        .result-stat-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 0 20px; }
+        .result-stat-label { font-size: 0.95rem; color: #a0a0b8; letter-spacing: 1px; flex: 1; }
+        .result-stat-value {
+            font-size: 2rem; font-weight: bold; color: #f1c40f;
+            text-shadow: 0 0 10px rgba(241,196,15,0.5);
+            min-width: 60px; text-align: right;
+        }
+        .result-stat-value-small { font-size: 1.3rem; color: #bdc3c7; text-shadow: none; }
+        .result-stat-unit { font-size: 0.85rem; color: #6c6c80; min-width: 16px; }
+        .btn-result {
+            font-size: 1rem; padding: 14px 40px; letter-spacing: 2px;
+            background: linear-gradient(135deg, #8e44ad, #6c3483);
+            border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 4px 20px rgba(142,68,173,0.4);
+            transition: all 0.2s;
+        }
+        .btn-result:hover {
+            background: linear-gradient(135deg, #9b59b6, #7d3c98);
+            box-shadow: 0 6px 24px rgba(142,68,173,0.6);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="startScreen" class="screen">
+        <h1 class="title">Magika・Dorue α版</h1>
+        <button class="btn-start" onclick="enterGameScreen()">ゲーム開始</button>
+    </div>
+
+    <div id="gameScreen" class="screen">
+        <div id="heroStatsUI">
+            【現在の勇者スペック】<br>
+            攻: <span id="hAtk" class="stat-highlight">-</span> / 
+            敏: <span id="hAgi" class="stat-highlight">-</span> / 
+            HP: <span id="hHp" class="stat-highlight">-</span>
+        </div>
+        <div id="goldUI">Gold: <span id="goldAmount">50</span></div>
+        
+        <div id="dashboard">
+            <div class="btn-group">
+                <button class="btn-castle" id="castleBtn" onclick="toggleCastleMode()">🏰 あくま部屋作成(0 Gold)</button>
+            </div>
+            <div id="message"></div>
+            <div class="legend">
+                <span><div class="color-box dot-box" style="background:#3498db;"></div>勇者</span>
+                <span><div class="color-box dot-box" style="background:#2c3e50;"></div>スライム</span>
+                <span><div class="color-box dot-box" style="background:#2ecc71;"></div>ゴブリン</span>
+                <span><div class="color-box dot-box" style="background:#d35400;"></div>銅ゴーレム</span><br>
+                <span><div class="color-box" style="background:#8e44ad;"></div>あくま部屋</span>
+                <span><div class="color-box" style="background:#95a5a6;"></div>石</span>
+                <span><div class="color-box" style="background:#7b8d41;"></div>苔石</span>
+                <span><div class="color-box" style="background:#9A6229;"></div>銅</span>
+            </div>
+        </div>
+        
+        <div id="canvasContainer">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+    </div>
+
+    <div id="gameOverScreen" class="screen">
+        <div class="result-container">
+            <div class="result-header">
+                <div class="result-icon">💀</div>
+                <h1 class="result-title">TO BE CONTINUED...</h1>
+                <p class="result-subtitle">あくま部屋が勇者に破壊された。次の拠点はどこにしよう。</p>
+            </div>
+
+            <div class="result-stats">
+                <div class="result-stat-item">
+                    <span class="result-stat-label">⚔️ 討伐した勇者</span>
+                    <span class="result-stat-value" id="resHeroes">0</span>
+                    <span class="result-stat-unit">人</span>
+                </div>
+                <div class="result-stat-divider"></div>
+                <div class="result-stat-item">
+                    <span class="result-stat-label">💰 稼いだゴールド</span>
+                    <span class="result-stat-value" id="resEarnedGold">0</span>
+                    <span class="result-stat-unit">G</span>
+                </div>
+                <div class="result-stat-divider"></div>
+                <div class="result-stat-item result-stat-sub">
+                    <span class="result-stat-label">🪙 最終所持ゴールド</span>
+                    <span class="result-stat-value result-stat-value-small" id="resFinalGold">0</span>
+                    <span class="result-stat-unit">G</span>
+                </div>
+            </div>
+
+            <button class="btn-start btn-result" onclick="location.reload()">🏠 タイトルへ戻る</button>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const msgDiv = document.getElementById('message');
+    const castleBtn = document.getElementById('castleBtn');
+    const goldSpan = document.getElementById('goldAmount');
+    
+    const hAtkSpan = document.getElementById('hAtk');
+    const hAgiSpan = document.getElementById('hAgi');
+    const hHpSpan = document.getElementById('hHp');
+    
+    const COLS = 20;
+    const ROWS = 40; 
+    const TILE_SIZE = 30;
+    canvas.width = COLS * TILE_SIZE;
+    canvas.height = ROWS * TILE_SIZE;
+
+    // ゲーム内変数
+    let map = []; 
+    let heroes = [];
+    let monsters = [];
+    let particles = [];
+    let floatingTexts = [];
+    let isDragging = false;
+    let isPlacingCastle = false;
+    let castlePos = null;
+    let castleHp = 10;
+    const CASTLE_MAX_HP = 10;
+    let isGameRunning = false;
+    
+    // リソース＆リザルト用変数
+    let gold = 50; 
+    let defeatedHeroesCount = 0;
+    let totalEarnedGold = 0;
+    
+    let isFirstCastlePlaced = false;
+    let isWaveStarted = false;
+    let heroTimerId = null;
+
+    let heroBaseAtk = 1;
+    let heroBaseAgi = 2;
+    let heroBaseHp = 5;
+    const HERO_SEARCH_RANGE = 20;
+
+    const ENTRANCE_X = Math.floor(COLS / 2);
+    const SKY_LAYERS = 2; 
+
+    function generateMap() {
+        map = [];
+        for (let y = 0; y < ROWS; y++) {
+            map[y] = [];
+            for (let x = 0; x < COLS; x++) {
+                if (y < SKY_LAYERS) { map[y][x] = 4; } 
+                else if (y === SKY_LAYERS) { map[y][x] = (x === ENTRANCE_X) ? 0 : 3; } 
+                else if (y === SKY_LAYERS + 1 && x === ENTRANCE_X) { map[y][x] = 0; } 
+                else { map[y][x] = 1; } 
+            }
+        }
+
+        const undergroundRows = ROWS - SKY_LAYERS - 1;
+
+        for (let y = SKY_LAYERS + 1; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (y === SKY_LAYERS + 1 && x === ENTRANCE_X) continue;
+                
+                let d = (y - (SKY_LAYERS + 1)) / (undergroundRows - 1); 
+                if (undergroundRows <= 1) d = 1.0;
+
+                let pCopper = 0.33 * d;
+                let pMossSeed = 0.05 + 0.15 * d;
+
+                let r = Math.random();
+                if (r < pCopper) {
+                    map[y][x] = 6; 
+                } else if (r < pCopper + pMossSeed) {
+                    map[y][x] = 2; 
+                }
+            }
+        }
+
+        let newMap = map.map(row => [...row]);
+        for (let y = SKY_LAYERS + 1; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (map[y][x] === 1) { 
+                    let mossNeighbors = 0;
+                    const dirs = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+                    for(let dir of dirs) {
+                        let nx = x + dir[0], ny = y + dir[1];
+                        if(nx >= 0 && nx < COLS && ny >= SKY_LAYERS+1 && ny < ROWS) {
+                            if(map[ny][nx] === 2) mossNeighbors++;
+                        }
+                    }
+                    if (mossNeighbors >= 2 && Math.random() < 0.6) {
+                        newMap[y][x] = 2;
+                    }
+                }
+            }
+        }
+        map = newMap;
+    }
+
+    function updateGoldUI() { goldSpan.innerText = gold; }
+    
+    function updateHeroStatsUI() {
+        if (heroes.length > 0) {
+            hAtkSpan.innerText = heroes[0].atk;
+            hAgiSpan.innerText = heroes[0].agi;
+            hHpSpan.innerText = heroes[0].maxHp;
+        } else {
+            hAtkSpan.innerText = '-';
+            hAgiSpan.innerText = '-';
+            hHpSpan.innerText = '-';
+        }
+    }
+
+    function enterGameScreen() {
+        document.getElementById('startScreen').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'flex';
+        
+        generateMap();
+        heroes = []; monsters = []; particles = []; floatingTexts = [];
+        castlePos = null; castleHp = CASTLE_MAX_HP;
+        
+        // パラメータの初期化
+        gold = 50;
+        defeatedHeroesCount = 0;
+        totalEarnedGold = 0;
+        
+        isPlacingCastle = false;
+        castleBtn.classList.remove('active');
+        castleBtn.innerText = "🏰 あくま部屋作成(0 Gold)";
+        
+        isFirstCastlePlaced = false;
+        isWaveStarted = false;
+        
+        heroBaseAtk = 1; heroBaseAgi = 2; heroBaseHp = 5;
+        
+        updateGoldUI();
+        updateHeroStatsUI();
+        
+        isGameRunning = true;
+        gameLoop();
+
+        msgDiv.innerText = "あくま部屋を配置して防衛を開始してください！";
+        setTimeout(() => { if(msgDiv.innerText.includes("配置")) msgDiv.innerText = ""; }, 4000);
+    }
+
+    function triggerGameOver() {
+        isGameRunning = false;
+        if (heroTimerId) clearInterval(heroTimerId);
+        
+        // リザルト画面への値の代入
+        document.getElementById('resHeroes').innerText = defeatedHeroesCount;
+        document.getElementById('resEarnedGold').innerText = totalEarnedGold;
+        document.getElementById('resFinalGold').innerText = gold;
+
+        document.getElementById('gameScreen').style.display = 'none';
+        document.getElementById('gameOverScreen').style.display = 'flex';
+    }
+
+    function toggleCastleMode() {
+        isPlacingCastle = !isPlacingCastle;
+        castleBtn.classList.toggle('active', isPlacingCastle);
+        msgDiv.innerText = isPlacingCastle ? "配置したい空間をクリックしてください" : "";
+    }
+
+    function isReachable(startX, startY, targetX, targetY) {
+        if (startX === targetX && startY === targetY) return true;
+        let queue = [{x: startX, y: startY}];
+        let visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+        visited[startY][startX] = true;
+        const dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+        
+        while(queue.length > 0) {
+            let curr = queue.shift();
+            for (let d of dirs) {
+                let nx = curr.x + d.x; let ny = curr.y + d.y;
+                if (nx === targetX && ny === targetY) return true;
+                if (nx >= 0 && nx < COLS && ny >= SKY_LAYERS && ny < ROWS && !visited[ny][nx]) {
+                    if (map[ny][nx] === 0 || map[ny][nx] === 5) {
+                        visited[ny][nx] = true; queue.push({x: nx, y: ny});
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    function spawnDebris(x, y, type) {
+        let color = '#95a5a6'; 
+        if (type === 2) color = '#7b8d41'; 
+        if (type === 6) color = '#9A6229'; 
+
+        const numParticles = 6 + Math.floor(Math.random() * 4); 
+        for (let i = 0; i < numParticles; i++) {
+            particles.push({
+                x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2,
+                vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 1.2) * 6, 
+                life: 1.0, color: color, size: Math.random() * 3 + 2
+            });
+        }
+    }
+
+    canvas.addEventListener('mousedown', (e) => { 
+        if (isPlacingCastle) { placeCastle(e); } 
+        else { isDragging = true; dig(e); }
+    });
+    canvas.addEventListener('mousemove', (e) => { if (isDragging && !isPlacingCastle) dig(e); });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+    canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+    function spawnFloatingText(x, y, text, color) {
+        floatingTexts.push({
+            x: x * TILE_SIZE + TILE_SIZE / 2,
+            y: y * TILE_SIZE,
+            text, color,
+            life: 1.0,
+            vy: -1.2
+        });
+    }
+
+    function getJitter() { return (Math.random() - 0.5) * 4; }
+
+    function placeCastle(e) {
+        const x = Math.floor(e.offsetX / TILE_SIZE);
+        const y = Math.floor(e.offsetY / TILE_SIZE);
+
+        if (x < 0 || x >= COLS || y < SKY_LAYERS || y >= ROWS) return; 
+
+        if (map[y][x] === 0) {
+            if (isReachable(ENTRANCE_X, SKY_LAYERS, x, y)) {
+                
+                // コスト判定 (初回は0、2回目以降は50)
+                let cost = isFirstCastlePlaced ? 50 : 0;
+                if (gold < cost) {
+                    msgDiv.innerText = `あくま部屋を移動するには${cost}ゴールド必要です！`;
+                    setTimeout(() => { if(msgDiv.innerText.includes("ゴールド")) msgDiv.innerText = ""; }, 2000);
+                    return;
+                }
+
+                gold -= cost;
+                updateGoldUI();
+
+                if (castlePos) map[castlePos.y][castlePos.x] = 0;
+                map[y][x] = 5;
+                castlePos = {x: x, y: y};
+                castleHp = CASTLE_MAX_HP;
+                toggleCastleMode();
+                
+                if (!isWaveStarted) {
+                    isFirstCastlePlaced = true;
+                    isWaveStarted = true;
+                    
+                    // UIボタンの表示を更新
+                    castleBtn.innerText = "🏰 あくま部屋移動(50 Gold)";
+                    
+                    spawnHero(); 
+                    heroTimerId = setInterval(() => spawnHero(), 60000);
+                    msgDiv.innerText = "あくま部屋を配置しました！勇者の襲撃が始まります！";
+                } else {
+                    msgDiv.innerText = `あくま部屋を移動しました！(-${cost}G)`;
+                }
+                setTimeout(() => { if(msgDiv.innerText.includes("あくま部屋")) msgDiv.innerText = ""; }, 3000);
+            } else {
+                msgDiv.innerText = "そこは入り口から繋がっていないため配置できません！";
+            }
+        }
+    }
+
+    function dig(e) {
+        if(!isGameRunning) return;
+        const x = Math.floor(e.offsetX / TILE_SIZE);
+        const y = Math.floor(e.offsetY / TILE_SIZE);
+
+        if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+
+        if (map[y][x] === 1 || map[y][x] === 2 || map[y][x] === 6) {
+            if (gold >= 1) {
+                gold -= 1; updateGoldUI();
+                const type = map[y][x];
+                spawnDebris(x, y, type);
+                spawnFloatingText(x, y, '-1G', '#f1c40f');
+                map[y][x] = 0; 
+
+                if (type === 1) {
+                    monsters.push(makeEntity(x, y, { hp: 3, maxHp: 3, atk: 1, agi: 1, range: 4, isHero: false, color: '#2c3e50' }));
+                } else if (type === 2) {
+                    monsters.push(makeEntity(x, y, { hp: 2, maxHp: 2, atk: 1, agi: 2, range: 10, isHero: false, color: '#2ecc71' }));
+                } else if (type === 6) {
+                    monsters.push(makeEntity(x, y, { hp: 4, maxHp: 4, atk: 2, agi: 1, range: 3, isHero: false, color: '#d35400' }));
+                }
+            } else {
+                if(!isDragging) {
+                    msgDiv.innerText = "ゴールドが足りません！";
+                    setTimeout(() => { if(msgDiv.innerText.includes("ゴールド")) msgDiv.innerText = ""; }, 1000);
+                }
+            }
+        }
+    }
+
+    function spawnHero() {
+        if(!isGameRunning || !isWaveStarted) return; 
+
+        heroes.push(makeEntity(0, 1, {
+            hp: heroBaseHp, maxHp: heroBaseHp,
+            atk: heroBaseAtk, agi: heroBaseAgi,
+            range: HERO_SEARCH_RANGE, isHero: true, color: '#3498db'
+        }));
+
+        const r = Math.floor(Math.random() * 3);
+        if (r === 0) heroBaseAtk++;
+        else if (r === 1) heroBaseAgi++;
+        else heroBaseHp++;
+
+        updateHeroStatsUI();
+    }
+
+    const ACTION_THRESHOLD = 60;
+    const LERP_SPEED = 0.18;
+
+    function makeEntity(x, y, props) {
+        const rx = x * TILE_SIZE + TILE_SIZE / 2 + getJitter();
+        const ry = y * TILE_SIZE + TILE_SIZE / 2 + getJitter();
+        return Object.assign({ x, y, rx, ry, ox: 0, oy: 0, cd: 0 }, props);
+    }
+
+    function isPassable(x, y) {
+        return (x >= 0 && x < COLS && y >= 0 && y < ROWS && (map[y][x] === 0 || map[y][x] === 4 || map[y][x] === 5));
+    }
+
+    function getNextStepTowardsCastle(entity) {
+        if (!castlePos || (entity.x === castlePos.x && entity.y === castlePos.y)) return null;
+
+        let queue = [{x: entity.x, y: entity.y, path: []}];
+        let visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+        visited[entity.y][entity.x] = true;
+        const dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+
+        while(queue.length > 0) {
+            let curr = queue.shift();
+            for (let d of dirs) {
+                let nx = curr.x + d.x; let ny = curr.y + d.y;
+                if (nx === castlePos.x && ny === castlePos.y) {
+                    return curr.path.length > 0 ? curr.path[0] : {x: nx, y: ny};
+                }
+                if (isPassable(nx, ny) && !visited[ny][nx]) {
+                    visited[ny][nx] = true;
+                    queue.push({x: nx, y: ny, path: [...curr.path, {x: nx, y: ny}]});
+                }
+            }
+        }
+        return null;
+    }
+
+    function updateEntity(entity, enemies) {
+        entity.cd += entity.agi;
+        if (entity.cd >= ACTION_THRESHOLD) {
+            entity.cd -= ACTION_THRESHOLD;
+
+            if (entity.isHero && castlePos) {
+                const distToCastle = Math.abs(castlePos.x - entity.x) + Math.abs(castlePos.y - entity.y);
+                if (distToCastle <= 1) {
+                    castleHp -= entity.atk;
+                    if (castleHp <= 0) triggerGameOver();
+                    return; 
+                }
+            }
+
+            let target = null;
+            let minDist = Infinity;
+
+            enemies.forEach(enemy => {
+                if (enemy.hp <= 0) return;
+                if (!entity.isHero && enemy.y < SKY_LAYERS) return; 
+                
+                const dist = Math.abs(enemy.x - entity.x) + Math.abs(enemy.y - entity.y);
+                if (dist > entity.range) return;
+
+                if (dist < minDist) {
+                    minDist = dist; target = enemy;
+                }
+            });
+
+            if (target && minDist <= 1) {
+                target.hp -= entity.atk;
+                
+                // 勇者のHPを0にした際の処理
+                if (target.hp <= 0 && target.isHero) {
+                    gold += 25; 
+                    totalEarnedGold += 25;
+                    defeatedHeroesCount++;
+                    updateGoldUI();
+                    spawnFloatingText(target.x, target.y, '+25G', '#f1c40f');
+                    
+                    let remainingHeroes = heroes.filter(h => h.hp > 0 && h !== target);
+                    if (remainingHeroes.length === 0 && isWaveStarted) {
+                        clearInterval(heroTimerId);
+                        setTimeout(() => {
+                            if (isGameRunning) {
+                                spawnHero();
+                                heroTimerId = setInterval(() => spawnHero(), 60000);
+                            }
+                        }, 1000);
+                    }
+                }
+                return; 
+            }
+
+            if (entity.isHero) {
+                if (entity.y < SKY_LAYERS) {
+                    if (entity.x < ENTRANCE_X) { entity.x++; }
+                    else if (entity.x === ENTRANCE_X) { entity.y++; }
+                } else {
+                    let nextStep = getNextStepTowardsCastle(entity);
+                    if (nextStep) {
+                        entity.x = nextStep.x; entity.y = nextStep.y;
+                    } else if (target) {
+                        const dx = Math.sign(target.x - entity.x); const dy = Math.sign(target.y - entity.y);
+                        if (dx !== 0 && isPassable(entity.x + dx, entity.y)) entity.x += dx;
+                        else if (dy !== 0 && isPassable(entity.x, entity.y + dy)) entity.y += dy;
+                    } else {
+                        if (isPassable(entity.x, entity.y + 1)) entity.y++;
+                    }
+                }
+            } else {
+                if (target) {
+                    const dx = Math.sign(target.x - entity.x); const dy = Math.sign(target.y - entity.y);
+                    if (dx !== 0 && isPassable(entity.x + dx, entity.y)) entity.x += dx;
+                    else if (dy !== 0 && isPassable(entity.x, entity.y + dy)) entity.y += dy;
+                } else {
+                    if (Math.random() < 0.15) {
+                        const dirs = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+                        const validDirs = dirs.filter(d => isPassable(entity.x + d.x, entity.y + d.y));
+                        if (validDirs.length > 0) {
+                            const move = validDirs[Math.floor(Math.random() * validDirs.length)];
+                            entity.x += move.x; entity.y += move.y;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function gameLoop() {
+        if(!isGameRunning) return; 
+
+        heroes.forEach(h => updateEntity(h, monsters));
+        monsters.forEach(m => updateEntity(m, heroes));
+
+        heroes = heroes.filter(h => h.hp > 0);
+        monsters = monsters.filter(m => m.hp > 0);
+        
+        updateHeroStatsUI();
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (map[y][x] === 1) {
+                    ctx.fillStyle = '#95a5a6'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#7f8c8d'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 2) {
+                    ctx.fillStyle = '#7b8d41'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#556b2f'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 3) {
+                    ctx.fillStyle = '#795548'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#5D4037'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 4) {
+                    ctx.fillStyle = '#87CEEB'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (map[y][x] === 5) {
+                    ctx.fillStyle = '#8e44ad'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#2c3e50'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = 'red'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - 6, TILE_SIZE, 4);
+                    ctx.fillStyle = '#f1c40f';
+                    const hpRatio = Math.max(0, castleHp) / CASTLE_MAX_HP;
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - 6, TILE_SIZE * hpRatio, 4);
+                } else if (map[y][x] === 6) {
+                    ctx.fillStyle = '#9A6229'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#6d4219'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+
+        function drawEntity(entity) {
+            // スムーズな補間移動 (lerp)
+            const targetX = entity.x * TILE_SIZE + TILE_SIZE / 2;
+            const targetY = entity.y * TILE_SIZE + TILE_SIZE / 2;
+            if (entity.rx === undefined) entity.rx = targetX;
+            if (entity.ry === undefined) entity.ry = targetY;
+            entity.rx += (targetX - entity.rx) * 0.22;
+            entity.ry += (targetY - entity.ry) * 0.22;
+
+            const centerX = entity.rx;
+            const centerY = entity.ry;
+            const radius = entity.isHero ? 5 : 3.5;
+
+            // 影
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY + radius * 0.7, radius * 0.9, radius * 0.3, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.fill();
+
+            // 本体
+            ctx.beginPath(); 
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2); 
+            ctx.fillStyle = entity.color; ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            
+            // HPバー
+            const barWidth = entity.isHero ? 14 : 10; 
+            const barHeight = 2.5;
+            const barX = centerX - barWidth / 2; 
+            const barY = centerY - radius - 5; 
+
+            ctx.fillStyle = '#333'; ctx.fillRect(barX - 0.5, barY - 0.5, barWidth + 1, barHeight + 1);
+            ctx.fillStyle = '#c0392b'; ctx.fillRect(barX, barY, barWidth, barHeight);
+            ctx.fillStyle = '#2ecc71';
+            const hpRatio = Math.max(0, entity.hp) / entity.maxHp;
+            ctx.fillRect(barX, barY, barWidth * hpRatio, barHeight);
+        }
+
+        monsters.forEach(drawEntity);
+        heroes.forEach(drawEntity);
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.life -= 0.04; 
+            if (p.life <= 0) {
+                particles.splice(i, 1);
+            } else {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        // フローティングテキスト描画
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+            let ft = floatingTexts[i];
+            ft.y += ft.vy;
+            ft.life -= 0.022;
+            if (ft.life <= 0) {
+                floatingTexts.splice(i, 1);
+            } else {
+                ctx.save();
+                ctx.globalAlpha = ft.life;
+                ctx.font = 'bold 13px "Courier New", monospace';
+                ctx.fillStyle = ft.color;
+                ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+                ctx.lineWidth = 3;
+                ctx.textAlign = 'center';
+                ctx.strokeText(ft.text, ft.x, ft.y);
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            }
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+</script>
+</body>
+</html>

@@ -671,13 +671,7 @@
             <div style="font-size:1.1rem; color:#ffcc00; margin:4px 0 10px;">S = <span id="stakeVal">500</span> G</div>
             <div style="font-size:0.9rem; margin-bottom:6px;">⚡ レバレッジ倍率 L</div>
             <div id="levTierBtns" style="display:flex; gap:8px; margin-bottom:12px;"></div>
-            <div style="font-size:0.82rem; line-height:1.7; color:#aab; border-top:1px solid #334; padding-top:10px;">
-                🏦 開始資本（＝損益分岐）: <span id="startGoldVal" style="color:#ffcc00;">?</span> G（預入S×倍率L）<br>
-                📈 討伐G・ダイヤが <b style="color:#00ffee;">L 倍</b>（複利なし）<br>
-                🏳 「撤退」は<b>波の合間のみ</b>。手持ちが資本を超えていれば利益確定<br>
-                💀 城陥落＝清算。<b style="color:#ff6688;">最大 <span id="maxLossVal">1000</span> G</b> を失う（銀行マイナス可）<br>
-                🏦 銀行残高: <span id="bankVal" style="color:#ffcc00;">0</span> G
-            </div>
+            <div style="font-size:0.9rem; border-top:1px solid #334; padding-top:10px;">🏦 開始ゴールド: <span id="startGoldVal" style="color:#ffcc00;">?</span> G</div>
             <div style="display:flex; gap:10px; margin-top:14px;">
                 <button class="btn-start" onclick="startHardRun()" style="flex:1; background:#aa2244; border-color:#ff4466;">▶ ハード開始</button>
                 <button class="btn-start" onclick="closeHardConfig()" style="background:#555; border-color:#444; padding:10px 18px;">← 戻る</button>
@@ -1955,9 +1949,6 @@
         const capital = S * L;
         document.getElementById('stakeVal').innerText = S;
         document.getElementById('startGoldVal').innerText = capital;
-        document.getElementById('maxLossVal').innerText = capital;
-        const bank = loadCarryOver();
-        document.getElementById('bankVal').innerText = `${bank}（預入上限 ${levMaxStake()}）`;
         // 選択中の倍率ボタンをハイライト
         document.querySelectorAll('#levTierBtns button').forEach(b => {
             const on = parseInt(b.dataset.tier, 10) === L;

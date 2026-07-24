@@ -2367,6 +2367,14 @@
         const TILE_TO_MTYPE = { 1: 'slime', 2: 'goblin', 6: 'golem', 7: 'wraith' };
         const tile = map[y][x];
         if (tile === 1 || tile === 2 || tile === 6 || tile === 7 || tile === 8) {
+            // 開通済み空間（空洞/空/あくま部屋）に隣接するマスしか掘れない＝繋がっていない場所は不可
+            if (!isPassable(x - 1, y) && !isPassable(x + 1, y) && !isPassable(x, y - 1) && !isPassable(x, y + 1)) {
+                if (!isDragging) {
+                    msgDiv.innerText = '繋がっている場所しか掘れません！';
+                    setTimeout(() => { if (msgDiv.innerText.includes('繋がって')) msgDiv.innerText = ''; }, 1200);
+                }
+                return;
+            }
             if (gold >= 1) {
                 gold -= 1; updateGoldUI();
                 spawnDebris(x, y, tile);

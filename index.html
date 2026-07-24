@@ -768,11 +768,6 @@
                 <div id="diamondUI">💎 <span id="diamondAmount">0</span></div>
                 <div id="goldUI">💰 <span id="goldAmount">50</span> G</div>
             </div>
-            <div id="levHUD" style="display:none; position:absolute; top:96px; left:0; background:rgba(30,0,10,0.9); border:1px solid #ff4466; border-radius:2px; padding:5px 9px; font-size:11px; color:#f0d0d8; z-index:100; line-height:1.5;">
-                <div>🎯 資本 <span id="levRepay" style="color:#ff8899;">0</span> G</div>
-                <div>💹 純益 <span id="levNet" style="color:#ffcc00;">0</span> G</div>
-                <div id="levZone" style="font-size:10px; color:#8899cc;">—</div>
-            </div>
             <button id="speedBtn" onclick="toggleSpeed()" style="position:absolute; top:36px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">▶▶ 早送り</button>
             <button id="pauseBtn" onclick="togglePause()" style="position:absolute; top:62px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">⏸ ポーズ</button>
             <button id="muteBtn" onclick="toggleMute()" style="position:absolute; top:88px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">🔊 音</button>
@@ -1482,24 +1477,9 @@
         saveCarryOver(bank);
         return { capital, delta, bank };
     }
-    // レバレッジHUD：資本(損益分岐)・純益・状態を更新
+    // 撤退ボタンの有効/無効表示だけ更新（資本・純益はプレイヤーが頭で計算する＝HUD非表示）
     function updateLevHUD() {
         if (!leverage.active) return;
-        const capital = levCapital();
-        const net = gold - capital;
-        const capEl = document.getElementById('levRepay');
-        const netEl = document.getElementById('levNet');
-        const zoneEl = document.getElementById('levZone');
-        if (capEl) capEl.innerText = capital;
-        if (netEl) {
-            netEl.innerText = (net >= 0 ? '+' : '') + net;
-            netEl.style.color = net >= 0 ? '#ffcc00' : '#ff5566';
-        }
-        if (zoneEl) {
-            if (net >= 0) { zoneEl.innerText = '💹 利益ゾーン'; zoneEl.style.color = '#66dd88'; }
-            else          { zoneEl.innerText = '⚠ 元本割れ';   zoneEl.style.color = '#ff5566'; }
-        }
-        // 撤退ボタンは勇者不在時のみ有効（波の合間）
         const rb = document.getElementById('retreatBtn');
         if (rb) {
             const canRetreat = isWaveStarted && !heroes.some(h => h.hp > 0);
@@ -2052,8 +2032,6 @@
         rBtn.style.display = 'block';
         rBtn.style.opacity = '1';
         rBtn.innerText = '🏳 撤退';
-        // レバレッジHUD（ハード限定：資本/純益表示）
-        document.getElementById('levHUD').style.display = leverage.active ? 'block' : 'none';
         updateLevHUD();
         // ボスUIリセット
         document.getElementById('bossHpUI').style.display = 'none';

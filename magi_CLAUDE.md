@@ -159,6 +159,20 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
 
+## Recent Session Changes (2026-07-24 その4：Phase 2 レア度付き宝物システム v1)
+
+ロードマップ②に着手。宝石鉱脈から**レア度付き宝物**をドロップ、収集→装備でランに効果を反映するところまで実装（v1＝収集＋装備）。時価売却/取引は次段。
+
+- **データ**: localStorage `magika_inventory`（宝物配列）/`magika_equipped`（装備ID配列, `EQUIP_SLOTS=3`）。宝物 = `{id,name,rarity,icon,affixes[],bornDepth,bornRun,createdAt}`。
+- **レア度** `RARITIES`: common/uncommon/rare/epic/legendary（重み60/25/10/4/1、affix数1/1/2/2/3、value倍率0.7/1.0/1.4/2.0/3.0、色付き）。**深度でレア度上昇**（`rollRarityIndex`: 重み×(1+tier×min(1.5,depth/200))。深度250で伝説≈3%）。
+- **アフィックス** `AFFIX_TYPES`: startGold / atk / agi / hp（全モンスター）/ breedCap。value = base×レア度倍率。名前/アイコンは `TREASURE_NAMES` の固定表からランダム（自由入力なし=安全）。
+- **ドロップ**: `dig()` の宝石鉱脈(tile8)で `rollTreasure(depthOf(y))` → `addTreasure` + レア度別演出（色/バースト/SE）。ゴールドは8〜20Gに減、旧ダイヤドロップは廃止（宝物に置換）。ハードの深度駆動スポーン(`levTreasureFactor`)と噛み合い「深い＝宝の山＝高レア度」。
+- **装備適用**: `equippedAffixTotals()` を `enterGameScreen` で反映。startGold→開始gold加算、atk/agi/hp→全 `randBonus[mt]` の初期値、breedCap→`treasureBreedCap`（BREED_MAX に加算）。両モードで有効。
+- **宝物庫UI** `#treasuryScreen`（設定画面に「🏆 宝物庫」ボタン→`showTreasury`）: 装備スロット3＋インベントリ一覧（レア度色枠・アフィックス・出土深度）、装備/解除ボタン、満杯時ガード。`ALL_SCREENS` に追加。
+- リザルトに「🏆 入手した宝物」(`sessionTreasures`)を追加。
+- **検証**: 構文OK・div167/167・全ID/関数存在・DOMスタブ全ロード・レア度分布(深度0/250)・生成構造・装備合計・スロット上限 の各テスト合格。
+- **次段(Phase2.5/3)**: 時価売却（市場価格で宝物を換金）／宝物の分解・整理／道A取引コード。
+
 ## Recent Session Changes (2026-07-24 その3)
 
 ### 銀行0でハード不可＋UI用語「引継ぎ」→「銀行」統一

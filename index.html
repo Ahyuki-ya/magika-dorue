@@ -695,8 +695,18 @@
         <p class="menu-heading">— Records & Settings —</p>
         <div class="records-grid" id="recordsGrid"></div>
         <div class="ach-list" id="achList"></div>
-        <button class="btn-start" id="settingsMuteBtn" onclick="toggleMute()" style="font-size:0.9rem; padding:10px 28px; margin-top:16px;">🔊 サウンド: ON</button>
+        <button class="btn-start" onclick="showTreasury()" style="font-size:0.95rem; padding:10px 28px; margin-top:16px; background:#3a2a5a; border-color:#9b59b6;">🏆 宝物庫</button>
+        <button class="btn-start" id="settingsMuteBtn" onclick="toggleMute()" style="font-size:0.9rem; padding:10px 28px; margin-top:10px;">🔊 サウンド: ON</button>
         <button class="btn-back" onclick="backFromSubScreen()">← 戻る</button>
+    </div>
+
+    <!-- 宝物庫（Treasury）画面 -->
+    <div id="treasuryScreen" class="screen">
+        <p class="menu-heading">— 宝物庫 —</p>
+        <div style="font-size:0.85rem; color:#aab; margin-bottom:8px;">装備した宝物のアフィックスが次のランに適用されます（スロット <span id="tzEquipCount">0</span>/<span id="tzEquipMax">3</span>）</div>
+        <div id="tzEquippedRow" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:10px; min-height:20px;"></div>
+        <div id="tzInventoryList" style="width:min(560px,94vw); max-height:52vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        <button class="btn-back" onclick="showSettings()" style="margin-top:14px;">← 戻る</button>
     </div>
 
     <div id="gameScreen" class="screen">
@@ -916,6 +926,12 @@
                     <span class="result-stat-label">🏦 最終所持ゴールド</span>
                     <span class="result-stat-value result-stat-value-small" id="resFinalGold">0</span>
                     <span class="result-stat-unit">G</span>
+                </div>
+                <div class="result-stat-divider"></div>
+                <div class="result-stat-item">
+                    <span class="result-stat-label">🏆 入手した宝物</span>
+                    <span class="result-stat-value" id="resTreasures" style="color:#9b59b6;">0</span>
+                    <span class="result-stat-unit">個</span>
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
@@ -1159,6 +1175,77 @@
     }
     function saveRecords(r) { localStorage.setItem('magika_records', JSON.stringify(r)); }
 
+    // ===== 宝物システム（レア度付きアイテム・magika_inventory / magika_equipped） =====
+    const RARITIES = [
+        { key:'common',    name:'並',   color:'#95a5a6', weight:60, affixCount:1, mult:0.7 },
+        { key:'uncommon',  name:'良',   color:'#2ecc71', weight:25, affixCount:1, mult:1.0 },
+        { key:'rare',      name:'稀',   color:'#3498db', weight:10, affixCount:2, mult:1.4 },
+        { key:'epic',      name:'極',   color:'#9b59b6', weight:4,  affixCount:2, mult:2.0 },
+        { key:'legendary', name:'伝説', color:'#ffcc00', weight:1,  affixCount:3, mult:3.0 },
+    ];
+    const RARITY_BY_KEY = Object.fromEntries(RARITIES.map(r => [r.key, r]));
+    // アフィックス（装備でランに適用される効果）。value = base×レア度mult
+    const AFFIX_TYPES = [
+        { key:'startGold', base:[8,36], fmt:v => `初期ゴールド +${v}` },
+        { key:'atk',       base:[1,4],  fmt:v => `全モンスター 攻撃+${v}` },
+        { key:'agi',       base:[1,4],  fmt:v => `全モンスター 敏捷+${v}` },
+        { key:'hp',        base:[1,5],  fmt:v => `全モンスター 耐久+${v}` },
+        { key:'breedCap',  base:[1,1],  fmt:v => `繁殖上限 +${v}` },
+    ];
+    const AFFIX_BY_KEY = Object.fromEntries(AFFIX_TYPES.map(a => [a.key, a]));
+    const TREASURE_NAMES = {
+        common:    { icons:['🪨','🔩','🗝️'], names:['錆びた剣','欠けた石','古びた鍵','ひび割れた盾'] },
+        uncommon:  { icons:['🛡️','📿','🥾'], names:['銅の護符','丈夫な革帯','磨かれた守石'] },
+        rare:      { icons:['💍','🔮','⚱️'], names:['苔むした王笏','蒼の宝珠','秘めた指輪','古代の香炉'] },
+        epic:      { icons:['👑','🗡️','💠'], names:['深淵のクリスタル','漆黒の刃','魔石の宝冠'] },
+        legendary: { icons:['🌟','🐉','🔱'], names:['魔王の宝冠','竜の心臓','世界樹の雫'] },
+    };
+    const EQUIP_SLOTS = 3;
+
+    function loadInventory() { try { return JSON.parse(localStorage.getItem('magika_inventory') || '[]'); } catch { return []; } }
+    function saveInventory(inv) { localStorage.setItem('magika_inventory', JSON.stringify(inv)); }
+    function loadEquipped() { try { return JSON.parse(localStorage.getItem('magika_equipped') || '[]'); } catch { return []; } }
+    function saveEquipped(eq) { localStorage.setItem('magika_equipped', JSON.stringify(eq)); }
+
+    function tzPick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+    // 深度でレア度上昇（深いほど高レア度の重みが増す）
+    function rollRarityIndex(depth) {
+        const df = Math.min(1.5, Math.max(0, depth) / 200);
+        const weights = RARITIES.map((r, i) => r.weight * (1 + i * df));
+        const total = weights.reduce((a, b) => a + b, 0);
+        let r = Math.random() * total;
+        for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r < 0) return i; }
+        return 0;
+    }
+    function rollAffixes(n, mult) {
+        const pool = AFFIX_TYPES.slice().sort(() => Math.random() - 0.5).slice(0, n);
+        return pool.map(a => {
+            const [lo, hi] = a.base;
+            return { key: a.key, value: Math.max(1, Math.round((lo + Math.random() * (hi - lo)) * mult)) };
+        });
+    }
+    function rollTreasure(depth) {
+        const ri = rollRarityIndex(depth);
+        const rar = RARITIES[ri];
+        const pool = TREASURE_NAMES[rar.key];
+        return {
+            id: 'tz_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+            name: tzPick(pool.names), icon: tzPick(pool.icons), rarity: rar.key,
+            affixes: rollAffixes(rar.affixCount, rar.mult),
+            bornDepth: Math.max(0, Math.round(depth)), bornRun: loadRunCount(), createdAt: Date.now()
+        };
+    }
+    function addTreasure(t) { const inv = loadInventory(); inv.push(t); saveInventory(inv); }
+    // 装備中の宝物のアフィックス合計（存在しないIDは無視）
+    function equippedAffixTotals() {
+        const inv = loadInventory(), eq = loadEquipped(), totals = {};
+        for (const id of eq) {
+            const t = inv.find(x => x.id === id); if (!t) continue;
+            for (const a of t.affixes) totals[a.key] = (totals[a.key] || 0) + a.value;
+        }
+        return totals;
+    }
+
     const ACHIEVEMENTS = [
         { name: 'はじめての討伐', desc: '勇者を1人討伐する', test: r => r.kills >= 1 },
         { name: '魔王の風格',     desc: '勇者を累計50人討伐する', test: r => r.kills >= 50 },
@@ -1176,6 +1263,75 @@
     function showSettings() {
         showScreenOnly('settingsScreen');
         renderSettings();
+    }
+
+    // ===== 宝物庫（Treasury）UI =====
+    function showTreasury() {
+        showScreenOnly('treasuryScreen');
+        renderTreasury();
+    }
+    function tzEquip(id) {
+        const eq = loadEquipped();
+        if (eq.includes(id) || eq.length >= EQUIP_SLOTS) return;
+        eq.push(id); saveEquipped(eq); playSE('buy'); renderTreasury();
+    }
+    function tzUnequip(id) {
+        saveEquipped(loadEquipped().filter(x => x !== id)); renderTreasury();
+    }
+    const RARITY_ORDER = { legendary:4, epic:3, rare:2, uncommon:1, common:0 };
+    function renderTreasury() {
+        const inv = loadInventory();
+        const eq = loadEquipped();
+        document.getElementById('tzEquipCount').innerText = eq.length;
+        document.getElementById('tzEquipMax').innerText = EQUIP_SLOTS;
+        // 装備スロット
+        const eqRow = document.getElementById('tzEquippedRow');
+        eqRow.innerHTML = '';
+        for (let i = 0; i < EQUIP_SLOTS; i++) {
+            const t = eq[i] ? inv.find(x => x.id === eq[i]) : null;
+            const slot = document.createElement('div');
+            if (t) {
+                const rar = RARITY_BY_KEY[t.rarity];
+                slot.style.cssText = `border:2px solid ${rar.color}; border-radius:4px; padding:4px 10px; font-size:1.3rem; cursor:pointer; background:rgba(0,0,0,0.3);`;
+                slot.innerText = t.icon;
+                slot.title = t.name + '（クリックで解除）';
+                slot.onclick = () => tzUnequip(t.id);
+            } else {
+                slot.style.cssText = 'border:2px dashed #445; border-radius:4px; padding:4px 14px; color:#556; font-size:1.3rem;';
+                slot.innerText = '＋';
+            }
+            eqRow.appendChild(slot);
+        }
+        // インベントリ一覧（レア度→深度で降順）
+        const sorted = inv.slice().sort((a, b) =>
+            (RARITY_ORDER[b.rarity] - RARITY_ORDER[a.rarity]) || (b.bornDepth - a.bornDepth));
+        const listEl = document.getElementById('tzInventoryList');
+        listEl.innerHTML = '';
+        if (sorted.length === 0) {
+            listEl.innerHTML = '<div style="color:#889; text-align:center; padding:24px;">まだ宝物がありません。<br>深く潜って宝石鉱脈（💎）を掘りましょう。</div>';
+            return;
+        }
+        const full = eq.length >= EQUIP_SLOTS;
+        for (const t of sorted) {
+            const rar = RARITY_BY_KEY[t.rarity];
+            const isEq = eq.includes(t.id);
+            const card = document.createElement('div');
+            card.style.cssText = `display:flex; align-items:center; gap:10px; border:2px solid ${rar.color}; border-radius:4px; padding:8px 12px; background:rgba(0,8,32,0.6); text-align:left;`;
+            const affixText = t.affixes.map(a => AFFIX_BY_KEY[a.key].fmt(a.value)).join(' ／ ');
+            const info = document.createElement('div');
+            info.style.cssText = 'flex:1; min-width:0;';
+            info.innerHTML = `<div style="color:${rar.color}; font-weight:bold;">${t.icon} ${t.name} <span style="font-size:0.72rem; opacity:0.85;">［${rar.name}］</span></div>`
+                + `<div style="font-size:0.8rem; color:#cde;">${affixText}</div>`
+                + `<div style="font-size:0.68rem; color:#889;">深度 ${t.bornDepth} で出土</div>`;
+            const btn = document.createElement('button');
+            btn.className = 'btn-start';
+            btn.style.cssText = 'padding:6px 14px; font-size:0.8rem; flex-shrink:0;';
+            if (isEq) { btn.innerText = '解除'; btn.style.background = '#555'; btn.onclick = () => tzUnequip(t.id); }
+            else if (full) { btn.innerText = '満杯'; btn.disabled = true; btn.style.opacity = '0.4'; }
+            else { btn.innerText = '装備'; btn.onclick = () => tzEquip(t.id); }
+            card.appendChild(info); card.appendChild(btn);
+            listEl.appendChild(card);
+        }
     }
     function renderSettings() {
         renderSettingsInto(document.getElementById('recordsGrid'),
@@ -1213,7 +1369,7 @@
     let wasPausedBeforeSub = false;
 
     // 指定した画面だけを表示し、他の全画面を確実に閉じる（横並び事故の防止）
-    const ALL_SCREENS = ['titleScreen','startScreen','modeSelectScreen','shopScreen','settingsScreen','gameScreen','gameOverScreen'];
+    const ALL_SCREENS = ['titleScreen','startScreen','modeSelectScreen','shopScreen','settingsScreen','treasuryScreen','gameScreen','gameOverScreen'];
     function showScreenOnly(id, displayMode) {
         for (const sid of ALL_SCREENS) {
             const el = document.getElementById(sid);
@@ -1532,6 +1688,8 @@
 
     let maxDepth = 0;
     let sessionBreeds = 0;              // このランでの繁殖数（記録用）
+    let sessionTreasures = 0;           // このランで得た宝物数（記録用）
+    let treasureBreedCap = 0;           // 装備宝物による繁殖上限ボーナス（ラン開始時に確定）
     let BABY_GROW_MS = 20000;           // ちび成長時間（ショップで短縮）
     const DIG_RANGE_BELOW_CASTLE = 10;
     const ENTRANCE_X = Math.floor(COLS / 2);
@@ -2015,12 +2173,16 @@
         
         // パラメータの初期化（ショップ「初期ゴールド増加」を反映）
         // スタンダード：引継ぎゴールド非連動。ハード：開始ゴールド = 預入S×L（＝損益分岐＝最大損失）
+        const tzAffix = equippedAffixTotals();               // 装備宝物のアフィックス合計
         gold = leverage.active ? levCapital() : (20 + shopData.startGold * 15);
+        gold += (tzAffix.startGold || 0);                    // 宝物「初期ゴールド」
         diamond = loadCarryDiamond();
         defeatedHeroesCount = 0;
         totalEarnedGold = 0;
         totalEarnedDiamond = 0;
         sessionBreeds = 0;
+        sessionTreasures = 0;
+        treasureBreedCap = tzAffix.breedCap || 0;            // 宝物「繁殖上限」
         BABY_GROW_MS = [20000, 16000, 12000][shopData.growSpeed] || 20000;
 
         // シャドウレイス解禁状態のUI反映
@@ -2055,11 +2217,12 @@
         monsterLevels.goblin = savedLevels.goblin;
         monsterLevels.golem = savedLevels.golem;
         monsterLevels.wraith = savedLevels.wraith || 1;
-        // ランダムボーナス・怒りボーナスはセッション限定でリセット
-        randBonus.slime  = {atk:0, agi:0, hp:0};
-        randBonus.goblin = {atk:0, agi:0, hp:0};
-        randBonus.golem  = {atk:0, agi:0, hp:0};
-        randBonus.wraith = {atk:0, agi:0, hp:0};
+        // ランダムボーナスはセッション限定リセット。装備宝物のアフィックス（全モンスター攻/敏/HP）を初期値に反映
+        const eqAtk = tzAffix.atk || 0, eqAgi = tzAffix.agi || 0, eqHp = tzAffix.hp || 0;
+        randBonus.slime  = {atk:eqAtk, agi:eqAgi, hp:eqHp};
+        randBonus.goblin = {atk:eqAtk, agi:eqAgi, hp:eqHp};
+        randBonus.golem  = {atk:eqAtk, agi:eqAgi, hp:eqHp};
+        randBonus.wraith = {atk:eqAtk, agi:eqAgi, hp:eqHp};
         rageBonus = { atk: 0, agi: 0, hp: 0 };
         randCount.slime = 0; randCount.goblin = 0; randCount.golem = 0; randCount.wraith = 0;
         heroGold = 0;
@@ -2143,6 +2306,7 @@
         document.getElementById('resFinalGold').innerText = gold;
         document.getElementById('resDepth').innerText = maxDepth;
         document.getElementById('resCarryOver').innerText = newCarry;
+        document.getElementById('resTreasures').innerText = sessionTreasures;
         document.getElementById('resEarnedDiamond').innerText = totalEarnedDiamond;
         document.getElementById('resCarryDiamond').innerText = diamond;
         document.getElementById('resMonsterLevels').innerText =
@@ -2382,17 +2546,17 @@
                 playSE('dig');
 
                 if (tile === 8) {
-                    // 宝石鉱脈：ゴールド + 稀にダイヤ
-                    const gain = 10 + Math.floor(Math.random() * 21); // 10〜30G
+                    // 宝石鉱脈：宝物ドロップ（深度でレア度上昇）＋少量ゴールド
+                    const gain = 8 + Math.floor(Math.random() * 13); // 8〜20G
                     gold += gain; totalEarnedGold += gain;
-                    if (Math.random() < 0.10) {
-                        diamond++; totalEarnedDiamond++;
-                        spawnFloatingText(x, y - 1, '+1💎', '#00cfff');
-                        playSE('gem');
-                    } else {
-                        playSE('heroKill');
-                    }
-                    spawnFloatingText(x, y, `💎鉱脈! +${gain}G`, '#ffcc00');
+                    const tz = rollTreasure(depthOf(y));
+                    addTreasure(tz);
+                    sessionTreasures++;
+                    const rar = RARITY_BY_KEY[tz.rarity];
+                    spawnFloatingText(x, y - 1, `${tz.icon} ${tz.name}`, rar.color, 14);
+                    spawnFloatingText(x, y, `［${rar.name}］`, rar.color, 12);
+                    spawnBurst(x, y, [rar.color, '#ffffff'], (tz.rarity === 'epic' || tz.rarity === 'legendary') ? 24 : 12);
+                    playSE((tz.rarity === 'epic' || tz.rarity === 'legendary') ? 'gem' : 'buy');
                     updateGoldUI();
                 } else {
                     spawnFloatingText(x, y, '-1G', '#ffcc00');
@@ -3045,7 +3209,7 @@
 
         // ===== 繁殖システム =====
         if (castlePos && isWaveStarted) {
-            const BREED_MAX = 8 + shopData.breedCap * 2; // ショップ「繁殖上限アップ」
+            const BREED_MAX = 8 + shopData.breedCap * 2 + treasureBreedCap; // ショップ＋宝物「繁殖上限」
             const mtypes = activeMtypes();
             for (const mt of mtypes) {
                 try {

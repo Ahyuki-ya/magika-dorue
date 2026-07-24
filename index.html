@@ -1450,8 +1450,13 @@
     //   討伐G・ダイヤは ×L。複利なし。停止圧力は「深いほど勇者が強い」で作る。
     //   撤退（波の合間のみ）or 城陥落で精算：ΔB = 手持ちgold − S×L を引継ぎ銀行に加算（マイナス可＝清算・無限責任）。
     //   勝てば預入＋利益が戻り、負ければ最大 S×L を失う。
-    const LEV_MAX_STAKE = 3000;      // 預入の上限
+    const LEV_MAX_STAKE = 3000;      // 預入の絶対上限
+    const LEV_MIN_STAKE = 100;       // 最低ライン（銀行が乏しくても這い上がれる）
     const LEV_TIERS = [2, 3, 5, 10]; // レバレッジ倍率の選択肢
+    // 預入の実効上限：自分の銀行残高まで（ただし最低ラインは常に確保、絶対上限で頭打ち）
+    function levMaxStake() {
+        return Math.min(LEV_MAX_STAKE, Math.max(loadCarryOver(), LEV_MIN_STAKE));
+    }
     // 宝の湧きは深度で増える（深追いの誘惑。EV負性は「深い＝勇者が強い＝死んでS×Lを失う」で担保）
     const LEV_TREASURE_DEPTH0 = 30;  // この深度から宝が増え始める
     const LEV_TREASURE_SLOPE = 0.06; // 1深度あたりの宝倍率増分
@@ -1884,7 +1889,11 @@
         document.querySelector('#modeSelectScreen .mode-select').style.display = 'none';
         document.getElementById('modeResetBtn').style.display = 'none';
         document.getElementById('modeBackBtn').style.display = 'none';
-        document.getElementById('stakeSlider').max = LEV_MAX_STAKE;
+        // 預入スライダーの上限を銀行残高に合わせる（現在値も超過分をクランプ）
+        const smax = levMaxStake();
+        const slider = document.getElementById('stakeSlider');
+        slider.max = smax;
+        if (parseInt(slider.value, 10) > smax) slider.value = smax;
         // レバレッジ倍率ボタンを生成
         const box = document.getElementById('levTierBtns');
         box.innerHTML = '';
@@ -1916,7 +1925,8 @@
         document.getElementById('stakeVal').innerText = S;
         document.getElementById('startGoldVal').innerText = capital;
         document.getElementById('maxLossVal').innerText = capital;
-        document.getElementById('bankVal').innerText = loadCarryOver();
+        const bank = loadCarryOver();
+        document.getElementById('bankVal').innerText = `${bank}（預入上限 ${levMaxStake()}）`;
         // 選択中の倍率ボタンをハイライト
         document.querySelectorAll('#levTierBtns button').forEach(b => {
             const on = parseInt(b.dataset.tier, 10) === L;
@@ -1925,7 +1935,8 @@
         });
     }
     function startHardRun() {
-        const S = parseInt(document.getElementById('stakeSlider').value, 10) || 0;
+        let S = parseInt(document.getElementById('stakeSlider').value, 10) || 0;
+        S = Math.min(S, levMaxStake());           // 銀行残高を超える預入を防ぐ
         const L = selectedLevTier;
         closeHardConfig();
         enterGameScreen('hard', S, L);

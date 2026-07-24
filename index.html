@@ -1510,9 +1510,16 @@
             rb.innerText = canRetreat ? '🏳 撤退' : '🏳 波の合間に';
         }
     }
-    // 撤退（利確）：波の合間のみ。確認後に精算してゲーム終了
+    // 撤退：standardはいつでもラン終了、hardは波の合間のみ利確
     function retreatCashOut() {
-        if (!isGameRunning || !leverage.active) return;
+        if (!isGameRunning) return;
+        // standard：経済精算なし。確認してリザルトへ
+        if (!leverage.active) {
+            if (confirm('🏳 このランを終了しますか？\n\nこれまでの成績でリザルトへ進みます。')) {
+                triggerGameOver(true);
+            }
+            return;
+        }
         if (!isWaveStarted) {
             msgDiv.innerText = "防衛を開始してから撤退できます";
             setTimeout(() => { if (msgDiv.innerText.includes("撤退")) msgDiv.innerText = ""; }, 1500);
@@ -2021,8 +2028,12 @@
         document.getElementById('wraith-card').style.display = shopData.wraith ? '' : 'none';
         document.getElementById('legendWraith').style.display = shopData.wraith ? '' : 'none';
         document.getElementById('legendDark').style.display = shopData.wraith ? '' : 'none';
-        // レバレッジHUD（ハード限定：撤退ボタン＆返済/純益表示）
-        document.getElementById('retreatBtn').style.display = leverage.active ? 'block' : 'none';
+        // 撤退ボタンは両モードで表示（standardは常時＝ラン終了、hardは波の合間のみ＝利確）
+        const rBtn = document.getElementById('retreatBtn');
+        rBtn.style.display = 'block';
+        rBtn.style.opacity = '1';
+        rBtn.innerText = '🏳 撤退';
+        // レバレッジHUD（ハード限定：資本/純益表示）
         document.getElementById('levHUD').style.display = leverage.active ? 'block' : 'none';
         updateLevHUD();
         // ボスUIリセット
@@ -2103,7 +2114,9 @@
         if (voluntary) {
             document.getElementById('resIcon').innerText = '🏳';
             document.getElementById('resTitle').innerText = 'WITHDRAWN';
-            document.getElementById('resSubtitle').innerText = '深部から撤退し、利益を確定した。次はどこまで潜る？';
+            document.getElementById('resSubtitle').innerText = leverage.active
+                ? '深部から撤退し、利益を確定した。次はどこまで潜る？'
+                : '自らの意思で撤退した。次はどこまで潜る？';
         } else {
             document.getElementById('resIcon').innerText = '💀';
             document.getElementById('resTitle').innerText = 'TO BE CONTINUED...';

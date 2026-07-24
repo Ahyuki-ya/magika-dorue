@@ -159,6 +159,14 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
 
+## Recent Session Changes (2026-07-24 その6：モンスターLv 100化・線形ステータス・ダイヤ強化)
+
+- **ステータスを線形化**: 旧 `MONSTER_STATS`（5段階配列）を廃止し `MONSTER_GROWTH`（base+slope）＋`mstatsAt(mt,lv)` に。各モンスターの特性を slope に反映（slime=均等 / goblin=agi高成長・長射程・低hp / golem=hp高成長・低agi / wraith=atk高成長・低hp・最長射程）。Lv100例: goblin agi101 / golem hp143 / wraith atk122 / slime 51-31-72。射程は固定。**全ステータス参照（dig召喚・繁殖・成長・randomUpgrade・levelUp/Down・panel）を mstatsAt に統一**。
+- **Lv上限 5→100**（`MAX_LEVEL=100`）。旧 `LV_COSTS` 配列→`goldCostFor(lv)`（序盤 5/8/13/21 据え置き、以降 `21+(lv-4)*8` 線形）。
+- **ダイヤでLvアップ（お買い物タブ）**: `levelUpDiamond(mt, live)` = 1💎/Lv・恒久（`saveMonsterLevels`＋`saveCarryDiamond` 即保存、live時は場のモンスターへ即反映＋panel更新）。`renderShopInto` の SHOP_ITEMS 群の下に「モンスター強化」セクション（各アクティブ種の Lv/100＋💎1ボタン）を追加。全画面ショップ・ゲーム内ドロワー両対応。`MONSTER_ICONS` 追加。
+- **レベルパネル**: ゴールドの ＋/－ Lvアップは MAX_LEVEL まで対応（`goldCostFor`）。5ピップバー→ `lv/MAX` の連続プログレスバー（`MONSTER_COLORS` 色）。`applyMonsterLevel(mt)` ヘルパーで場の同種へ反映を共通化。
+- 検証: 構文OK・残存MONSTER_STATS/LV_COSTS なし・DOMスタブで renderShop/levelPanel/levelUpDiamond 例外なし・線形値/ダイヤ増減/MAX停止 合格。
+
 ## Recent Session Changes (2026-07-24 その5)
 
 ### ミニマップ（プレイ画面左下）

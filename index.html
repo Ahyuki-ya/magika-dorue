@@ -1230,6 +1230,35 @@
             row.appendChild(btn);
             list.appendChild(row);
         }
+
+        // ===== モンスターLvアップ（1ダイヤ / Lv、〜100・恒久） =====
+        const header = document.createElement('div');
+        header.style.cssText = 'width:100%; text-align:center; color:#8899cc; font-size:0.8rem; letter-spacing:2px; margin:14px 0 6px; border-top:1px solid #223; padding-top:10px;';
+        header.textContent = '— モンスター強化（1💎 / Lv・最大100）—';
+        list.appendChild(header);
+        for (const mt of activeMtypes()) {
+            const lv = monsterLevels[mt];
+            const isMax = lv >= MAX_LEVEL;
+            const row = document.createElement('div');
+            row.className = 'shop-item';
+            row.innerHTML =
+                `<span class="shop-item-icon">${MONSTER_ICONS[mt]}</span>` +
+                `<div class="shop-item-body">` +
+                    `<div class="shop-item-name">${MONSTER_NAMES[mt]}</div>` +
+                    `<div class="shop-item-desc">Lv+1（ステータスが線形上昇）</div>` +
+                    `<div class="shop-item-rank">Lv ${lv} / ${MAX_LEVEL}</div>` +
+                `</div>`;
+            const btn = document.createElement('button');
+            btn.className = 'shop-buy-btn';
+            if (isMax) { btn.textContent = 'MAX'; btn.disabled = true; }
+            else {
+                btn.textContent = '💎 1';
+                btn.disabled = available < 1;
+                btn.onclick = () => levelUpDiamond(mt, live);
+            }
+            row.appendChild(btn);
+            list.appendChild(row);
+        }
     }
     function buyShopItem(key, live) {
         const item = SHOP_ITEMS.find(i => i.key === key);
@@ -1607,37 +1636,30 @@
     }
     // ===== レベルシステム =====
     // フィボナッチコスト（初期値5G）: Lv1→2:5G, 2→3:8G, 3→4:13G, 4→5:21G
-    const LV_COSTS = [0, 5, 8, 13, 21]; // index=現在Lv
 
-    const MONSTER_STATS = {
-        slime: {
-            atk:   [1,1,2,2,4],
-            agi:   [1,2,2,2,3],
-            hp:    [3,4,4,5,6],
-            range: [4,4,4,4,4]
-        },
-        goblin: {
-            atk:   [1,2,3,3,4],
-            agi:   [2,3,4,5,7],
-            hp:    [2,2,2,3,4],
-            range: [10,10,10,10,10]
-        },
-        golem: {
-            atk:   [2,3,3,3,4],
-            agi:   [1,1,2,2,2],
-            hp:    [4,6,7,8,10],
-            range: [3,4,4,4,4]
-        },
-        // 第4のモンスター：ガラスキャノン（低HP・高攻撃・最長射程）
-        wraith: {
-            atk:   [3,4,5,6,8],
-            agi:   [2,2,3,3,4],
-            hp:    [1,2,2,3,3],
-            range: [12,12,12,12,12]
-        }
+    // ステータスはレベルに対して線形（Lv1〜MAX_LEVEL）。各モンスターの特性を成長率(slope)に反映：
+    //   slime=均等 / goblin=俊敏・長射程・脆い(agi高成長,hp低) / golem=高HP・鈍足(hp高成長,agi低) / wraith=ガラスキャノン(atk高成長,hp低,最長射程)
+    const MAX_LEVEL = 100;
+    const MONSTER_GROWTH = {
+        slime:  { base:{atk:1, agi:1, hp:3}, slope:{atk:0.5, agi:0.3, hp:0.7}, range:4  },
+        goblin: { base:{atk:1, agi:2, hp:2}, slope:{atk:0.6, agi:1.0, hp:0.4}, range:10 },
+        golem:  { base:{atk:2, agi:1, hp:4}, slope:{atk:0.5, agi:0.2, hp:1.4}, range:4  },
+        wraith: { base:{atk:3, agi:2, hp:1}, slope:{atk:1.2, agi:0.4, hp:0.3}, range:12 },
     };
+    // 指定レベルのステータス（atk/agi/hp/range）を返す
+    function mstatsAt(mt, lv) {
+        const g = MONSTER_GROWTH[mt];
+        const at = (k) => Math.max(1, Math.round(g.base[k] + (lv - 1) * g.slope[k]));
+        return { atk: at('atk'), agi: at('agi'), hp: at('hp'), range: g.range };
+    }
+    // Lv→Lv+1 のゴールドコスト（序盤は据え置き、以降は線形上昇）
+    function goldCostFor(lv) {
+        const early = [0, 5, 8, 13, 21];        // index=現在Lv（Lv1→2〜Lv4→5）
+        return lv < early.length ? early[lv] : Math.round(21 + (lv - 4) * 8);
+    }
 
     const MONSTER_NAMES  = { slime: '石スライム', goblin: '苔ゴブリン', golem: '銅ゴーレム', wraith: 'シャドウレイス' };
+    const MONSTER_ICONS  = { slime: '🪨', goblin: '🌿', golem: '🟤', wraith: '👻' };
     const MONSTER_COLORS = { slime: '#95a5a6', goblin: '#2ecc71', golem: '#d35400', wraith: '#b39ddb' };
     const ALL_MTYPES = ['slime', 'goblin', 'golem', 'wraith'];
     // シャドウレイス解禁状態に応じたアクティブ種族リスト
@@ -1682,15 +1704,14 @@
         randBonus[mt][stat]++;
 
         // 既存モンスターに即時反映
-        const idx = monsterLevels[mt] - 1;
-        const s = MONSTER_STATS[mt];
+        const s = mstatsAt(mt, monsterLevels[mt]);
         monsters.forEach(m => {
             if (m.mtype !== mt) return;
-            m.atk   = s.atk[idx]   + randBonus[mt].atk;
-            m.agi   = s.agi[idx]   + randBonus[mt].agi;
-            m.maxHp = s.hp[idx]    + randBonus[mt].hp;
+            m.atk   = s.atk   + randBonus[mt].atk;
+            m.agi   = s.agi   + randBonus[mt].agi;
+            m.maxHp = s.hp    + randBonus[mt].hp;
             m.hp    = Math.min(m.hp + (stat === 'hp' ? 1 : 0), m.maxHp);
-            m.range = s.range[idx];
+            m.range = s.range;
         });
 
         const statName = stat === 'atk' ? '攻撃力' : stat === 'agi' ? '敏捷性' : '耐久力';
@@ -2001,32 +2022,30 @@
     function updateLevelPanel() {
         activeMtypes().forEach(mt => {
             const lv = monsterLevels[mt];
-            const stats = MONSTER_STATS[mt];
+            const stats = mstatsAt(mt, lv);
 
             // バッジ
             document.getElementById(`${mt}-lv-badge`).innerText = `Lv.${lv}`;
 
-            // ピップバー
+            // レベルバー（Lv/MAX の連続プログレス）
             const barEl = document.getElementById(`${mt}-bar`);
+            barEl.style.cssText = 'flex:1; height:10px; background:#001040; border:1px solid #112266; border-radius:2px; overflow:hidden;';
             barEl.innerHTML = '';
-            for (let i = 1; i <= 5; i++) {
-                const pip = document.createElement('div');
-                pip.className = `lv-pip${i <= lv ? ' filled ' + mt : ''}`;
-                barEl.appendChild(pip);
-            }
+            const fill = document.createElement('div');
+            fill.style.cssText = `height:100%; width:${Math.min(100, lv / MAX_LEVEL * 100)}%; background:${MONSTER_COLORS[mt]}; box-shadow:0 0 5px ${MONSTER_COLORS[mt]}; transition:width 0.25s;`;
+            barEl.appendChild(fill);
 
             // ステータス表示（ランダムボーナス込み）
             const statsEl = document.getElementById(`${mt}-stats`);
-            const idx = lv - 1;
             const rb = randBonus[mt];
             const fmt = (base, bonus) => bonus > 0
                 ? `${base}<span style="color:#ffcc00;font-size:9px">+${bonus}</span>`
                 : `${base}`;
             statsEl.innerHTML =
-                `<div class="hero-stat-chip">攻 <span>${fmt(stats.atk[idx], rb.atk)}</span></div>` +
-                `<div class="hero-stat-chip">敏 <span>${fmt(stats.agi[idx], rb.agi)}</span></div>` +
-                `<div class="hero-stat-chip">HP <span>${fmt(stats.hp[idx], rb.hp)}</span></div>` +
-                `<div class="hero-stat-chip">索 <span>${stats.range[idx]}</span></div>`;
+                `<div class="hero-stat-chip">攻 <span>${fmt(stats.atk, rb.atk)}</span></div>` +
+                `<div class="hero-stat-chip">敏 <span>${fmt(stats.agi, rb.agi)}</span></div>` +
+                `<div class="hero-stat-chip">HP <span>${fmt(stats.hp, rb.hp)}</span></div>` +
+                `<div class="hero-stat-chip">索 <span>${stats.range}</span></div>`;
 
             // ランダムボタン
             const randBtn = document.getElementById(`${mt}-rand-btn`);
@@ -2036,12 +2055,12 @@
                 randBtn.disabled = (gold < cost);
             }
 
-            // ＋ボタン
+            // ＋ボタン（ゴールドで Lv+1、MAX_LEVEL まで）
             const btnUp = document.getElementById(`${mt}-btn`);
-            if (lv >= 5) {
+            if (lv >= MAX_LEVEL) {
                 btnUp.disabled = true; btnUp.title = 'MAX';
             } else {
-                const cost = LV_COSTS[lv];
+                const cost = goldCostFor(lv);
                 btnUp.disabled = (gold < cost);
                 btnUp.title = `${cost}G で Lv${lv+1}に強化`;
             }
@@ -2050,53 +2069,51 @@
             const btnDown = document.getElementById(`${mt}-btn-down`);
             btnDown.disabled = (lv <= 1);
             if (lv > 1) {
-                btnDown.title = `Lv${lv-1}に戻す (+${LV_COSTS[lv-1]}G 返還)`;
+                btnDown.title = `Lv${lv-1}に戻す (+${goldCostFor(lv-1)}G 返還)`;
             }
 
             // コストヒント
             const costEl = document.getElementById(`${mt}-cost`);
-            if (lv >= 5) {
-                costEl.textContent = '🔥 MAX';
+            if (lv >= MAX_LEVEL) {
+                costEl.textContent = '🔥 MAX (Lv.100)';
                 costEl.style.color = '#ffcc00';
             } else {
-                const cost = LV_COSTS[lv];
+                const cost = goldCostFor(lv);
                 const canAfford = gold >= cost;
-                costEl.textContent = `＋ ${cost}G  ／  － ${lv > 1 ? '+'+LV_COSTS[lv-1]+'G返還' : '不可'}`;
+                costEl.textContent = `＋ ${cost}G  ／  － ${lv > 1 ? '+'+goldCostFor(lv-1)+'G返還' : '不可'}`;
                 costEl.style.color = canAfford ? '#888' : '#c0392b';
             }
+        });
+    }
+
+    // 現在レベル＋randBonus を、場にいる同種モンスター全てに反映
+    function applyMonsterLevel(mt) {
+        const s = mstatsAt(mt, monsterLevels[mt]);
+        const rb = randBonus[mt];
+        monsters.forEach(m => {
+            if (m.mtype !== mt) return;
+            m.atk = s.atk + rb.atk; m.agi = s.agi + rb.agi;
+            m.maxHp = s.hp + rb.hp; m.hp = Math.min(m.hp, m.maxHp);
+            m.range = s.range;
         });
     }
 
     function levelDown(mt) {
         const lv = monsterLevels[mt];
         if (lv <= 1) return;
-        const refund = LV_COSTS[lv - 1];
+        const refund = goldCostFor(lv - 1);
         gold += refund;
         monsterLevels[mt]--;
         updateGoldUI();
         updateLevelPanel();
-
-        const idx = monsterLevels[mt] - 1;
-        const s = MONSTER_STATS[mt];
-        const rbDown = randBonus[mt];
-        monsters.forEach(m => {
-            if (m.mtype !== mt) return;
-            m.atk = s.atk[idx] + rbDown.atk; m.agi = s.agi[idx] + rbDown.agi;
-            m.maxHp = s.hp[idx] + rbDown.hp; m.hp = Math.min(m.hp, m.maxHp);
-            m.range = s.range[idx];
-        });
-
-        spawnFloatingText(
-            Math.floor(COLS / 2), Math.floor(ROWS / 4),
-            `+${refund}G 返還`,
-            '#ffcc00'
-        );
+        applyMonsterLevel(mt);
+        spawnFloatingText(Math.floor(COLS / 2), Math.floor(ROWS / 4), `+${refund}G 返還`, '#ffcc00');
     }
 
     function levelUp(mt) {
         const lv = monsterLevels[mt];
-        if (lv >= 5) return;
-        const cost = LV_COSTS[lv];
+        if (lv >= MAX_LEVEL) return;
+        const cost = goldCostFor(lv);
         if (gold < cost) {
             msgDiv.innerText = `ゴールドが足りません！(必要: ${cost}G)`;
             setTimeout(() => { if(msgDiv.innerText.includes('足りません')) msgDiv.innerText = ''; }, 1500);
@@ -2106,24 +2123,33 @@
         monsterLevels[mt]++;
         updateGoldUI();
         updateLevelPanel();
-
-        // 既存のそのタイプのモンスターにも即時反映（ランダムボーナス込み）
-        const idx = monsterLevels[mt] - 1;
-        const s = MONSTER_STATS[mt];
-        const rbUp = randBonus[mt];
-        monsters.forEach(m => {
-            if (m.mtype !== mt) return;
-            m.atk = s.atk[idx] + rbUp.atk; m.agi = s.agi[idx] + rbUp.agi;
-            m.maxHp = s.hp[idx] + rbUp.hp; m.hp = Math.min(m.hp, m.maxHp);
-            m.range = s.range[idx];
-        });
-
-        spawnFloatingText(
-            Math.floor(COLS / 2), Math.floor(ROWS / 4),
-            `${MONSTER_NAMES[mt]} Lv.${monsterLevels[mt]}!`,
-            '#ffcc00'
-        );
+        applyMonsterLevel(mt);
+        spawnFloatingText(Math.floor(COLS / 2), Math.floor(ROWS / 4), `${MONSTER_NAMES[mt]} Lv.${monsterLevels[mt]}!`, '#ffcc00');
         playSE('levelup');
+    }
+
+    // ダイヤで Lv+1（お買い物タブ・恒久・MAX_LEVEL まで）。live=実行中のダイヤ / false=引継ぎダイヤ
+    function levelUpDiamond(mt, live) {
+        if (monsterLevels[mt] >= MAX_LEVEL) return;
+        if (live) {
+            if (diamond < 1) { playSE('error'); return; }
+            diamond -= 1;
+            monsterLevels[mt]++;
+            saveMonsterLevels();
+            saveCarryDiamond(diamond);
+            applyMonsterLevel(mt);
+            updateLevelPanel();
+            updateGoldUI();
+        } else {
+            const carryDia = loadCarryDiamond();
+            if (carryDia < 1) { playSE('error'); return; }
+            saveCarryDiamond(carryDia - 1);
+            monsterLevels[mt]++;
+            saveMonsterLevels();
+        }
+        playSE('buy');
+        renderShopInto(document.getElementById('shopList'), document.getElementById('shopDiamondAmount'), false);
+        renderShopInto(document.getElementById('igShopList'), document.getElementById('igShopDiamondAmount'), true);
     }
 
     // ===== 引継ぎゴールド＆モンスターレベル =====
@@ -2698,12 +2724,12 @@
                 } else {
                     spawnFloatingText(x, y, '-1G', '#ffcc00');
                     const mt = TILE_TO_MTYPE[tile];
-                    const s = MONSTER_STATS[mt], idx = monsterLevels[mt] - 1;
+                    const s = mstatsAt(mt, monsterLevels[mt]);
                     const rb = randBonus[mt];
                     const m = makeEntity(x, y, {
-                        hp: s.hp[idx] + rb.hp, maxHp: s.hp[idx] + rb.hp,
-                        atk: s.atk[idx] + rb.atk, agi: s.agi[idx] + rb.agi,
-                        range: s.range[idx], isHero: false,
+                        hp: s.hp + rb.hp, maxHp: s.hp + rb.hp,
+                        atk: s.atk + rb.atk, agi: s.agi + rb.agi,
+                        range: s.range, isHero: false,
                         color: MONSTER_COLORS[mt], mtype: mt
                     });
                     m.fertile = (Math.random() < 0.10); m.isBaby = false; monsters.push(m);
@@ -3368,8 +3394,7 @@
                 );
                 if (fertile.length < 2) continue;
                 const a = fertile[0], b = fertile[1];
-                const idx = monsterLevels[mt] - 1;
-                const s = MONSTER_STATS[mt];
+                const s = mstatsAt(mt, monsterLevels[mt]);
                 const rb = randBonus[mt];
                 let sx = a.x, sy = a.y;
                 for (const d of [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}]) {
@@ -3377,11 +3402,11 @@
                     if (isPassable(nx, ny)) { sx = nx; sy = ny; break; }
                 }
                 const baby = makeEntity(sx, sy, {
-                    hp:    Math.max(1, Math.floor((s.hp[idx]  + rb.hp)  / 2)),
-                    maxHp: Math.max(1, Math.floor((s.hp[idx]  + rb.hp)  / 2)),
-                    atk:   Math.max(1, Math.floor((s.atk[idx] + rb.atk) / 2)),
-                    agi:   Math.max(1, Math.floor((s.agi[idx] + rb.agi) / 2)),
-                    range: s.range[idx], isHero: false,
+                    hp:    Math.max(1, Math.floor((s.hp  + rb.hp)  / 2)),
+                    maxHp: Math.max(1, Math.floor((s.hp  + rb.hp)  / 2)),
+                    atk:   Math.max(1, Math.floor((s.atk + rb.atk) / 2)),
+                    agi:   Math.max(1, Math.floor((s.agi + rb.agi) / 2)),
+                    range: s.range, isHero: false,
                     color: a.color, mtype: mt,
                     isBaby: true, bornAt: Date.now(), fertile: false
                 });
@@ -3401,13 +3426,12 @@
         monsters = monsters.filter(m => {
             if (!m.isBaby) return true;
             if (now - m.bornAt < BABY_GROW_MS) return true;
-            const idx = monsterLevels[m.mtype] - 1;
-            const s = MONSTER_STATS[m.mtype];
+            const s = mstatsAt(m.mtype, monsterLevels[m.mtype]);
             const rb = randBonus[m.mtype];
             const grown = makeEntity(m.x, m.y, {
-                hp: s.hp[idx] + rb.hp, maxHp: s.hp[idx] + rb.hp,
-                atk: s.atk[idx] + rb.atk, agi: s.agi[idx] + rb.agi,
-                range: s.range[idx], isHero: false,
+                hp: s.hp + rb.hp, maxHp: s.hp + rb.hp,
+                atk: s.atk + rb.atk, agi: s.agi + rb.agi,
+                range: s.range, isHero: false,
                 color: m.color, mtype: m.mtype,
                 isBaby: false, fertile: false
             });

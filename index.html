@@ -1456,8 +1456,9 @@
     const LEV_GRACE = 3;      // 利子ゼロの猶予ウェーブ数
     const LEV_LAMBDA = 0.6;   // EV負スポーンの搾取率（期待宝価値 = λ·限界負債）
     const LEV_MAX_DEBT = 5000;// 借入上限
-    // 勇者もプレイヤーの富に比例して強化（√で圧縮＝高ゴールドでも爆発しない）。非怒り勇者に適用。調整用
+    // 勇者もプレイヤーの富に比例して強化（√で圧縮＝高ゴールドでも爆発しない）。調整用
     const HERO_GOLD_SCALE = 1.5; // 非怒り勇者ボーナス = floor(A·√gold)
+    const RAGE_GOLD_SCALE = 4;   // 怒り勇者ボーナス = floor(A·√gold)（gold=100で旧線形/2.5と一致、以降は発散抑制）
     let leverage = { active: false, debt: 0, mult: 1 };
     let levEarnWindow = [];   // 直近ウェーブの獲得ゴールド（ρ算出用）
     let levEarnThisWave = 0;  // 現ウェーブの獲得ゴールド累計
@@ -2440,7 +2441,7 @@
         heroPower += powerGain;
 
         const isEnraged = (heroLevel % 10 === 0);
-        const enragedBonus = isEnraged ? Math.floor(gold / 2.5) : 0;
+        const enragedBonus = isEnraged ? Math.floor(RAGE_GOLD_SCALE * Math.sqrt(Math.max(0, gold))) : 0;
 
         // タイプ決定（怒りモード時は強制的に怒りタイプ）
         let heroType;

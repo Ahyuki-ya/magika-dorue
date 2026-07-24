@@ -162,7 +162,8 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 
 ## Recent Session Changes (2026-07-24 その10：宝物レア度分布刷新・効果拡張・宝石鉱脈レート)
 
-- **宝石鉱脈(8)ポップ率**: `extraOreAt` を深度比例に。`pGem = 0.005 × min(1, depth/1000)`（深度1000で標準0.5%）。generateRow で **ハードは2倍**（1000で1.0%）。`levTreasureFactor` は宝石鉱脈から切り離し闇水晶(pDark)のみに適用。
+- **宝石鉱脈(8)ポップ率**: `extraOreAt` を深度比例に。`pGem = 0.005 × min(1, depth/1000)`（深度1000で標準0.5%）。generateRow で **ハードは2倍**（1000で1.0%）＝先行ロール。
+- **闇水晶(7)を銅/石/苔と同じ「基本分布ロール」に統一**（その10追記）: 先行ロール＋レバレッジ変調をやめ、`generateRow` の主分布 `r < pCopper+pMoss+pDark` に組み込み。レート据置（深度100から線形、300で12%）・レイス解禁ゲート維持。**`levTreasureFactor` とLEV_TREASURE定数は廃止**（宝スポーンのレバレッジ変調そのものを撤廃）。C-4は尊重（oreProbAt本体は不変更、pDarkはextraOreAt側）。
 - **レア度分布** `rollRarityIndex` 再設計: 深度0/500/1000のアンカーを線形補間（1000超頭打ち）。非伝説 並[80,60,40]良[15,25,35]稀[4,10,16]極[1,4,7]、**伝説は深度500未満0%・500で1%・1000で2%**、非伝説を100−伝説%に正規化。神は常に0。
 - **アフィックス拡張**（全モンスター適用）: 旧 atk/agi/hp は**キー据え置き**で表示名を「基礎攻撃/基礎敏捷性/基礎体力」に変更（加算）。新規 **mulAtk/mulAgi/mulHp**（攻撃/敏捷/体力倍率＝base[0,1]×レア度mult の小数%、`×(1+合計%/100)`）、**range**（射程＝攻撃可能距離。**シャドウレイス限定**で加算＝遠隔攻撃。他モンスターは補正があっても一律1＝近接）、**sight**（索敵＝探知距離 entity.range に加算、全モンスター共通）。`rollAffixValue`（pct=小数2桁・0許容 / それ以外=整数最低1）を rollAffixes と evolveTreasure で共用。
 - **`effStat(mt)` 導入（C-5）**: `{atk,agi,hp,range,atkRange}` を「基礎(mstatsAt)＋装備加算(randBonus) ×装備倍率(equipMul)、range=基礎+索敵、atkRange=1+射程」で返す。**掘削召喚・繁殖(子)・成長・applyMonsterLevel の全経路をこれ経由に統一**。攻撃判定 `minDist <= (entity.atkRange||1)` で遠隔攻撃対応（勇者はatkRange未設定=1のまま近接）。装備倍率/射程/索敵は enterGameScreen で `equipMul/equipRange/equipSight` に確定。⚗パネル表示も effStat（攻/敏/HP/索/射、基礎超は黄色）。

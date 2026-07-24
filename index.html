@@ -1866,10 +1866,8 @@
     function levMaxStake() {
         return Math.min(LEV_MAX_STAKE, Math.max(0, loadCarryOver()));
     }
-    // 宝の湧きは深度で増える（深追いの誘惑。EV負性は「深い＝勇者が強い＝死んでS×Lを失う」で担保）
-    const LEV_TREASURE_DEPTH0 = 30;  // この深度から宝が増え始める
-    const LEV_TREASURE_SLOPE = 0.06; // 1深度あたりの宝倍率増分
-    const LEV_TREASURE_MAX = 12;     // 宝倍率の上限
+    // ※ 旧「宝スポーン倍率 levTreasureFactor」（maxDepth由来のレバレッジ宝変調）は廃止。
+    //   宝石鉱脈=深度比例＋ハード2倍、闇水晶=銅/石/苔と同様の基本分布ロールに統一済み。
     // 勇者もプレイヤーの富（累計獲得G）に比例して強化（√で圧縮＝爆発しない）。調整用
     const HERO_GOLD_SCALE = 1.5; // 非怒り勇者ボーナス = floor(A·√totalEarnedGold)
     const RAGE_GOLD_SCALE = 4;   // 怒り勇者ボーナス = floor(A·√totalEarnedGold)
@@ -1878,13 +1876,6 @@
     // 開始資本 S×L（＝損益分岐点＝最大損失）
     function levCapital() {
         return leverage.active ? leverage.stake * leverage.mult : 0;
-    }
-    // 宝スポーン倍率：深度で線形増加（深追いの誘惑）
-    function levTreasureFactor() {
-        if (!leverage.active) return 1;
-        const over = maxDepth - LEV_TREASURE_DEPTH0;
-        if (over <= 0) return 1;
-        return 1 + Math.min(LEV_TREASURE_MAX - 1, over * LEV_TREASURE_SLOPE);
     }
     // 精算：ΔB = 手持ちgold − 開始資本(S×L) を引継ぎ銀行へ加算（マイナス可）
     function levSettle() {
@@ -1975,9 +1966,10 @@
         return { pCopper: 0.33 * d, pMoss: 0.33 * d };
     }
 
-    // 深層限定鉱石の確率（既存の銅/苔の分布式には手を加えず、別ロールで上乗せ）
-    // 闇水晶(7): レイス解禁時のみ。深度100から出現し、深度300で12%上限まで線形上昇（後で調整予定）
-    // 宝石鉱脈(8): 深度20から出現。深度に比例し、深度1000で最大＝標準0.5%（ハードはgenerateRowで2倍＝1.0%）。
+    // 深層鉱石の確率。
+    // 闇水晶(7): レイス解禁時のみ。深度100から出現し、深度300で12%上限まで線形上昇。
+    //   → 銅/石/苔と同様に「基本分布ロール」で発生（レバレッジ変調なし）。
+    // 宝石鉱脈(8): 深度20から出現。深度に比例し、深度1000で最大＝標準0.5%（ハードは2倍＝1.0%）。先行ロール。
     function extraOreAt(y) {
         const depth = y - (SKY_LAYERS + 1);
         const dDark = Math.max(0, Math.min(1, (depth - 100) / 200));
@@ -1990,22 +1982,19 @@
     function generateRow(y) {
         const { pCopper, pMoss } = oreProbAt(y);
         let { pDark, pGem } = extraOreAt(y);
-        // 闇水晶はハードのレバレッジ経済（maxDepth由来の宝倍率）で変調（後で議論）
-        const tf = levTreasureFactor();
-        if (tf !== 1) pDark = Math.min(0.4, pDark * tf);
         // 宝石鉱脈：ハードは標準の2倍（深度1000で 標準0.5% → ハード1.0%）
         if (gameMode === 'hard') pGem *= 2;
         pGem = Math.min(0.4, pGem);
         const row = [];
         for (let x = 0; x < COLS; x++) {
-            // 深層鉱石は先行ロール（当選しなければ既存分布ロールへ）
-            const r2 = Math.random();
-            if (r2 < pDark)             { row.push(7); continue; }
-            else if (r2 < pDark + pGem) { row.push(8); continue; }
+            // 宝石鉱脈のみ先行ロール（外れたら基本分布へ）
+            if (Math.random() < pGem) { row.push(8); continue; }
+            // 基本分布：闇水晶を銅/石/苔と同列に配置（レバレッジ変調なし）
             const r = Math.random();
-            if      (r < pCopper)          row.push(6);
-            else if (r < pCopper + pMoss)  row.push(2);
-            else                           row.push(1);
+            if      (r < pCopper)                 row.push(6);
+            else if (r < pCopper + pMoss)         row.push(2);
+            else if (r < pCopper + pMoss + pDark) row.push(7);
+            else                                  row.push(1);
         }
         return row;
     }

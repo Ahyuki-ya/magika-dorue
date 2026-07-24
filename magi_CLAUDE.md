@@ -190,8 +190,10 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 
 ### 新要素：勇者の家（前線スポーン基地）
 - 深部に到達した生存勇者が、**heroGold 1**（既存"1y"通貨）を払い、**周囲30マス四方（チェビシェフ）に生存モンスターが居なければ**現在地に「勇者の家」を設置。**以降の勇者はそこからポップ**（`heroSpawn`）＝城に近い前線から侵攻し難易度上昇。
-- **前回の家より+30以上深く**（`HERO_HOUSE_GAP=30`、初回は深度30以上）でないと置けない＝leapfrogで徐々に前進、城の手前約30マスで敵クラスタに阻まれ均衡。
-- 実装: `tryPlaceHeroHouse(entity)`（updateEntityの勇者行動で毎行動チェック、安価な事前条件で敵スキャンをガード）／`spawnHero` は `heroSpawn` から出現／map描画後に家アイコン描画／`enterGameScreen` でリセット。定数 `HERO_HOUSE_COST/CLEAR/GAP` で調整可。
+- **前回の家より+30以上深く**（`HERO_HOUSE_GAP=30`、初回は深度30以上）でないと置けない＝leapfrogで徐々に前進。
+- **クリア範囲 `HERO_HOUSE_CLEAR=6`**（当初30。幅20のマップでは30=上下30行クリアが実質不可能で家が全く建たなかったため6に修正）。周囲6マス（チェビシェフ）に生存モンスターが居ないこと。
+- **使用確率 `HERO_HOUSE_CHANCE=0.10`**（条件充足の行動ごとに10%で設置。一斉設置を防ぎ自然に前進）。
+- 実装: `tryPlaceHeroHouse(entity)`（updateEntityの勇者行動で毎行動チェック）／`spawnHero` は `heroSpawn` から出現／map描画後に家アイコン描画／`enterGameScreen` でリセット。定数 `HERO_HOUSE_COST/CLEAR/GAP/CHANCE` で調整可。
 - 検証: 構文OK・DOMスタブ・設置ロジック（深度/gap/敵近接/heroGold不足の各分岐）合格。
 
 ## Recent Session Changes (2026-07-24 その2：レバレッジを「預入モデルA」へ再設計)

@@ -1563,6 +1563,16 @@
     const ENTRANCE_X = Math.floor(COLS / 2);
     const SKY_LAYERS = 2;
 
+    // ===== 勇者の家（前線スポーン基地） =====
+    // 深部に到達した勇者が周囲を掃討していれば設置。以降の勇者はそこからポップ（＝城に近い前線から侵攻）
+    const HERO_HOUSE_COST = 1;      // heroGold コスト
+    const HERO_HOUSE_CLEAR = 30;    // 設置に必要な周囲クリア範囲（チェビシェフ・30マス四方に敵ゼロ）
+    const HERO_HOUSE_GAP = 30;      // 前回の家より最低これだけ深く（初回は深度この値以上）
+    let heroHouses = [];            // 設置済み [{x,y,depth}]
+    let heroSpawn = null;           // 現在の勇者スポーン位置（null=デフォルトの空）
+    let lastHouseDepth = 0;         // 最深の家の深度（次はこれ+GAP以上が必要）
+    function depthOf(y) { return y - (SKY_LAYERS + 1); }
+
     // 地下行 y における鉱石確率の統一ヘルパー（全行で同一式を使用）
     // depth=0 は y=SKY_LAYERS+1（地下最上行）、depth=200（y=203）で銅33%・苔33%・石34%に到達
     function oreProbAt(y) {
@@ -2028,6 +2038,7 @@
         generateMap();
         maxDepth = 0;
         document.getElementById('depthUI').innerText = 0;
+        heroHouses = []; heroSpawn = null; lastHouseDepth = 0;
         heroes = []; monsters = []; particles = []; floatingTexts = [];
         castlePos = null; castleHp = CASTLE_MAX_HP;
         
@@ -2548,7 +2559,10 @@
             }
         }
 
-        heroes.push(makeEntity(0, 1, {
+        // スポーン地点：勇者の家があればそこから、無ければデフォルトの空(0,1)
+        const spawnX = heroSpawn ? heroSpawn.x : 0;
+        const spawnY = heroSpawn ? heroSpawn.y : 1;
+        heroes.push(makeEntity(spawnX, spawnY, {
             hp: spawnHp, maxHp: spawnHp,
             atk: spawnAtk, agi: spawnAgi,
             range: HERO_SEARCH_RANGE,
@@ -2754,6 +2768,27 @@
         return null;
     }
 
+    // 勇者の家：条件を満たせば現在地に設置し、以降のスポーン地点を前進させる
+    function tryPlaceHeroHouse(entity) {
+        if (heroGold < HERO_HOUSE_COST) return;          // 1yで購入
+        if (entity.y < SKY_LAYERS + 1) return;           // 地下のみ
+        const d = depthOf(entity.y);
+        if (d < lastHouseDepth + HERO_HOUSE_GAP) return; // 前回より30以上深く（初回は深度30以上）
+        // 縦横周囲30マス（チェビシェフ）に生存モンスターがいないこと
+        for (const m of monsters) {
+            if (m.hp <= 0) continue;
+            if (Math.max(Math.abs(m.x - entity.x), Math.abs(m.y - entity.y)) <= HERO_HOUSE_CLEAR) return;
+        }
+        // 設置
+        heroGold -= HERO_HOUSE_COST;
+        heroHouses.push({ x: entity.x, y: entity.y, depth: d });
+        heroSpawn = { x: entity.x, y: entity.y };
+        lastHouseDepth = d;
+        playSE('buy');
+        spawnFloatingText(entity.x, entity.y - 1, '🏠 勇者の家!', '#ffdd55', 14);
+        spawnBurst(entity.x, entity.y, ['#ffdd55', '#ffffff', '#cc8844'], 14);
+    }
+
     function updateEntity(entity, enemies, threshold) {
         entity.cd += Math.log2(entity.agi + 1) * 4;
         if (entity.cd >= ACTION_THRESHOLD) {
@@ -2863,6 +2898,9 @@
                     if (step) { entity.x = step.x; entity.y = step.y; }
                     return;
                 }
+
+                // 前線基地：安全な深部に到達していれば勇者の家を設置
+                tryPlaceHeroHouse(entity);
 
                 if (entity.y < SKY_LAYERS) {
                     if (entity.x < ENTRANCE_X) { entity.x++; }
@@ -3146,6 +3184,19 @@
                     ctx.fillRect(px + 19, py + 15, 2, 2);
                 }
             }
+        }
+
+        // 勇者の家（前線スポーン基地）を描画
+        for (const hh of heroHouses) {
+            const px = hh.x * TILE_SIZE, py = hh.y * TILE_SIZE;
+            ctx.fillStyle = '#6d4c2f';                         // 家の本体
+            ctx.fillRect(px + 6, py + 14, TILE_SIZE - 12, TILE_SIZE - 15);
+            ctx.fillStyle = '#c0392b';                         // 屋根
+            ctx.beginPath();
+            ctx.moveTo(px + 3, py + 15); ctx.lineTo(px + 15, py + 4); ctx.lineTo(px + 27, py + 15);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#ffd966';                         // 扉（旗色）
+            ctx.fillRect(px + 12, py + 19, 6, 9);
         }
 
         function drawEntity(entity) {

@@ -159,6 +159,24 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
 
+## Recent Session Changes (2026-07-24 その3)
+
+### 銀行0でハード不可＋UI用語「引継ぎ」→「銀行」統一
+- 銀行 < `LEV_MIN_STAKE=100` ならハードをロック（`updateHardLock()` でボタン灰＋注記、`openHardConfig`ガード）。預入の下駄撤廃、`levMaxStake()=min(3000,max(0,bank))`。standardで元手→hard参加の前提を明示。
+- UIの「引継ぎ(ゴールド)」表記を全廃し「銀行(残高)」へ。関数名/localStorageキーはデータ互換で据え置き。
+
+### standardで稼いだ手持ちを銀行に反映
+- standard精算で `newCarry = bank + gold`（リスクなし・元手作り）。開始ゴールドは富非連動のまま（気楽）。
+
+### standardにも撤退ボタン（常時・ラン終了）／勇者の富スケールをハード限定
+- standardの撤退は経済精算なしで確認→リザルト。勇者の富スケール（totalEarnedGold比例）は `leverage.active` 時のみ＝standardは従来heroPowerのみ。
+
+### 新要素：勇者の家（前線スポーン基地）
+- 深部に到達した生存勇者が、**heroGold 1**（既存"1y"通貨）を払い、**周囲30マス四方（チェビシェフ）に生存モンスターが居なければ**現在地に「勇者の家」を設置。**以降の勇者はそこからポップ**（`heroSpawn`）＝城に近い前線から侵攻し難易度上昇。
+- **前回の家より+30以上深く**（`HERO_HOUSE_GAP=30`、初回は深度30以上）でないと置けない＝leapfrogで徐々に前進、城の手前約30マスで敵クラスタに阻まれ均衡。
+- 実装: `tryPlaceHeroHouse(entity)`（updateEntityの勇者行動で毎行動チェック、安価な事前条件で敵スキャンをガード）／`spawnHero` は `heroSpawn` から出現／map描画後に家アイコン描画／`enterGameScreen` でリセット。定数 `HERO_HOUSE_COST/CLEAR/GAP` で調整可。
+- 検証: 構文OK・DOMスタブ・設置ロジック（深度/gap/敵近接/heroGold不足の各分岐）合格。
+
 ## Recent Session Changes (2026-07-24 その2：レバレッジを「預入モデルA」へ再設計)
 
 > **重要:** 下の「その1」で実装した**負債レバレッジ（D注入＋報酬×L逓減＋複利返済＋ρ駆動EV負スポーン）はプレイテストで廃止**。「借りた金しか賭けておらず精算がほぼ常にプラス＝賭けの緊張がない／複利の雪だるまが不快」との評価により、**自分の金を賭ける「預入モデルA」に作り直した**。設計思想の全経緯はメモリ `leverage-design.md`。

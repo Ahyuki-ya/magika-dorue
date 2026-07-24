@@ -2652,7 +2652,8 @@
 
     canvas.addEventListener('mousedown', (e) => {
         const pos = canvasOffset(e.clientX, e.clientY);
-        if (isPlacingCastle) { placeCastle(pos); }
+        // Shift+クリック または 配置モード中 → あくま部屋を設置（掘削しない）
+        if (e.shiftKey || isPlacingCastle) { placeCastle(pos); }
         else { isDragging = true; dig(pos); }
     });
     canvas.addEventListener('mousemove', (e) => { if (isDragging && !isPlacingCastle) dig(canvasOffset(e.clientX, e.clientY)); });

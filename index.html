@@ -2095,7 +2095,9 @@
             levResult = levSettle();          // 銀行を精算・保存
             newCarry = levResult.bank;
         } else {
-            newCarry = loadCarryOver();        // 変更なし
+            // スタンダード：リスクなし。稼いだ手持ちgoldを引継ぎ銀行に反映（元手作り）
+            newCarry = loadCarryOver() + gold;
+            saveCarryOver(newCarry);
         }
         saveCarryDiamond(diamond);
         saveMonsterLevels();

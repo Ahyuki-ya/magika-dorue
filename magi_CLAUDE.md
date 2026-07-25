@@ -19,7 +19,7 @@ No build tools, no dependencies, no server required. Open any `.html` file direc
 - 過去の `magiNN.html` / 名前付き変種 / `magi_claudN.html` はすべて **`archive/` に退避**（バックアップとして git 追跡下に残す。編集しない）
 - `index.html` の内容系譜: かつての `magi_claud.html → … → magi_claud6.html` を経て、現行 `index.html` は `magi_claud6.html` 相当
 
-> **Roadmap:** 大型改修の要件ドラフトは [FABLE_要件定義_大型改修.md](FABLE_要件定義_大型改修.md)。①ハードモードのレバレッジ化＝**Phase 1 実装済み**（2026-07-24, 下記 Recent Session Changes 参照）。②レア度付き宝物＋インベントリ＋時価売却／③取引コード／④オンライン市場は未着手。設計思想の全経緯はメモリ `leverage-design.md`。
+> **Roadmap:** 大型改修の要件ドラフトは [FABLE_要件定義_大型改修.md](FABLE_要件定義_大型改修.md)。①ハードモードのレバレッジ化＝**Phase 1 実装済み**（2026-07-24, 下記 Recent Session Changes 参照）。②レア度付き宝物＋インベントリ＝**実装済み**（時価売却のみ未着手）／③取引コード（道A・焼却付き譲渡）＝**Phase 3 実装済み**（2026-07-25）／④オンライン市場は未着手。設計思想の全経緯はメモリ `leverage-design.md`。
 
 ## Architecture
 
@@ -159,6 +159,34 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - `[...curr.path]` スプレッドは完全に除去
 - 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
 - ゴーレムの `ctx.shadowBlur` が最重の描画処理
+
+## Recent Session Changes (2026-07-25 その12：Phase 3 取引コード（道A・焼却付き譲渡）)
+
+ロードマップ③。**プレイヤー間で宝物をコード文字列で受け渡す**。サーバー不要・完全オフライン。指示書 `OPUS_実装指示_大型改修.md` の Phase 3 準拠。
+
+### コード形式
+`MGKT1.<payload>.<checksum>`
+- `payload` = 宝物オブジェクト（`traded` 除去）を `JSON.stringify` → UTF-8 → **base64url**（`+/=` → `-_`・パディング除去）
+- `checksum` = `payload + SALT` の **FNV-1a 32bit** 16進8桁（`TRADE_CONFIG.SALT='magika-dorue-trade-v1'`）
+- ⚠️ **チェックサムはコピペ事故・破損検出用であり、改ざん防止ではない**（SALTもコード内にある＝道Aはチート耐性を目標にしない仕様）。代わりに受領時のホワイトリスト検証でバランス破壊値の流入だけ弾く。
+
+### 焼却付き譲渡（エクスポート）
+- 宝物詳細モーダルに **「📤 譲渡コード発行」**（確認ダイアログ必須）。装備中・取引済みは不可。
+- 発行すると元の宝物に `traded:true` / `tradedAt` が立ち **使用不可**（装備・合成核・fodder・再エクスポートすべて不可、`equippedAffixTotals` も無視）。グリッドはグレースケール＋破線＋`📤済`バッジで末尾へ。取引済みは **🗑 削除** で整理できる。
+- 発行モーダル：コード表示（読み取り専用 textarea）＋📋コピー（`navigator.clipboard` → `execCommand` フォールバック）。
+
+### 受領（インポート）
+宝物庫（全画面／ゲーム内ドロワー両方）に **「📥 コードを受け取る」**。`validateTradeCode(code)`（純関数）→ `importTreasure(code)`（副作用）に分離。検証順:
+1. 形式・バージョン `MGKT1` / 2. チェックサム / 3. JSONパースと型 / 4. **ホワイトリスト**（`name`/`icon` が `TREASURE_NAMES` に実在・`rarity` 実在・affix個数がレア度定義と一致・key 実在・重複なし・**value が `rollAffixValue` の上下限内**）/ 5. 二重受領（自分の `magika_inventory` に同ID or `magika_trade_seen` にID）/ 6. 所持上限
+- 受領時：不明フィールドを落として正規化（`receivedAt` 付与）→ インベントリ追加 → `magika_trade_seen` にID追記。
+
+### 追加キー・定数
+- `magika_trade_seen` — 受領済みID配列（`SEEN_MAX=1000`、超過分は古い順に間引き）
+- `TRADE_CONFIG.INV_MAX = 200` — 宝物庫の所持上限。**`addTreasure` が満杯で `false` を返し、掘削側は「宝物庫が満杯！」の警告表示（エラーにしない）**。取引済みも席を占めるので削除で整理する。
+- 宝物庫に「所持 n/200」表示。`showScreenOnly` が宝物詳細・取引モーダルを閉じる（画面またぎの残留防止）。
+
+### 検証
+`node test/p5/harness.js index.html trade` → **52項目すべてPASS**（受け入れ条件1〜5：同一ブラウザ再受領拒否／1文字改変でチェックサム拒否／affix値域外・名前・アイコン・レア度・個数の偽造拒否／別プレイヤー相互交換成功＋元側は取引済み／不正コード200本でクラッシュせず全拒否。加えて所持上限・traded隔離・FNV-1a既知値・UI経路スモーク）。`verify.sh` ✅ PASS（挙動不変）。
 
 ## Recent Session Changes (2026-07-24 その11：レバレッジを宝石鉱脈率・レア度分布に掛け合わせ)
 

@@ -16,6 +16,7 @@ Node 18+ 必要。`✅ PASS` なら経路探索の一手・全軌道・乱数消
 - `epilogue_sim.js` — 手組みシナリオを1000tick駆動し全エンティティ(x,y,hp,cd)＋乱数消費回数をハッシュ化（統合レベル）。
 - `epilogue_pause.js` — P5-6 ポーズ修正の正当性（ポーズ中 gameTime 凍結）。
 - `epilogue_perf.js` — 深度25 vs 250 の経路探索コスト比（深度非依存の実測）。
+- `epilogue_trade.js` — **Phase 3 取引コード（道A）の単体検証**。`node harness.js ../../index.html trade` で52項目。形式/チェックサム/ホワイトリスト/二重受領/所持上限/traded隔離/UI経路スモーク。`failed: 0` を維持すること。
 
 ## 黄金基準ハッシュ（Phase 5 直前 = 89ca12a）
 - path: `a72aec6f`（19926サンプル）

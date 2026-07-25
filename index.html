@@ -595,6 +595,16 @@
         .tz-cell .tz-nm { font-size: 0.56rem; color: #cde; margin-top: 3px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 3px; }
         .tz-cell .tz-eq { position: absolute; top: 1px; right: 3px; font-size: 0.7rem; }
         .tz-cell .tz-rank { position: absolute; top: 0; left: 0; font-size: 0.5rem; padding: 1px 4px; border-bottom-right-radius: 6px; color: #111; font-weight: bold; }
+        /* 譲渡済み（取引コード発行済み）：色だけでなく記号＋斜線でも識別（D-4） */
+        .tz-cell.traded { filter: grayscale(1); opacity: 0.5; border-style: dashed; }
+        .tz-cell .tz-trd { position: absolute; bottom: 1px; right: 3px; font-size: 0.62rem; color: #ffaa88; }
+        /* 取引コード用テキストエリア（等幅・折り返し） */
+        .trade-code {
+            width: 100%; box-sizing: border-box; height: 84px; resize: vertical;
+            font-family: 'Courier New', monospace; font-size: 0.62rem; line-height: 1.35;
+            background: #050a20; color: #cfe3ff; border: 1px solid #4466cc; border-radius: 2px;
+            padding: 6px; word-break: break-all;
+        }
         .tz-slot {
             width: 52px; height: 52px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
             font-size: 1.5rem; cursor: pointer; background: rgba(0,0,0,0.3);
@@ -731,12 +741,40 @@
         <div style="width:min(560px,94vw); max-height:50vh; overflow-y:auto; padding:2px;">
             <div id="tzInventoryList" class="tz-grid"></div>
         </div>
+        <div style="font-size:0.72rem; color:#889; margin-top:8px;">所持 <span id="tzInvCount">0</span>/<span id="tzInvMax">200</span></div>
+        <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.85rem; padding:8px 22px; margin-top:8px; background:#1a3a2a; border-color:#2ecc71;">📥 コードを受け取る</button>
         <button class="btn-back" onclick="showSettings()" style="margin-top:14px;">← 戻る</button>
     </div>
 
     <!-- 宝物 詳細モーダル（グリッドのセルをタップで表示） -->
     <div id="tzDetailModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.68); align-items:center; justify-content:center;" onclick="if(event.target===this)tzCloseDetail()">
         <div id="tzDetailCard" style="width:min(320px,88vw); background:#0a1230; border:2px solid #888; border-radius:12px; padding:20px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);"></div>
+    </div>
+
+    <!-- 譲渡コード発行モーダル（コピーして相手に渡す） -->
+    <div id="tradeExportModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.78); align-items:center; justify-content:center;" onclick="if(event.target===this)tradeCloseExport()">
+        <div style="width:min(380px,92vw); background:#0a1230; border:2px solid #ffcc00; border-radius:12px; padding:18px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);">
+            <div style="color:#ffcc00; font-weight:bold; margin-bottom:6px;">📤 譲渡コードを発行しました</div>
+            <div id="tradeExportItem" style="font-size:0.8rem; color:#cde; margin-bottom:8px;"></div>
+            <textarea id="tradeExportCode" class="trade-code" readonly onclick="this.select()"></textarea>
+            <div style="font-size:0.66rem; color:#889; margin:6px 0 10px; text-align:left;">
+                このコードを相手に渡してください。<b style="color:#ff9977;">この宝物は「取引済み」になり、あなたは使えません。</b>
+                コードは1回しか受け取れません（受け取り側で二重受領を拒否）。
+            </div>
+            <button class="btn-start" id="tradeCopyBtn" onclick="tradeCopyCode()" style="width:100%; font-size:0.85rem; padding:8px;">📋 コードをコピー</button>
+            <button class="btn-back" style="margin-top:10px;" onclick="tradeCloseExport()">閉じる</button>
+        </div>
+    </div>
+
+    <!-- コード受領モーダル（貼り付けて受け取る） -->
+    <div id="tradeImportModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.78); align-items:center; justify-content:center;" onclick="if(event.target===this)tradeCloseImport()">
+        <div style="width:min(380px,92vw); background:#0a1230; border:2px solid #2ecc71; border-radius:12px; padding:18px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);">
+            <div style="color:#2ecc71; font-weight:bold; margin-bottom:8px;">📥 譲渡コードを受け取る</div>
+            <textarea id="tradeImportInput" class="trade-code" placeholder="MGKT1.… で始まるコードを貼り付け" spellcheck="false"></textarea>
+            <div id="tradeImportMsg" style="font-size:0.7rem; min-height:2.4em; margin:6px 0; text-align:left;"></div>
+            <button class="btn-start" onclick="tradeDoImport()" style="width:100%; font-size:0.85rem; padding:8px; background:#1a3a2a; border-color:#2ecc71;">受け取る</button>
+            <button class="btn-back" style="margin-top:10px;" onclick="tradeCloseImport()">閉じる</button>
+        </div>
     </div>
 
     <div id="gameScreen" class="screen">
@@ -788,6 +826,8 @@
                         <div class="ig-note">装備した宝物の効果は次のランに適用（<span id="igTzEquipCount">0</span>/<span id="igTzEquipMax">3</span> スロット）</div>
                         <div id="igTzEquippedRow" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:6px 0 12px; min-height:52px;"></div>
                         <div id="igTzInventoryList" class="tz-grid"></div>
+                        <div style="font-size:0.72rem; color:#889; margin-top:8px;">所持 <span id="igTzInvCount">0</span>/<span id="igTzInvMax">200</span></div>
+                        <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.8rem; padding:7px 18px; margin-top:6px; background:#1a3a2a; border-color:#2ecc71;">📥 コードを受け取る</button>
                     </div>
                     <div id="igSettingsSection" style="width:100%; display:none; flex-direction:column; align-items:center;">
                         <div class="records-grid" id="igRecordsGrid"></div>
@@ -1414,27 +1454,32 @@
             bornDepth: Math.max(0, Math.round(depth)), bornRun: loadRunCount(), createdAt: Date.now()
         };
     }
-    function addTreasure(t) { const inv = loadInventory(); inv.push(t); saveInventory(inv); }
-    // 装備中の宝物のアフィックス合計（存在しないIDは無視）
+    // 満杯（TRADE_CONFIG.INV_MAX）ならドロップを拒否して false を返す（呼び出し側で警告表示）
+    function addTreasure(t) {
+        const inv = loadInventory();
+        if (inv.length >= TRADE_CONFIG.INV_MAX) return false;
+        inv.push(t); saveInventory(inv); return true;
+    }
+    // 装備中の宝物のアフィックス合計（存在しないID・譲渡済みは無視）
     function equippedAffixTotals() {
         const inv = loadInventory(), eq = loadEquipped(), totals = {};
         for (const id of eq) {
-            const t = inv.find(x => x.id === id); if (!t) continue;
+            const t = inv.find(x => x.id === id); if (!t || t.traded) continue;
             for (const a of t.affixes) totals[a.key] = (totals[a.key] || 0) + a.value;
         }
         return totals;
     }
 
     // ===== 合成（進化）: 同レア度の追加10個 ＋ ベース1個 → 次レア度1個（ベースの系統=affix種を継承） =====
-    // 装備中の宝物は fodder に使わない
+    // 装備中・譲渡済み（traded）の宝物は fodder に使わない
     function synthFodderIds(rarity, excludeId) {
         const eq = loadEquipped();
         return loadInventory()
-            .filter(t => t.rarity === rarity && t.id !== excludeId && !eq.includes(t.id))
+            .filter(t => t.rarity === rarity && t.id !== excludeId && !eq.includes(t.id) && !t.traded)
             .map(t => t.id);
     }
     function canSynthesize(item) {
-        if (!item) return false;
+        if (!item || item.traded) return false;                      // 譲渡済みは核にできない
         if (!nextRarityKey(item.rarity)) return false;               // 神は最上位（進化なし）
         return synthFodderIds(item.rarity, item.id).length >= SYNTH_FODDER;
     }
@@ -1457,7 +1502,7 @@
     function synthesize(baseId) {
         const inv = loadInventory();
         const base = inv.find(t => t.id === baseId);
-        if (!base) return null;
+        if (!base || base.traded) return null;
         const nxt = nextRarityKey(base.rarity);
         if (!nxt) return null;
         const fodder = synthFodderIds(base.rarity, baseId).slice(0, SYNTH_FODDER);
@@ -1467,6 +1512,144 @@
         saveInventory(inv.filter(t => !consume.has(t.id)).concat([newItem]));
         saveEquipped(loadEquipped().filter(id => !consume.has(id)));  // 消費品が装備中なら解除
         return newItem;
+    }
+
+    // ===== 取引コード（道A・焼却付き譲渡） =====
+    // 形式: MGKT1.<payload>.<checksum>
+    //   payload  = 宝物オブジェクト（traded 除去済み）を JSON → UTF-8 → base64url
+    //   checksum = FNV-1a 32bit(payload + SALT) を16進8桁
+    // ★注意: このチェックサムは「コピペ事故・破損検出」のためのものであり、改ざん防止ではない。
+    //   SALTもコード内にあるため、本気の改造は防げない（道Aはチート耐性を目標にしない仕様）。
+    //   代わりにインポート時のホワイトリスト検証（名前/アイコン/レア度/affix値域）で
+    //   「ゲームバランスを壊す値」の流入だけは弾く。
+    const TRADE_CONFIG = {
+        VER: 'MGKT1',              // コードのバージョンプレフィクス
+        SALT: 'magika-dorue-trade-v1',
+        SEEN_KEY: 'magika_trade_seen',
+        SEEN_MAX: 1000,            // 受領済みIDの保持数（超過分は古い順に間引き）
+        INV_MAX: 200,              // 宝物庫の所持上限（取引済みも席を占める＝削除で整理）
+    };
+    function fnv1a(str) {
+        let h = 0x811c9dc5;
+        for (let i = 0; i < str.length; i++) {
+            h ^= str.charCodeAt(i);
+            h = Math.imul(h, 0x01000193) >>> 0;
+        }
+        return (h >>> 0).toString(16).padStart(8, '0');
+    }
+    function b64urlEncode(str) {
+        const bytes = new TextEncoder().encode(str);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function b64urlDecode(s) {
+        const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder().decode(bytes);
+    }
+    function loadTradeSeen() { try { return JSON.parse(localStorage.getItem(TRADE_CONFIG.SEEN_KEY) || '[]'); } catch { return []; } }
+    function saveTradeSeen(arr) {
+        const a = arr.slice(-TRADE_CONFIG.SEEN_MAX);   // 古い順に間引き
+        localStorage.setItem(TRADE_CONFIG.SEEN_KEY, JSON.stringify(a));
+    }
+
+    // 譲渡可否（装備中・取引済みは不可）
+    function canExportTreasure(t) { return !!t && !t.traded && !loadEquipped().includes(t.id); }
+    // P3-2 コード発行＝焼却（元は使用不可に）。{ok, code} / {ok:false, reason}
+    function exportTreasure(id) {
+        const inv = loadInventory();
+        const t = inv.find(x => x.id === id);
+        if (!t) return { ok:false, reason:'宝物が見つかりません' };
+        if (t.traded) return { ok:false, reason:'この宝物はすでに譲渡済みです' };
+        if (loadEquipped().includes(id)) return { ok:false, reason:'装備中の宝物は譲渡できません（先に解除）' };
+        const { traded, ...clean } = t;                       // traded フラグは載せない
+        const payload = b64urlEncode(JSON.stringify(clean));
+        const code = `${TRADE_CONFIG.VER}.${payload}.${fnv1a(payload + TRADE_CONFIG.SALT)}`;
+        t.traded = true; t.tradedAt = Date.now();             // 焼却
+        saveInventory(inv);
+        saveEquipped(loadEquipped().filter(x => x !== id));   // 念のため装備解除
+        return { ok:true, code };
+    }
+    // 取引済みの宝物を宝物庫から削除（整理用）
+    function deleteTreasure(id) {
+        saveInventory(loadInventory().filter(t => t.id !== id));
+        saveEquipped(loadEquipped().filter(x => x !== id));
+    }
+
+    // P3-3a 検証（純関数：localStorage 以外に副作用なし）。{ok, reason?, item?}
+    // 手順: 1形式 → 2チェックサム → 3JSON/型 → 4ホワイトリスト → 5二重受領 → 6上限
+    function validateTradeCode(code) {
+        try {
+            const raw = String(code || '').trim();
+            if (!raw) return { ok:false, reason:'コードが空です' };
+            const parts = raw.split('.');
+            if (parts.length !== 3) return { ok:false, reason:'コードの形式が違います（区切りが不正）' };
+            const [ver, payload, sum] = parts;
+            if (ver !== TRADE_CONFIG.VER) return { ok:false, reason:`対応していないコード形式です（${ver}）` };
+            if (!/^[A-Za-z0-9_-]+$/.test(payload)) return { ok:false, reason:'コードに使えない文字が含まれています' };
+            if (fnv1a(payload + TRADE_CONFIG.SALT) !== String(sum).toLowerCase())
+                return { ok:false, reason:'コードが壊れています（チェックサム不一致）。コピペ漏れがないか確認してください' };
+            let t;
+            try { t = JSON.parse(b64urlDecode(payload)); }
+            catch { return { ok:false, reason:'コードを解析できませんでした' }; }
+            // 必須フィールドと型
+            if (!t || typeof t !== 'object' || Array.isArray(t)) return { ok:false, reason:'中身が宝物ではありません' };
+            if (typeof t.id !== 'string' || !t.id) return { ok:false, reason:'IDが不正です' };
+            if (typeof t.name !== 'string' || typeof t.icon !== 'string') return { ok:false, reason:'名前かアイコンが不正です' };
+            if (!Array.isArray(t.affixes)) return { ok:false, reason:'効果の形式が不正です' };
+            // ホワイトリスト：レア度
+            const rar = RARITY_BY_KEY[t.rarity];
+            if (!rar) return { ok:false, reason:'レア度が不正です' };
+            const pool = TREASURE_NAMES[t.rarity];
+            if (!pool.names.includes(t.name) || !pool.icons.includes(t.icon))
+                return { ok:false, reason:'存在しない宝物です（名前かアイコンが表に無い）' };
+            if (t.affixes.length !== rar.affixCount)
+                return { ok:false, reason:`効果の数が不正です（［${rar.name}］は${rar.affixCount}個）` };
+            const seenKeys = new Set();
+            for (const a of t.affixes) {
+                if (!a || typeof a.key !== 'string' || typeof a.value !== 'number' || !isFinite(a.value))
+                    return { ok:false, reason:'効果の値が不正です' };
+                const def = AFFIX_BY_KEY[a.key];
+                if (!def) return { ok:false, reason:`存在しない効果です（${a.key}）` };
+                if (seenKeys.has(a.key)) return { ok:false, reason:'同じ効果が重複しています' };
+                seenKeys.add(a.key);
+                // 値域：rollAffixValue と同じ上下限（pctは小数2桁・0許容、他は整数・最低1）
+                const [lo, hi] = def.base;
+                const min = def.pct ? Math.round(lo * rar.mult * 100) / 100 : Math.max(1, Math.round(lo * rar.mult));
+                const max = def.pct ? Math.round(hi * rar.mult * 100) / 100 : Math.max(1, Math.round(hi * rar.mult));
+                if (a.value < min - 1e-9 || a.value > max + 1e-9)
+                    return { ok:false, reason:`効果の値が範囲外です（${def.key}: ${a.value}／許容 ${min}〜${max}）` };
+            }
+            // 二重受領（自分の宝物庫に同IDがある＝焼却済みの自分の品も含む／受領履歴にある）
+            if (loadInventory().some(x => x.id === t.id)) return { ok:false, reason:'この宝物はすでに宝物庫にあります（二重受領）' };
+            if (loadTradeSeen().includes(t.id)) return { ok:false, reason:'このコードはすでに受け取り済みです（二重受領）' };
+            if (loadInventory().length >= TRADE_CONFIG.INV_MAX)
+                return { ok:false, reason:`宝物庫が満杯です（${TRADE_CONFIG.INV_MAX}個）。不要な宝物を整理してください` };
+            // 正規化して受領（不明フィールドは落とす）
+            const item = {
+                id: t.id, name: t.name, icon: t.icon, rarity: t.rarity,
+                affixes: t.affixes.map(a => ({ key:a.key, value:a.value })),
+                bornDepth: Math.max(0, Math.round(Number(t.bornDepth) || 0)),
+                bornRun: Math.max(0, Math.round(Number(t.bornRun) || 0)),
+                createdAt: Number(t.createdAt) || Date.now(),
+                receivedAt: Date.now(),
+            };
+            if (typeof t.evolvedFrom === 'string' && RARITY_BY_KEY[t.evolvedFrom]) item.evolvedFrom = t.evolvedFrom;
+            return { ok:true, item };
+        } catch (e) {
+            return { ok:false, reason:'コードを読み取れませんでした' };
+        }
+    }
+    // P3-3b 受領（副作用）
+    function importTreasure(code) {
+        const res = validateTradeCode(code);
+        if (!res.ok) return res;
+        const inv = loadInventory();
+        inv.push(res.item); saveInventory(inv);
+        saveTradeSeen(loadTradeSeen().concat([res.item.id]));
+        return res;
     }
 
     const ACHIEVEMENTS = [
@@ -1491,12 +1674,14 @@
     // ===== 宝物庫（Treasury）UI（ソシャゲ風グリッド＋詳細モーダル） =====
     const RARITY_ORDER = { god:5, legendary:4, epic:3, rare:2, uncommon:1, common:0 };
     // 全画面版とゲーム内ドロワー版、2つのコンテナへ描画
-    const TZ_FULL = { row:'tzEquippedRow', list:'tzInventoryList', count:'tzEquipCount', max:'tzEquipMax' };
-    const TZ_IG   = { row:'igTzEquippedRow', list:'igTzInventoryList', count:'igTzEquipCount', max:'igTzEquipMax' };
+    const TZ_FULL = { row:'tzEquippedRow', list:'tzInventoryList', count:'tzEquipCount', max:'tzEquipMax', invCount:'tzInvCount', invMax:'tzInvMax' };
+    const TZ_IG   = { row:'igTzEquippedRow', list:'igTzInventoryList', count:'igTzEquipCount', max:'igTzEquipMax', invCount:'igTzInvCount', invMax:'igTzInvMax' };
     function showTreasury() { showScreenOnly('treasuryScreen'); renderTreasuryInto(TZ_FULL); }
     function renderTreasuryAll() { renderTreasuryInto(TZ_FULL); renderTreasuryInto(TZ_IG); }
     function tzEquip(id) {
         const eq = loadEquipped();
+        const t = loadInventory().find(x => x.id === id);
+        if (!t || t.traded) { playSE('error'); return; }      // 譲渡済みは装備不可
         if (eq.includes(id) || eq.length >= EQUIP_SLOTS) return;
         eq.push(id); saveEquipped(eq); playSE('buy');
         renderTreasuryAll(); if (tzDetailId) tzShowDetail(tzDetailId);
@@ -1511,6 +1696,8 @@
         const inv = loadInventory(), eq = loadEquipped();
         const cEl = document.getElementById(ctx.count); if (cEl) cEl.innerText = eq.length;
         const mEl = document.getElementById(ctx.max);   if (mEl) mEl.innerText = EQUIP_SLOTS;
+        const icEl = document.getElementById(ctx.invCount); if (icEl) icEl.innerText = inv.length;
+        const imEl = document.getElementById(ctx.invMax);   if (imEl) imEl.innerText = TRADE_CONFIG.INV_MAX;
         // 装備スロット
         const eqRow = document.getElementById(ctx.row);
         if (eqRow) {
@@ -1533,9 +1720,10 @@
                 eqRow.appendChild(slot);
             }
         }
-        // グリッド（レア度→深度で降順）
+        // グリッド（譲渡済みは末尾へ → レア度→深度で降順）
         const sorted = inv.slice().sort((a, b) =>
-            (RARITY_ORDER[b.rarity] - RARITY_ORDER[a.rarity]) || (b.bornDepth - a.bornDepth));
+            ((a.traded ? 1 : 0) - (b.traded ? 1 : 0))
+            || (RARITY_ORDER[b.rarity] - RARITY_ORDER[a.rarity]) || (b.bornDepth - a.bornDepth));
         listEl.innerHTML = '';
         if (sorted.length === 0) {
             listEl.innerHTML = '<div style="grid-column:1/-1; color:#889; text-align:center; padding:24px;">まだ宝物がありません。<br>深く潜って宝石鉱脈（💎）を掘りましょう。</div>';
@@ -1545,12 +1733,13 @@
             const rar = RARITY_BY_KEY[t.rarity];
             const isEq = eq.includes(t.id);
             const cell = document.createElement('div');
-            cell.className = 'tz-cell';
+            cell.className = 'tz-cell' + (t.traded ? ' traded' : '');
             cell.style.borderColor = rar.color;
             cell.onclick = () => tzShowDetail(t.id);
             cell.innerHTML =
                 `<div class="tz-rank" style="background:${rar.color};">${rar.name}</div>`
                 + (isEq ? '<div class="tz-eq">✅</div>' : '')
+                + (t.traded ? '<div class="tz-trd">📤済</div>' : '')
                 + `<div class="tz-ic">${t.icon}</div>`
                 + `<div class="tz-nm">${t.name}</div>`;
             listEl.appendChild(cell);
@@ -1568,12 +1757,13 @@
         const affix = t.affixes.map(a =>
             `<div style="color:#cde; font-size:0.9rem; margin:3px 0;">・${AFFIX_BY_KEY[a.key].fmt(a.value)}</div>`).join('');
         let btn;
-        if (isEq) btn = `<button class="btn-start" style="background:#555; width:100%;" onclick="tzUnequip('${id}')">装備を解除</button>`;
+        if (t.traded) btn = `<button class="btn-start" disabled style="opacity:0.4; width:100%;">📤 取引済み（使用不可）</button>`;
+        else if (isEq) btn = `<button class="btn-start" style="background:#555; width:100%;" onclick="tzUnequip('${id}')">装備を解除</button>`;
         else if (full) btn = `<button class="btn-start" disabled style="opacity:0.4; width:100%;">装備枠が満杯（3/3）</button>`;
         else btn = `<button class="btn-start" style="width:100%; background:#3a2a5a; border-color:#9b59b6;" onclick="tzEquip('${id}')">装備する</button>`;
         // 合成（進化）ボタン
         let synth = '';
-        const nxt = nextRarityKey(t.rarity);
+        const nxt = t.traded ? null : nextRarityKey(t.rarity);
         if (nxt) {
             const have = synthFodderIds(t.rarity, id).length;
             const nrar = RARITY_BY_KEY[nxt];
@@ -1583,16 +1773,95 @@
                 synth = `<div style="margin-top:8px; font-size:0.72rem; color:#889;">🔨 進化には同レア度あと <b style="color:#ffcc00;">${SYNTH_FODDER - have}</b> 個（計${SYNTH_FODDER}）必要 → ${nrar.name}</div>`;
             }
         }
+        // 取引（道A）: 譲渡コード発行／取引済みなら削除で整理
+        let trade;
+        if (t.traded) {
+            trade = `<div style="margin-top:8px; font-size:0.7rem; color:#ff9977;">📤 譲渡コードを発行済み（この宝物は使えません）</div>`
+                + `<button class="btn-start" style="width:100%; margin-top:6px; background:#3a1a1a; border-color:#aa4433; font-size:0.8rem; padding:7px;" onclick="tzDelete('${id}')">🗑 宝物庫から削除</button>`;
+        } else if (isEq) {
+            trade = `<div style="margin-top:8px; font-size:0.7rem; color:#889;">📤 譲渡するには先に装備を解除</div>`;
+        } else {
+            trade = `<button class="btn-start" style="width:100%; margin-top:8px; background:#3a3210; border-color:#ffcc00; font-size:0.8rem; padding:7px;" onclick="tzExport('${id}')">📤 譲渡コード発行</button>`;
+        }
+        const origin = t.receivedAt ? '📥 コードで受け取った宝物' : `深度 ${t.bornDepth} で出土`;
         document.getElementById('tzDetailCard').style.borderColor = rar.color;
         document.getElementById('tzDetailCard').innerHTML =
-            `<div style="font-size:3.4rem; line-height:1;">${t.icon}</div>`
+            `<div style="font-size:3.4rem; line-height:1;${t.traded ? 'filter:grayscale(1); opacity:0.55;' : ''}">${t.icon}</div>`
             + `<div style="color:${rar.color}; font-weight:bold; font-size:1.15rem; margin-top:6px;">${t.name}</div>`
             + `<div style="display:inline-block; margin:8px 0; padding:2px 12px; border-radius:12px; color:${rar.color}; font-size:0.8rem; border:1px solid ${rar.color};">［${rar.name}］</div>`
+            + (t.traded ? `<div style="display:inline-block; margin:0 0 8px 6px; padding:2px 10px; border-radius:12px; color:#ff9977; font-size:0.75rem; border:1px solid #aa4433;">📤 取引済み</div>` : '')
             + `<div style="border-top:1px solid #334; border-bottom:1px solid #334; margin:8px 0; padding:8px 0;">${affix}</div>`
-            + `<div style="font-size:0.72rem; color:#889; margin-bottom:14px;">深度 ${t.bornDepth} で出土</div>`
-            + btn + synth
+            + `<div style="font-size:0.72rem; color:#889; margin-bottom:14px;">${origin}</div>`
+            + btn + synth + trade
             + `<button class="btn-back" style="margin-top:10px;" onclick="tzCloseDetail()">閉じる</button>`;
         document.getElementById('tzDetailModal').style.display = 'flex';
+    }
+    // 譲渡コード発行（焼却の確認つき）
+    function tzExport(id) {
+        const t = loadInventory().find(x => x.id === id);
+        if (!t) return;
+        if (!confirm(`「${t.name}」［${RARITY_BY_KEY[t.rarity].name}］の譲渡コードを発行しますか？\n\n`
+            + `※発行するとこの宝物は自分では使えなくなります（取引済みになります）。\n`
+            + `※コードを渡した相手が1回だけ受け取れます。`)) return;
+        const res = exportTreasure(id);
+        if (!res.ok) { playSE('error'); alert(res.reason); return; }
+        playSE('buy');
+        renderTreasuryAll();
+        tzShowDetail(id);                                   // 取引済み表示へ更新
+        document.getElementById('tradeExportItem').innerText = `${t.icon} ${t.name}［${RARITY_BY_KEY[t.rarity].name}］`;
+        const ta = document.getElementById('tradeExportCode');
+        ta.value = res.code;
+        document.getElementById('tradeCopyBtn').innerText = '📋 コードをコピー';
+        document.getElementById('tradeExportModal').style.display = 'flex';
+    }
+    function tradeCloseExport() { document.getElementById('tradeExportModal').style.display = 'none'; }
+    function tradeCopyCode() {
+        const ta = document.getElementById('tradeExportCode');
+        const btn = document.getElementById('tradeCopyBtn');
+        const done = () => { btn.innerText = '✅ コピーしました'; playSE('buy'); };
+        // navigator.clipboard は非対応/非セキュア文脈があるので execCommand もフォールバック
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(ta.value).then(done, () => { ta.select(); document.execCommand('copy'); done(); });
+                return;
+            }
+        } catch (e) { /* fallthrough */ }
+        try { ta.select(); document.execCommand('copy'); done(); }
+        catch (e) { btn.innerText = '手動でコピーしてください'; }
+    }
+    function tzDelete(id) {
+        const t = loadInventory().find(x => x.id === id);
+        if (!t) return;
+        if (!confirm(`「${t.name}」を宝物庫から削除しますか？\n\n※取引済みの宝物です。削除すると一覧から消えます（元に戻せません）。`)) return;
+        deleteTreasure(id);
+        playSE('error');
+        tzCloseDetail();
+        renderTreasuryAll();
+    }
+    // 受領（コード貼り付け）
+    function tradeOpenImport() {
+        document.getElementById('tradeImportInput').value = '';
+        document.getElementById('tradeImportMsg').innerHTML = '';
+        document.getElementById('tradeImportModal').style.display = 'flex';
+    }
+    function tradeCloseImport() { document.getElementById('tradeImportModal').style.display = 'none'; }
+    function tradeDoImport() {
+        const msg = document.getElementById('tradeImportMsg');
+        const code = document.getElementById('tradeImportInput').value;
+        let res;
+        try { res = importTreasure(code); }
+        catch (e) { res = { ok:false, reason:'コードを読み取れませんでした' }; }
+        if (!res.ok) {
+            playSE('error');
+            msg.innerHTML = `<span style="color:#ff8866;">✖ ${res.reason}</span>`;
+            return;
+        }
+        const t = res.item, rar = RARITY_BY_KEY[t.rarity];
+        playSE(rar.key === 'common' || rar.key === 'uncommon' ? 'buy' : 'gem');
+        msg.innerHTML = `<span style="color:#2ecc71;">✅ 受け取りました：</span>`
+            + `<span style="color:${rar.color};">${t.icon} ${t.name}［${rar.name}］</span>`;
+        document.getElementById('tradeImportInput').value = '';
+        renderTreasuryAll();
     }
     function tzSynthesize(id) {
         const base = loadInventory().find(x => x.id === id);
@@ -1653,6 +1922,12 @@
             const el = document.getElementById(sid);
             if (el) el.style.display = (sid === id) ? (displayMode || 'flex') : 'none';
         }
+        // 画面をまたぐときモーダルを残さない（宝物詳細・取引コード）
+        for (const mid of ['tzDetailModal', 'tradeExportModal', 'tradeImportModal']) {
+            const m = document.getElementById(mid);
+            if (m) m.style.display = 'none';
+        }
+        tzDetailId = null;
     }
 
     // ===== 開発者コマンド：タイトル画面で Shift+Cmd(Meta)+Enter → 銀行残高を自由設定 =====
@@ -2832,13 +3107,19 @@
                     const gain = 8 + Math.floor(Math.random() * 13); // 8〜20G
                     gold += gain; totalEarnedGold += gain;
                     const tz = rollTreasure(depthOf(y));
-                    addTreasure(tz);
-                    sessionTreasures++;
-                    const rar = RARITY_BY_KEY[tz.rarity];
-                    spawnFloatingText(x, y - 1, `${tz.icon} ${tz.name}`, rar.color, 14);
-                    spawnFloatingText(x, y, `［${rar.name}］`, rar.color, 12);
-                    spawnBurst(x, y, [rar.color, '#ffffff'], (tz.rarity === 'epic' || tz.rarity === 'legendary') ? 24 : 12);
-                    playSE((tz.rarity === 'epic' || tz.rarity === 'legendary') ? 'gem' : 'buy');
+                    if (addTreasure(tz)) {
+                        sessionTreasures++;
+                        const rar = RARITY_BY_KEY[tz.rarity];
+                        spawnFloatingText(x, y - 1, `${tz.icon} ${tz.name}`, rar.color, 14);
+                        spawnFloatingText(x, y, `［${rar.name}］`, rar.color, 12);
+                        spawnBurst(x, y, [rar.color, '#ffffff'], (tz.rarity === 'epic' || tz.rarity === 'legendary') ? 24 : 12);
+                        playSE((tz.rarity === 'epic' || tz.rarity === 'legendary') ? 'gem' : 'buy');
+                    } else {
+                        // 宝物庫が満杯（200個）＝ドロップは失われる。エラーにせず警告表示
+                        spawnFloatingText(x, y - 1, '宝物庫が満杯！', '#ff8866', 13);
+                        spawnFloatingText(x, y, '整理してください', '#ff8866', 11);
+                        playSE('error');
+                    }
                     updateGoldUI();
                 } else {
                     spawnFloatingText(x, y, '-1G', '#ffcc00');

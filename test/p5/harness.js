@@ -124,6 +124,10 @@ global.requestAnimationFrame = windowStub.requestAnimationFrame;
 global.cancelAnimationFrame = windowStub.cancelAnimationFrame;
 global.performance = windowStub.performance;
 global.matchMedia = windowStub.matchMedia;
+// getComputedStyle: 未知のプロパティは空文字。display は 'block'（＝要素は表示されている扱い）
+const computedStyleStub = () => new Proxy({ display: 'block' }, { get: (t, p) => (p in t ? t[p] : '') });
+windowStub.getComputedStyle = computedStyleStub;
+global.getComputedStyle = computedStyleStub;
 try { global.navigator = windowStub.navigator; } catch (e) { try { Object.defineProperty(global, 'navigator', { value: windowStub.navigator, configurable: true }); } catch (e2) {} }
 global.alert = windowStub.alert;
 global.confirm = windowStub.confirm;

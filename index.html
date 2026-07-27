@@ -195,14 +195,18 @@
             box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px #4466cc;
             position: relative; background-color: #ecf0f1;
         }
-        #canvasContainer::-webkit-scrollbar { width: 12px; }
-        #canvasContainer::-webkit-scrollbar-track { background: #000828; }
-        #canvasContainer::-webkit-scrollbar-thumb { background: #2244aa; border-radius: 0; }
-        #canvasContainer::-webkit-scrollbar-thumb:hover { background: #4466cc; }
+        /* スクロールバーは出さない（縦移動はミニマップ・ホイール・タッチで行う） */
+        #canvasContainer { scrollbar-width: none; -ms-overflow-style: none; }
+        #canvasContainer::-webkit-scrollbar { width: 0; height: 0; display: none; }
         #minimap {
-            position: fixed; left: 14px; bottom: 14px; z-index: 150;
+            position: fixed; left: 12px; top: 12px; z-index: 150;
             border: 2px solid #4466cc; background: rgba(0,8,32,0.9);
             cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.6);
+        }
+        /* 追尾カメラ ON の見た目 */
+        #followBtn.on {
+            background: #1d5a3a !important; border-color: #2ecc71 !important; color: #bfffd8 !important;
+            box-shadow: 0 0 8px rgba(46,204,113,0.5);
         }
 
         canvas { display: block; cursor: crosshair; }
@@ -1073,7 +1077,8 @@
             <button id="speedBtn" onclick="toggleSpeed()" style="position:absolute; top:36px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">▶▶ 早送り</button>
             <button id="pauseBtn" onclick="togglePause()" style="position:absolute; top:62px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">⏸ ポーズ</button>
             <button id="muteBtn" onclick="toggleMute()" style="position:absolute; top:88px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">🔊 音</button>
-            <button id="retreatBtn" onclick="retreatCashOut()" style="display:none; position:absolute; top:114px; right:0; font-size:0.75rem; padding:4px 10px; background:#aa2244; border:1px solid #ff4466; border-radius:4px; color:white; cursor:pointer; z-index:100;">🏳 撤退</button>
+            <button id="followBtn" onclick="toggleFollow()" title="最前線の勇者をカメラで追う" style="position:absolute; top:114px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">🎯 追尾</button>
+            <button id="retreatBtn" onclick="retreatCashOut()" style="display:none; position:absolute; top:140px; right:0; font-size:0.75rem; padding:4px 10px; background:#aa2244; border:1px solid #ff4466; border-radius:4px; color:white; cursor:pointer; z-index:100;">🏳 撤退</button>
 
             <div id="dashboard">
                 <div class="btn-group">
@@ -1259,21 +1264,79 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // ===== ミニマップ（全体マップ・あくま部屋/勇者部屋を強調・タップでカメラ移動） =====
+    // ===== ミニマップ（カメラ周辺の一定範囲を等倍で表示・タップでカメラ移動） =====
+    // 全深度を1枚に押し込むと深くなるほど潰れるので、常に MINIMAP_ROWS 行だけを写す。
     const minimap = document.getElementById('minimap');
     const mmctx = minimap.getContext('2d');
     let minimapTick = 0;
-    function positionMinimap() { /* 枠外・画面左下に固定（CSSで配置）。位置追従は不要 */ }
+    const MINIMAP_ROWS = 100;          // 縦に写すマス数（固定＝縮尺が一定）
+    const MINIMAP_MARGIN = 12;
+    const MINIMAP_ASPECT_MAX = 2.2;    // 横/縦の縮尺比の上限（横に間延びさせない）
+    // 画面左端〜プレイ画面左端の余白いっぱいに置く（左パネルの下から画面下端まで）
+    function positionMinimap() {
+        const c = document.getElementById('canvasContainer');
+        if (!c || !minimap) return;
+        if (getComputedStyle(minimap).display === 'none') return;   // モバイルでは非表示
+        const rect = c.getBoundingClientRect();
+        const panel = document.getElementById('sidePanelLeft');
+        const collapsed = !panel || panel.classList.contains('collapsed');
+        const pr = collapsed ? null : panel.getBoundingClientRect();
+        const top = Math.round((pr && pr.height ? pr.bottom : 44) + MINIMAP_MARGIN);
+        const w = Math.round(Math.max(72, rect.left - MINIMAP_MARGIN * 2 - 4));
+        const h = Math.round(Math.max(140, window.innerHeight - top - MINIMAP_MARGIN));
+        minimap.style.left = MINIMAP_MARGIN + 'px';
+        minimap.style.top = top + 'px';
+        // canvas の width/height 代入は内容を消すので、変化したときだけ
+        if (minimap.width !== w || minimap.height !== h) { minimap.width = w; minimap.height = h; }
+    }
+    // 表示する行範囲（カメラ中心の上下）。マップが短いうちは先頭から。
+    function minimapRange() {
+        const c = document.getElementById('canvasContainer');
+        const rows = (map && map.length) ? map.length : ROWS;
+        const shown = Math.min(rows, MINIMAP_ROWS);
+        const centerRow = ((c ? c.scrollTop + c.clientHeight / 2 : 0)) / TILE_SIZE;
+        let top = Math.round(centerRow - shown / 2);
+        top = Math.max(0, Math.min(Math.max(0, rows - shown), top));
+        return { top, shown, rows };
+    }
     function drawMinimap() {
         if (!map || !map.length) return;
         const mmW = minimap.width, mmH = minimap.height;
-        const rows = map.length, cols = COLS;
-        const sx = mmW / cols, sy = mmH / rows;
+        const cols = COLS;
+        const { top: rTop, shown, rows } = minimapRange();
+        const sy = mmH / shown;                         // 縦の縮尺は常に一定（shown は固定）
+        // 横に間延びしすぎないよう縦横比に上限を置き、余った幅は左右の余白（深度目盛り）に使う
+        const drawW = Math.min(mmW, sy * MINIMAP_ASPECT_MAX * cols);
+        const ox = Math.round((mmW - drawW) / 2);
+        const sx = drawW / cols;
+        const px = x => ox + x * sx;                    // 列 → ミニマップX
+        const py = y => (y - rTop) * sy;                // 行 → ミニマップY
         mmctx.clearRect(0, 0, mmW, mmH);
-        mmctx.fillStyle = '#0d1330'; mmctx.fillRect(0, 0, mmW, mmH);
+        mmctx.fillStyle = '#080d22'; mmctx.fillRect(0, 0, mmW, mmH);
+        mmctx.fillStyle = '#0d1330'; mmctx.fillRect(ox, 0, drawW, mmH);
+        // 深度の目盛り（10行ごとに刻み・50行ごとに数値）
+        if (ox > 14) {
+            mmctx.textAlign = 'left';
+            mmctx.font = '9px "Courier New", monospace';
+            for (let y = rTop; y < rTop + shown; y++) {
+                const d = depthOf(y);
+                if (d < 0 || d % 10 !== 0) continue;
+                const yy = Math.round(py(y)) + 0.5;
+                const major = d % 50 === 0;
+                mmctx.strokeStyle = major ? 'rgba(150,180,255,0.5)' : 'rgba(120,150,220,0.22)';
+                mmctx.lineWidth = 1;
+                mmctx.beginPath();
+                mmctx.moveTo(ox - (major ? 7 : 4), yy); mmctx.lineTo(ox - 1, yy); mmctx.stroke();
+                if (major) {                       // 数値は左端から（右揃えだと桁が増えたとき見切れる）
+                    mmctx.fillStyle = 'rgba(180,200,255,0.7)';
+                    mmctx.fillText(d + 'm', 2, yy - 2);
+                }
+            }
+        }
         // 地形（掘削済み/空/鉱脈を色分け、岩盤は背景色）
-        for (let y = 0; y < rows; y++) {
+        for (let y = rTop; y < rTop + shown; y++) {
             const row = map[y];
+            if (!row) continue;
             for (let x = 0; x < cols; x++) {
                 const t = row[x];
                 let col = null;
@@ -1281,51 +1344,127 @@
                 else if (t === 4) col = '#6fb7e0';
                 else if (t === 8) col = '#b89a3a';
                 else if (t === 7) col = '#5d3b85';
-                if (col) { mmctx.fillStyle = col; mmctx.fillRect(x * sx, y * sy, Math.max(1, sx), Math.max(1, sy)); }
+                if (col) { mmctx.fillStyle = col; mmctx.fillRect(px(x), py(y), Math.max(1, sx), Math.max(1, sy)); }
             }
         }
+        const inView = y => y >= rTop - 1 && y < rTop + shown + 1;
         // 勇者部屋（オレンジ・強調）
         mmctx.fillStyle = '#ff8c1a';
         for (const hh of heroHouses) {
-            mmctx.fillRect(hh.x * sx - 1.5, hh.y * sy - 1.5, Math.max(4, sx + 3), Math.max(4, sy + 3));
+            if (!inView(hh.y)) continue;
+            mmctx.fillRect(px(hh.x) - 1.5, py(hh.y) - 1.5, Math.max(4, sx + 3), Math.max(4, sy + 3));
         }
         // あくま部屋（赤＋白枠・強調）
-        if (castlePos) {
-            const cx = castlePos.x * sx, cy = castlePos.y * sy, cs = 6;
+        if (castlePos && inView(castlePos.y)) {
+            const cx = px(castlePos.x), cy = py(castlePos.y), cs = 7;
             mmctx.fillStyle = '#ff2b4e';
             mmctx.fillRect(cx - cs / 2, cy - cs / 2, cs, cs);
             mmctx.strokeStyle = '#ffffff'; mmctx.lineWidth = 1;
             mmctx.strokeRect(cx - cs / 2 + 0.5, cy - cs / 2 + 0.5, cs, cs);
         }
-        // 勇者（動的・生存中のみ。怒りは赤ピンク）
+        // 勇者（動的・生存中のみ。怒りは赤ピンク／追尾中の対象は黄枠）
+        const followed = cameraFollow ? followTarget() : null;
         for (const h of heroes) {
-            if (h.hp <= 0) continue;
+            if (h.hp <= 0 || !inView(h.y)) continue;
             mmctx.fillStyle = h.isEnraged ? '#ff5588' : '#5dc8ff';
-            const hs = h.isEnraged ? 4 : 3;
-            mmctx.fillRect(h.x * sx - hs / 2, h.y * sy - hs / 2, hs, hs);
+            const hs = h.isEnraged ? 5 : 4;
+            mmctx.fillRect(px(h.x) - hs / 2, py(h.y) - hs / 2, hs, hs);
+            if (h === followed) {
+                mmctx.strokeStyle = '#ffcc00'; mmctx.lineWidth = 1;
+                mmctx.strokeRect(px(h.x) - hs / 2 - 2.5, py(h.y) - hs / 2 - 2.5, hs + 5, hs + 5);
+            }
         }
+        // 範囲外に勇者がいることを上下の矢印で知らせる
+        const above = heroes.filter(h => h.hp > 0 && h.y < rTop).length;
+        const below = heroes.filter(h => h.hp > 0 && h.y >= rTop + shown).length;
+        mmctx.font = 'bold 10px "Courier New", monospace';
+        mmctx.textAlign = 'center';
+        mmctx.fillStyle = '#5dc8ff';
+        if (above) mmctx.fillText('▲' + above, ox + drawW / 2, 10);
+        if (below) mmctx.fillText('▼' + below, ox + drawW / 2, mmH - 3);
         // ビューポート枠（現在の表示範囲）
         const c = document.getElementById('canvasContainer');
-        const totalH = rows * TILE_SIZE;
-        if (totalH > 0) {
-            const vpTop = (c.scrollTop / totalH) * mmH;
-            const vpH = Math.max(3, (c.clientHeight / totalH) * mmH);
+        if (c) {
+            const vpTop = py(c.scrollTop / TILE_SIZE);
+            const vpH = Math.max(3, (c.clientHeight / TILE_SIZE) * sy);
             mmctx.strokeStyle = 'rgba(255,255,255,0.9)'; mmctx.lineWidth = 1;
-            mmctx.strokeRect(0.5, vpTop + 0.5, mmW - 1, Math.min(mmH - vpTop - 1, vpH));
+            mmctx.strokeRect(ox + 0.5, vpTop + 0.5, drawW - 1, vpH);
         }
     }
     minimap.addEventListener('click', (e) => {
         e.stopPropagation();
+        setFollow(false);                                       // 手動で見たい場所を選んだので追尾解除
         const c = document.getElementById('canvasContainer');
         const rect = minimap.getBoundingClientRect();
         const frac = (e.clientY - rect.top) / rect.height;      // getBoundingClientRect は transform scale 補正済み
-        const totalH = (map ? map.length : ROWS) * TILE_SIZE;
-        let target = frac * totalH - c.clientHeight / 2;
-        target = Math.max(0, Math.min(Math.max(0, totalH - c.clientHeight), target));
-        c.scrollTop = target;
+        const { top: rTop, shown } = minimapRange();
+        const row = rTop + frac * shown;                        // 写している範囲の中での行
+        scrollToRow(row);
         positionMinimap(); drawMinimap();
     });
-    document.getElementById('canvasContainer').addEventListener('scroll', () => { positionMinimap(); drawMinimap(); });
+    // 指定した行が画面中央に来るようスクロール（範囲外はクランプ）
+    function scrollToRow(row) {
+        const c = document.getElementById('canvasContainer');
+        if (!c) return;
+        const totalH = (map ? map.length : ROWS) * TILE_SIZE;
+        const t = row * TILE_SIZE - c.clientHeight / 2;
+        c.scrollTop = Math.max(0, Math.min(Math.max(0, totalH - c.clientHeight), t));
+    }
+
+    // ===== 勇者追尾カメラ =====
+    // ON の間は「あくま部屋に最も近い勇者（＝最前線）」を追う。手動スクロールしたら自動で OFF。
+    let cameraFollow = false;
+    const FOLLOW_LERP = 0.12;              // 追従の滑らかさ（1で即時）
+    function followTarget() {
+        const alive = heroes.filter(h => h.hp > 0);
+        if (!alive.length) return null;
+        if (castlePos) {                    // 城への近さ（縦を重めに見る＝縦長マップのため）
+            let best = null, bd = Infinity;
+            for (const h of alive) {
+                const d = Math.abs(h.y - castlePos.y) * 2 + Math.abs(h.x - castlePos.x);
+                if (d < bd) { bd = d; best = h; }
+            }
+            return best;
+        }
+        return alive.reduce((a, b) => (b.y > a.y ? b : a));   // 城が無ければ最深部
+    }
+    function setFollow(on) {
+        if (cameraFollow === on) return;
+        cameraFollow = on;
+        updateFollowBtn();
+    }
+    function toggleFollow() {
+        setFollow(!cameraFollow);
+        playSE('buy');
+        if (cameraFollow) updateFollowCamera(true);            // ONにした瞬間に寄せる
+    }
+    function updateFollowBtn() {
+        const b = document.getElementById('followBtn');
+        if (!b) return;
+        b.classList.toggle('on', cameraFollow);
+        b.innerText = cameraFollow ? '🎯 追尾中' : '🎯 追尾';
+    }
+    // 毎フレーム呼ぶ。immediate=true なら一気に寄せる
+    function updateFollowCamera(immediate) {
+        if (!cameraFollow) return;
+        const t = followTarget();
+        const c = document.getElementById('canvasContainer');
+        if (!t || !c) return;
+        const totalH = (map ? map.length : ROWS) * TILE_SIZE;
+        const maxTop = Math.max(0, totalH - c.clientHeight);
+        const ty = (t.ry !== undefined ? t.ry : t.y * TILE_SIZE + TILE_SIZE / 2);
+        const want = Math.max(0, Math.min(maxTop, ty - c.clientHeight / 2));
+        const cur = c.scrollTop;
+        if (Math.abs(want - cur) < 0.5) return;
+        followAutoScroll = true;                               // 自分で動かしたぶんは「手動」と見なさない
+        c.scrollTop = immediate ? want : cur + (want - cur) * FOLLOW_LERP;
+        followAutoScroll = false;
+    }
+    let followAutoScroll = false;
+    const canvasContainerEl = document.getElementById('canvasContainer');
+    canvasContainerEl.addEventListener('scroll', () => { positionMinimap(); drawMinimap(); });
+    // 手動スクロール（ホイール）で追尾解除
+    canvasContainerEl.addEventListener('wheel', () => { if (!followAutoScroll) setFollow(false); }, { passive: true });
 
     const msgDiv = document.getElementById('message');
     const castleBtn = document.getElementById('castleBtn');
@@ -2665,6 +2804,7 @@
         const collapsed = panel.classList.toggle('collapsed');
         handle.classList.toggle('show', collapsed);
         try { localStorage.setItem('magika_sidepanel', collapsed ? '1' : '0'); } catch (e) {}
+        positionMinimap(); drawMinimap();       // 空いた高さぶんミニマップを伸ばす
     }
     // 初期状態を復元
     function initSidePanelState() {
@@ -3420,6 +3560,7 @@
         }
     }
     window.addEventListener('resize', adjustMobileScale);
+    window.addEventListener('resize', () => { positionMinimap(); drawMinimap(); });
 
     // リザルト画面を画面高に収める（内容が縦に長い場合のみ倍率を動的縮小）
     function adjustResultScale() {
@@ -3447,6 +3588,8 @@
         showScreenOnly('gameScreen');
         initSidePanelState();
         adjustMobileScale();
+        cameraFollow = false; updateFollowBtn();      // 追尾カメラはランごとに OFF から
+        positionMinimap();
 
         generateMap();
         maxDepth = 0;
@@ -3773,6 +3916,7 @@
             if (touchScrollStartY !== null) {
                 const delta = touchScrollStartY - midY;
                 const scale = window.innerWidth < 640 ? window.innerWidth / 640 : 1;
+                if (delta) setFollow(false);                 // 指で動かしたら追尾解除
                 document.getElementById('canvasContainer').scrollTop += delta / scale;
             }
             touchScrollStartY = midY;
@@ -5077,6 +5221,7 @@
         }
 
         // ミニマップ（6フレームごとに再描画、位置は毎回追従）
+        updateFollowCamera(false);       // 追尾カメラ（ON のときだけ働く・滑らかに寄せる）
         if ((minimapTick = (minimapTick + 1) % 6) === 0) { positionMinimap(); drawMinimap(); }
 
         requestAnimationFrame(gameLoop);

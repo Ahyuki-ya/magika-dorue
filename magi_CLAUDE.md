@@ -161,6 +161,19 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - **`ctx.shadowBlur` は Phase 4 で全廃（下記 その13）**。ゴーレムの目の発光は半透明レイヤー重ねに置換した。
 - **毎フレームのグラデーション生成もゼロ**（Phase 4）。モンスター/勇者は「地色＋暗部＋明部」の2階調ベタ塗り、鉱石タイルは起動時プリレンダ画像の `drawImage`。新規描画を足すときもこの2方針を崩さないこと（D-2/D-3）。
 
+## Recent Session Changes (2026-07-27 その16：プレイ画面のカメラ周り（ミニマップ拡大・一定縮尺・追尾カメラ）)
+
+- **スクロールバーを廃止**: `#canvasContainer` は `scrollbar-width:none` ＋ `::-webkit-scrollbar{display:none}`。**スクロール自体（ホイール・2本指・ミニマップ）は残す**。
+- **ミニマップを大型化**: `positionMinimap()` が「画面左端〜プレイ画面左端」「左パネル下端〜画面下端」に合わせて毎回サイズを算出（canvas の width/height 代入は内容が消えるので**変化時のみ**）。`resize` と `toggleSidePanel` でも再配置。モバイル（<640px）は従来どおり非表示。
+- **写す範囲を固定** (`MINIMAP_ROWS=100`): カメラ中心の上下50行だけを描く＝**深く掘っても縮尺が変わらない**。`minimapRange()` が端でクランプ。マップが100行未満のうちは全体を表示。
+  - 横に間延びしないよう `MINIMAP_ASPECT_MAX=2.2` で描画幅を制限し、余った左右の余白に**深度目盛り**（10行ごとに刻み・50行ごとに数値）を出す。
+  - 範囲外に勇者がいる場合は上下に `▲n` `▼n`。追尾中の対象は黄枠。
+- **勇者追尾カメラ**: 右上に `🎯 追尾` トグル（ON で緑）。ON の間は **`followTarget()`＝あくま部屋に最も近い勇者**（城が無ければ最深）を `FOLLOW_LERP=0.12` で滑らかに追う。**ホイール／2本指スクロール／ミニマップクリックで自動 OFF**（`followAutoScroll` フラグで自前のスクロールと区別）。ランごとに OFF から始まる。
+- ハーネスに `getComputedStyle` スタブを追加（`positionMinimap` が参照するため）。
+
+### 検証
+`node test/p5/harness.js index.html camera` → **22項目すべてPASS**（範囲固定・中央追従・端クランプ・序盤の全体表示・描画の例外なし・追尾対象の選択・収束・OFF時に動かない・スクロールバー非表示のCSS）。他4本と `verify.sh` も PASS。
+
 ## Recent Session Changes (2026-07-26 その15：宝具のレベル・鍛冶場（ソシャゲ風の合成）)
 
 **用語変更: 「宝物」→「宝具」**（UI文言・ドキュメントを全置換。localStorage キー `magika_inventory` 等は互換のため据え置き。書き込み用リストは `宝具リスト.md` に改名）。

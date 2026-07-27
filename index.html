@@ -2830,7 +2830,8 @@
     function mstatsAt(mt, lv) {
         const g = MONSTER_GROWTH[mt];
         const at = (k) => Math.max(1, Math.round(g.base[k] + (lv - 1) * g.slope[k]));
-        return { atk: at('atk'), agi: at('agi'), hp: at('hp'), range: g.range };
+        // HP だけ MONSTER_HP_MULT を掛ける（勇者の一撃で溶けないようにするための耐久補正）
+        return { atk: at('atk'), agi: at('agi'), hp: Math.max(1, Math.round(at('hp') * MONSTER_HP_MULT)), range: g.range };
     }
     // 実効ステータス（C-5：全召喚/繁殖/成長/レベル反映がこれを経由）。
     // 基礎（mstatsAt）＋装備の基礎加算(randBonus)、×装備の倍率(equipMul)、
@@ -2997,7 +2998,9 @@
     let isPlacingCastle = false;
     let castlePos = null;
     let castleHp = 10;
-    const CASTLE_MAX_HP = 10;
+    // あくま部屋の耐久。勇者に到達されてから陥落するまでの「猶予」を作る値。
+    // 10 だと序盤の勇者(atk5)でも2発で終わり、増援を送る間がなかったので 40 に引き上げ。
+    const CASTLE_MAX_HP = 40;
     let isGameRunning = false;
     
     // リソース＆リザルト用変数
@@ -3266,7 +3269,7 @@
         } else {
             hAtkSpan.innerText = heroBaseAtk;
             hAgiSpan.innerText = heroBaseAgi;
-            hHpSpan.innerText  = heroBaseHp;
+            hHpSpan.innerText  = Math.round(heroBaseHp * HERO_HP_MULT);   // 実際に出てくる勇者のHPに合わせる
         }
     }
 
@@ -3993,7 +3996,7 @@
                     isFirstCastlePlaced = true;
                     isWaveStarted = true;
                     castleBtn.innerText = "🏰 あくま部屋移動(50 Gold)";
-                    startHeroCountdown(isFastMode ? 5 : 10);
+                    startHeroCountdown(isFastMode ? HERO_SPAWN_SEC_FAST : HERO_SPAWN_SEC);
                     msgDiv.innerText = "あくま部屋を配置しました！勇者の襲撃が始まります！";
                 } else {
                     msgDiv.innerText = `あくま部屋を移動しました！(-${cost}G)`;
@@ -4201,8 +4204,10 @@
         // スポーン地点：勇者の家があればそこから、無ければデフォルトの空(0,1)
         const spawnX = heroSpawn ? heroSpawn.x : 0;
         const spawnY = heroSpawn ? heroSpawn.y : 1;
+        // 勇者は HERO_HP_MULT ぶん硬くする（削る時間＝プレイヤーが介入できる時間を作る）
+        const spawnHpEff = Math.max(1, Math.round(spawnHp * HERO_HP_MULT));
         heroes.push(makeEntity(spawnX, spawnY, {
-            hp: spawnHp, maxHp: spawnHp,
+            hp: spawnHpEff, maxHp: spawnHpEff,
             atk: spawnAtk, agi: spawnAgi,
             range: HERO_SEARCH_RANGE,
             isHero: true,
@@ -4318,8 +4323,26 @@
         }
     }
 
-    const ACTION_THRESHOLD = 100;
-    const LERP_SPEED = 0.18;
+    // ===== バランス定数：テンポと耐久（2026-07-27 調整） =====
+    // 設計の考え方（詳しくは magi_CLAUDE.md「その17」）:
+    //   行動レート rate = (1000/interval) × units / threshold  [回/秒]、units = 4·log2(agi+1)
+    //   拮抗時の決着時間 T_battle = √(HP_h·HP_m / (DPS_h·DPS_m))
+    //   ・TIME_SCALE は両者を等しく遅くするので「勝敗は変えずテンポだけ」変える安全なノブ
+    //   ・HP 倍率は √ で決着時間に効き、一撃死を止める
+    //   ・攻撃レートに上限を置くと DPS が Lv 線形になり、HP（線形）と釣り合って
+    //     「高Lvほど戦闘が一瞬で終わる」逆進性が消える（移動レートは敏捷比例のまま＝迫る勢いは残す）
+    const TIME_SCALE = 2.5;                                   // 通常モードのゆっくり度
+    const ACTION_THRESHOLD = Math.round(100 * TIME_SCALE);    // 250（通常）
+    const FAST_THRESHOLD = 100;                               // 早送り（→ 通常の約3.3倍速）
+    const ATK_UNITS_CAP = 9;                                  // 攻撃の手数の上限（敏捷11相当で頭打ち）
+    const MONSTER_HP_MULT = 4;                                // モンスターHP倍率（一撃死の解消）
+    const HERO_HP_MULT = 2.5;                                 // 勇者HP倍率（削る時間を作る）
+    const KILL_REWARD_MULT = 2;                               // 討伐報酬倍率（テンポ低下ぶんの収入補正）
+    const HERO_SPAWN_SEC = 25, HERO_SPAWN_SEC_FAST = 7;       // 次の勇者までの秒数
+    const LERP_SPEED = 0.09;                                  // 移動アニメの補間（遅い行動に合わせて緩やかに）
+    // 移動は敏捷にそのまま比例、攻撃は上限つき
+    function moveUnits(agi) { return Math.log2(agi + 1) * 4; }
+    function atkUnits(agi) { return Math.min(Math.log2(agi + 1) * 4, ATK_UNITS_CAP); }
 
     function makeEntity(x, y, props) {
         const rx = x * TILE_SIZE + TILE_SIZE / 2 + getJitter();
@@ -4527,18 +4550,25 @@
         spawnBurst(entity.x, entity.y, ['#ffdd55', '#ffffff', '#cc8844'], 14);
     }
 
+    // 移動クロック(cd)と攻撃クロック(acd)を別に回す。
+    // 保存則3（キャリー方式 cd -= threshold）は両方で維持。溜め込みは threshold の1.5倍で打ち切る
+    // （長く歩いた個体が突然連打しないように）。
     function updateEntity(entity, enemies, threshold) {
-        entity.cd += Math.log2(entity.agi + 1) * 4;
-        if (entity.cd >= ACTION_THRESHOLD) {
-            entity.cd -= ACTION_THRESHOLD;
+        entity.cd = Math.min(entity.cd + moveUnits(entity.agi), threshold * 1.5);
+        entity.acd = Math.min((entity.acd || 0) + atkUnits(entity.agi), threshold * 1.5);
+        const canMove = entity.cd >= threshold;
+        const canAtk  = entity.acd >= threshold;
+        if (!canMove && !canAtk) return;
 
-            if (entity.isHero && castlePos) {
+        {
+            if (canAtk && entity.isHero && castlePos) {
                 const distToCastle = Math.abs(castlePos.x - entity.x) + Math.abs(castlePos.y - entity.y);
                 if (distToCastle <= 1) {
+                    entity.acd -= threshold;
                     castleHp -= entity.atk;
                     playSE('castleHit');
                     if (castleHp <= 0) triggerGameOver();
-                    return; 
+                    return;
                 }
             }
 
@@ -4547,8 +4577,8 @@
 
             enemies.forEach(enemy => {
                 if (enemy.hp <= 0) return;
-                if (!entity.isHero && enemy.y < SKY_LAYERS) return; 
-                
+                if (!entity.isHero && enemy.y < SKY_LAYERS) return;
+
                 const dist = Math.abs(enemy.x - entity.x) + Math.abs(enemy.y - entity.y);
                 if (dist > entity.range) return;
 
@@ -4557,7 +4587,8 @@
                 }
             });
 
-            if (target && minDist <= (entity.atkRange || 1)) {   // 射程（既定1＝近接。宝具の射程で遠隔可）
+            if (canAtk && target && minDist <= (entity.atkRange || 1)) {   // 射程（既定1＝近接。宝具の射程で遠隔可）
+                entity.acd -= threshold;
                 target.hp -= entity.atk;
 
                 // モンスターを倒した時の勇者ゴールド加算
@@ -4571,7 +4602,7 @@
                     const baseReward = gameMode === 'standard' ? 25 : 10 + Math.floor(heroLevel / 5);
                     const rageBonus = (gameMode === 'standard' && target.isEnraged) ? heroGold : 0;
                     // ハード：討伐Gにレバレッジ倍率 L を乗せる
-                    const reward = Math.round((baseReward + rageBonus) * leverage.mult);
+                    const reward = Math.round((baseReward + rageBonus) * leverage.mult * KILL_REWARD_MULT);
                     gold += reward;
                     totalEarnedGold += reward;
                     defeatedHeroesCount++;
@@ -4609,11 +4640,15 @@
                     
                     let remainingHeroes = heroes.filter(h => h.hp > 0 && h !== target);
                     if (remainingHeroes.length === 0 && isWaveStarted) {
-                        startHeroCountdown(isFastMode ? 5 : 10);
+                        startHeroCountdown(isFastMode ? HERO_SPAWN_SEC_FAST : HERO_SPAWN_SEC);
                     }
                 }
-                return; 
+                return;
             }
+
+            // ここから移動フェーズ（攻撃しなかった＝足を動かす）
+            if (!canMove) return;
+            entity.cd -= threshold;
 
             if (entity.isHero) {
                 // スタック検出：2秒以上同じ位置にいたら5秒間あくま部屋へ直行
@@ -4644,27 +4679,12 @@
                     if (entity.x < ENTRANCE_X) { entity.x++; }
                     else if (entity.x === ENTRANCE_X) { entity.y++; }
                 } else if (entity.heroType === 'speed') {
-                    // スピードタイプ：城を最優先、近距離のみ感知
-                    const shortRange = 3;
-                    let closeTarget = null;
-                    let closeDist = Infinity;
-                    enemies.forEach(enemy => {
-                        if (enemy.hp <= 0) return;
-                        const dist = Math.abs(enemy.x - entity.x) + Math.abs(enemy.y - entity.y);
-                        if (dist <= shortRange && dist < closeDist) {
-                            closeDist = dist; closeTarget = enemy;
-                        }
-                    });
-                    if (closeTarget && closeDist <= 1) {
-                        closeTarget.hp -= entity.atk;
-                    } else {
-                        // 基本は城へ直進
-                        let nextStep = getNextStepTowardsCastle(entity);
-                        if (nextStep) {
-                            entity.x = nextStep.x; entity.y = nextStep.y;
-                        } else if (isPassable(entity.x, entity.y + 1)) {
-                            entity.y++;
-                        }
+                    // スピードタイプ：城を最優先（隣接した敵への攻撃は上の攻撃フェーズが処理する）
+                    let nextStep = getNextStepTowardsCastle(entity);
+                    if (nextStep) {
+                        entity.x = nextStep.x; entity.y = nextStep.y;
+                    } else if (isPassable(entity.x, entity.y + 1)) {
+                        entity.y++;
                     }
                 } else {
                     if (target) {
@@ -4793,7 +4813,7 @@
         if (!isPaused) {
             gameTime += interval; // P5-6 非ポーズ時のみ論理時刻を前進
             // 早送り時はACTION_THRESHOLDを60、通常は100
-            const threshold = isFastMode ? 60 : ACTION_THRESHOLD;
+            const threshold = isFastMode ? FAST_THRESHOLD : ACTION_THRESHOLD;
 
             heroes.forEach(h => updateEntity(h, monsters, threshold));
             monsters.forEach(m => updateEntity(m, heroes, threshold));

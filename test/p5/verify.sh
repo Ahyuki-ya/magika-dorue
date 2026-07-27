@@ -1,15 +1,20 @@
 #!/bin/zsh
-# Phase 5 等価性検証ハーネス
-# 使い方: test/p5/verify.sh [対象index.html] [黄金基準のgit ref]
+# 等価性検証ハーネス
+# 使い方: test/p5/verify.sh [対象index.html] [比較基準のgit ref]
 #   対象     省略時 = リポジトリ直下の index.html
-#   黄金基準 省略時 = 89ca12a（Phase 5 直前のコミット）
-# 対象と黄金基準で経路探索オラクル(path)・全軌道(sim)を走らせ、完全一致を判定する。
-# 「挙動を1ビットも変えない」純最適化のリグレッションガード。
+#   比較基準 省略時 = HEAD（＝直前のコミットに対して挙動が変わっていないかを見る）
+# 対象と基準で経路探索オラクル(path)・全軌道(sim)を走らせ、完全一致を判定する。
+#
+# 使い分け:
+#   ・純最適化・リファクタ・UI追加 → path も sim も一致すること（これがリグレッションガード）
+#   ・バランス調整など「意図して挙動を変える」変更 → sim は不一致になるのが正しい。
+#     その場合でも **path（経路探索の一手）は一致すべき**。経路ロジックを壊していない証拠になる。
+#     経路探索の黄金ハッシュ a72aec6f は Phase 5 以降ずっと不変（`verify.sh index.html 89ca12a` で確認できる）。
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$DIR/../.." && pwd)"
 TARGET="${1:-$ROOT/index.html}"
-BASE_REF="${2:-89ca12a}"
+BASE_REF="${2:-HEAD}"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

@@ -19,7 +19,7 @@ No build tools, no dependencies, no server required. Open any `.html` file direc
 - 過去の `magiNN.html` / 名前付き変種 / `magi_claudN.html` はすべて **`archive/` に退避**（バックアップとして git 追跡下に残す。編集しない）
 - `index.html` の内容系譜: かつての `magi_claud.html → … → magi_claud6.html` を経て、現行 `index.html` は `magi_claud6.html` 相当
 
-> **Roadmap:** 大型改修の要件ドラフトは [FABLE_要件定義_大型改修.md](FABLE_要件定義_大型改修.md)。①ハードモードのレバレッジ化＝**Phase 1 実装済み**（2026-07-24, 下記 Recent Session Changes 参照）。②レア度付き宝物＋インベントリ＝**実装済み**（時価売却のみ未着手）／③取引コード（道A・焼却付き譲渡）＝**Phase 3 実装済み**（2026-07-25）／④オンライン市場は未着手。設計思想の全経緯はメモリ `leverage-design.md`。
+> **Roadmap:** 大型改修の要件ドラフトは [FABLE_要件定義_大型改修.md](FABLE_要件定義_大型改修.md)。①ハードモードのレバレッジ化＝**Phase 1 実装済み**（2026-07-24, 下記 Recent Session Changes 参照）。②レア度付き宝物＋インベントリ＝**実装済み**（時価売却のみ未着手）／③取引コード（道A・焼却付き譲渡）＝**Phase 3 実装済み**（2026-07-25）／④オンライン市場（道B）は未着手。**Phase 4 デザイン強化も実装済み**（2026-07-26・下記 その13）。設計思想の全経緯はメモリ `leverage-design.md`。
 
 ## Architecture
 
@@ -157,8 +157,27 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - **経路探索は Phase 5 で深度非依存化済み（下記 その8）**。城直行は距離場O(1)、追跡はホライズンBFS O(H²)。
 - BFS は世代スタンプ法（モジュール共有 `Int32Array` スクラッチ＋世代スタンプ）で確保ゼロ。旧「クエリ毎 `new Int32Array(ROWS*COLS)`」は撤廃。
 - `[...curr.path]` スプレッドは完全に除去
-- 体感スローダウンの目安: モンスター **80〜100体** 付近（主因はcanvas描画 + `shadowBlur`）
-- ゴーレムの `ctx.shadowBlur` が最重の描画処理
+- 体感スローダウンの目安: モンスター **80〜100体** 付近（主因は canvas 描画のパス数）
+- **`ctx.shadowBlur` は Phase 4 で全廃（下記 その13）**。ゴーレムの目の発光は半透明レイヤー重ねに置換した。
+- **毎フレームのグラデーション生成もゼロ**（Phase 4）。モンスター/勇者は「地色＋暗部＋明部」の2階調ベタ塗り、鉱石タイルは起動時プリレンダ画像の `drawImage`。新規描画を足すときもこの2方針を崩さないこと（D-2/D-3）。
+
+## Recent Session Changes (2026-07-26 その13：Phase 4 デザイン性の向上)
+
+「レトロRPGウィンドウ」の世界観を**深める**方向の磨き込み（フラットモダンへの作り替えはしない）。指示書 `OPUS_実装指示_大型改修.md` の Phase 4 準拠。外部リソースゼロ・`shadowBlur` ゼロ・毎フレームのグラデ生成ゼロを守る。
+
+- **P4-1 デザイントークン**: `:root` に `--c-*`（基調）/ `--r-*`（レア度）/ `--radius` `--dur-*` を定義。**Phase 1〜3 の新規CSSとインラインstyleはすべて var() 参照へ移行**（生の色コード直書きなし）。既存CSSの全置換は回帰リスクのため見送り（低リスク箇所のみ順次）。
+- **P4-2 タイル質感のプリレンダ**: 石(1)/苔石(2)/銅(6)/闇水晶(7)/宝石鉱脈(8) の 30×30 を起動時に1回だけオフスクリーンcanvasへ描き（`TILE_ART`）、描画ループは `drawImage` 1発。岩肌は2×2ブロックの3階調ノイズ＋上辺明/下辺暗のベベル。**ノイズは `Math.random` ではなく整数ハッシュ `tileNoise(x,y,salt)`**（起動時に乱数を消費すると等価性ハーネスの保存則2が壊れるため）。空(4)/入口天井(3)/あくま部屋(5)は現行描画のまま。
+- **P4-3 深度トーン**: 行ごとに `depthTone(depth)`（深度0=0 → `DEPTH_TONE_RANGE=300` で `DEPTH_TONE_MAX=0.4` 頭打ち）の暗幕を **行1回の fillRect** で重ねる。実測 石タイル中心色 depth0 `rgb(127,140,141)` → 100 `(111,122,124)` → 200 `(94,103,108)` → 300 `(78,86,91)`。**あくま部屋(5)だけは暗幕の後に描いて常に鮮明**。掘れるタイルの視認性を残すため上限は控えめ。
+- **P4-4 2階調シェーディング**: スライム/ゴブリン/ゴーレム**と勇者**の毎フレーム `createRadialGradient` / `createLinearGradient` を全廃し「地色 → 暗部（下右）→ 明部（上左）」のベタ塗り重ねに。**ゴーレムの目の `shadowBlur` も廃止**し半透明レイヤー2枚の発光風に。勇者オーラは同心円3枚。レイスは既存の重ねレイヤー表現を維持。
+- **P4-5 画面遷移フェード**: `showScreenOnly` が表示画面に `.fade-in`（opacity 0→1 / `--dur-mid`）を付与。クラス付与のみでロジック不変。
+- **P4-6 リザルト演出**: `animateResultNumbers()` が討伐/稼いだG/最大深度/最終所持G/宝物/ダイヤを rAF で `RESULT_COUNTUP_MS=600` かけて 0→最終値へ（easeOutCubic）。**代入で最終値を入れた後に `adjustResultScale()` を呼び、その後カウントアップを開始する順序**（縮小率を最終値の桁数で決めるため溢れない）。入手宝物は `sessionTreasureList` からレア度枠付きチップで並べる（高レア優先・`RESULT_DROP_MAX=10`・超過は「+N」）。
+- **P4-7 タイトルの空気感**: `#titleScreen::before/::after` の多重 `radial-gradient` を `@keyframes` で流す星屑＋ロゴに滲みの text-shadow を1層追加。**JS追加なし**。`prefers-reduced-motion` で停止。
+- **P4-8 ボタン状態の統一**: 全ボタン共通で `:active:not(:disabled)` に `scale(0.97)`、`:focus-visible` に `outline: 2px solid var(--c-frame)`、`:disabled` に `filter: saturate(0.4)`。
+- **P4-9 HUD可読性**: フローティングテキストの `strokeText` は既存。ボスHPバー（label に text-shadow・track に inset影）と次勇者予告をトークン準拠に微調整。
+- **P4-10 レア度の視覚言語**: `.rar-common/.../.rar-god`（枠太さ→二重枠→脈動）＋ `.rar-badge.b-*`（並/良/稀/極/伝★/神✦）を宝物庫グリッド・装備スロット・詳細カード・リザルトチップで共有。**色を抜いてもバッジ文字と枠の形でレア度が判別できる**（D-4）。
+
+### 検証
+`node test/p5/harness.js index.html design` → **26項目すべてPASS**（プリレンダが起動時1回・乱数非消費・深度トーンの単調性と上限・描画ループにグラデ/パターン/shadowBlurが無い・外部リソースなし・全レア度にクラスとバッジ・描画とリザルト演出で例外なし）。`verify.sh` ✅ PASS（挙動不変）、`trade` 52項目 PASS。実機は Chrome で タイトル / 深度200付近 / 宝物庫 / リザルト / モバイル幅390px を目視確認（レイアウト崩れなし）。
 
 ## Recent Session Changes (2026-07-25 その12：Phase 3 取引コード（道A・焼却付き譲渡）)
 

@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <title>Magika・Dorue</title>
     <style>
+        /* ===== デザイントークン（P4-1） =====
+           「レトロRPGウィンドウ」の世界観を一箇所で管理する。
+           新規CSSは必ずここを参照する（生の色コード直書きをしない）。
+           既存CSSの全置換は回帰リスクに見合わないため、低リスク箇所のみ順次移行。 */
+        :root {
+            /* 基調 */
+            --c-bg: #000018;         --c-bg-game: #000010;   --c-panel: rgba(0,8,32,0.92);
+            --c-frame: #4466cc;      --c-frame-dim: #2244aa; --c-frame-faint: #1a2a60;
+            --c-text: #f0f0f0;       --c-text-sub: #8899cc;  --c-text-faint: #6688aa;
+            --c-gold: #ffcc00;       --c-dia: #00ffee;       --c-danger: #ff4422;
+            --c-ok: #2ecc71;         --c-traded: #ff9977;
+            /* ボタン地色（枠色と対の暗色） */
+            --c-btn-ok-bg: #1a3a2a;  --c-btn-gold-bg: #3a3210; --c-btn-warn-bg: #3a1a1a;
+            --c-btn-warn: #aa4433;   --c-input-bg: #050a20;    --c-input-text: #cfe3ff;
+            /* レア度（宝物システムの RARITIES と同値・二重管理注意） */
+            --r-common: #95a5a6; --r-uncommon: #2ecc71; --r-rare: #3498db;
+            --r-epic: #9b59b6;   --r-legendary: #ffcc00; --r-god: #ff44dd;
+            /* 形・動き */
+            --radius: 2px;           --dur-fast: 90ms;       --dur-mid: 150ms;
+        }
         body {
             font-family: 'Courier New', Courier, monospace;
             background-color: #000018; color: #f0f0f0;
@@ -100,8 +120,48 @@
         #menuPopover.open { display: flex; }
         #menuPopover .side-btn { width: 150px; }
 
-        .title { font-size: 4rem; margin-bottom: 30px; color: #ffffff; text-shadow: 3px 3px 0 #000066, 6px 6px 0 #000044; letter-spacing: 5px; }
+        .title {
+            font-size: 4rem; margin-bottom: 30px; color: #ffffff; letter-spacing: 5px;
+            /* 多層 text-shadow でNES風の厚み＋うっすらした魔力の滲み（P4-7） */
+            text-shadow: 3px 3px 0 #000066, 6px 6px 0 #000044, 0 0 18px rgba(68,102,204,0.55);
+            position: relative; z-index: 1;
+        }
         .gameover-title { font-size: 4rem; color: #ff4422; margin-bottom: 20px; }
+
+        /* ===== P4-7 タイトルの空気感：星屑（CSSのみ・JS追加なし） =====
+           radial-gradient の多重背景をゆっくり流す。要素は1枚・GPU合成のみ。 */
+        #titleScreen::before, #titleScreen::after {
+            content: ''; position: absolute; inset: -10% -10% -10% -10%;
+            pointer-events: none; z-index: 0; opacity: 0.55;
+            background-repeat: repeat;
+        }
+        #titleScreen::before {
+            background-image:
+                radial-gradient(1.5px 1.5px at 20% 30%, rgba(255,255,255,0.85) 50%, transparent 51%),
+                radial-gradient(1px 1px at 70% 15%, rgba(170,200,255,0.8) 50%, transparent 51%),
+                radial-gradient(1.5px 1.5px at 45% 70%, rgba(255,240,200,0.7) 50%, transparent 51%),
+                radial-gradient(1px 1px at 85% 55%, rgba(255,255,255,0.6) 50%, transparent 51%);
+            background-size: 260px 220px;
+            animation: starDrift 90s linear infinite;
+        }
+        #titleScreen::after {
+            background-image:
+                radial-gradient(1px 1px at 10% 60%, rgba(200,220,255,0.7) 50%, transparent 51%),
+                radial-gradient(2px 2px at 60% 40%, rgba(255,204,0,0.35) 50%, transparent 51%),
+                radial-gradient(1px 1px at 35% 10%, rgba(255,255,255,0.55) 50%, transparent 51%);
+            background-size: 400px 340px;
+            animation: starDrift 150s linear infinite reverse, starTwinkle 7s ease-in-out infinite;
+        }
+        @keyframes starDrift  { from { background-position: 0 0; } to { background-position: 260px -220px; } }
+        @keyframes starTwinkle { 0%,100% { opacity: 0.32; } 50% { opacity: 0.6; } }
+        #titleScreen .btn-start { position: relative; z-index: 1; }
+        @media (prefers-reduced-motion: reduce) {
+            #titleScreen::before, #titleScreen::after { animation: none; }
+        }
+
+        /* ===== P4-5 画面遷移フェード（クラス付与のみ・入力は阻害しない） ===== */
+        .screen.fade-in { animation: screenFade var(--dur-mid) ease-out; }
+        @keyframes screenFade { from { opacity: 0; } to { opacity: 1; } }
 
         #dashboard { margin-bottom: 10px; text-align: center; z-index: 10; flex-shrink: 0; }
         .btn-group { margin-bottom: 8px; }
@@ -110,6 +170,14 @@
             color: #f0f0f0; border: none; border-radius: 2px; font-weight: bold;
             margin: 0 4px; transition: 0.15s;
         }
+        /* ===== P4-8 ボタン状態の統一（全ボタン共通・トークン参照） =====
+           押下感はタッチでも出るよう :active に scale を入れる。
+           キーボード操作のフォーカスは focus-visible のみに出す（マウス押下では出さない）。 */
+        button:active:not(:disabled) { transform: scale(0.97); }
+        button:focus-visible {
+            outline: 2px solid var(--c-frame); outline-offset: 2px;
+        }
+        button:disabled { cursor: not-allowed; filter: saturate(0.4); }
         .btn-start {
             background: #0a2050; font-size: 1.5rem; padding: 15px 40px;
             border: 3px solid #4466cc; color: #ffffff; letter-spacing: 3px;
@@ -533,25 +601,32 @@
             50% { box-shadow: 0 0 0 1px #800000, 0 0 0 5px #aa0000, 0 0 0 6px #ff4422, 0 0 40px rgba(255,40,20,0.8); }
             100% { box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px #4466cc; }
         }
+        /* ボスHP：文字にも縁取りを入れて背景と干渉しても読めるように（P4-9） */
         #bossHpUI {
             display: none; position: absolute; top: 4px; left: 50%;
             transform: translateX(-50%); width: 260px; z-index: 110;
             background: rgba(30,0,0,0.92); border: 2px solid #aa2200;
-            border-radius: 2px; padding: 5px 10px 7px;
+            border-radius: var(--radius); padding: 5px 10px 7px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.55);
         }
         #bossHpUI .boss-label {
             font-size: 10px; color: #ff8866; letter-spacing: 2px;
             text-align: center; margin-bottom: 3px; font-weight: bold;
+            text-shadow: 0 1px 0 #000, 0 0 4px rgba(0,0,0,0.9);
         }
         #bossHpUI .boss-bar-track {
             height: 8px; background: #200; border: 1px solid #661100;
+            box-shadow: inset 0 1px 0 rgba(0,0,0,0.6);
         }
         #bossHpUI .boss-bar-fill {
-            height: 100%; width: 100%; background: linear-gradient(90deg, #ff4422, #ffaa00);
+            height: 100%; width: 100%; background: linear-gradient(90deg, var(--c-danger), #ffaa00);
             transition: width 0.15s linear;
         }
         /* 次の勇者 予告 */
-        #nextHeroUI { font-size: 10px; color: #8899cc; margin-top: 4px; min-height: 12px; }
+        #nextHeroUI {
+            font-size: 10px; color: var(--c-text-sub); margin-top: 4px; min-height: 12px;
+            text-shadow: 0 1px 0 #000;
+        }
         #nextHeroUI.rage-warn { color: #ff6644; font-weight: bold; animation: bossBlink 0.6s step-end infinite; }
 
         /* シャドウレイス強化カード */
@@ -595,14 +670,54 @@
         .tz-cell .tz-nm { font-size: 0.56rem; color: #cde; margin-top: 3px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 3px; }
         .tz-cell .tz-eq { position: absolute; top: 1px; right: 3px; font-size: 0.7rem; }
         .tz-cell .tz-rank { position: absolute; top: 0; left: 0; font-size: 0.5rem; padding: 1px 4px; border-bottom-right-radius: 6px; color: #111; font-weight: bold; }
+        /* ===== P4-10 レア度の視覚言語（宝物庫・リザルト・演出で共有） =====
+           色＋「枠の太さ／二重枠／脈動」＋バッジ文字の三重符号。
+           グレースケールでもバッジと枠でレア度が判別できること（D-4）。 */
+        .rar-common    { border: 1px solid var(--r-common); }
+        .rar-uncommon  { border: 1px solid var(--r-uncommon); }
+        .rar-rare      { border: 2px solid var(--r-rare); }
+        .rar-epic      { border: 2px solid var(--r-epic);      box-shadow: 0 0 0 2px rgba(155,89,182,0.5); }
+        .rar-legendary { border: 2px solid var(--r-legendary); box-shadow: 0 0 0 2px rgba(255,204,0,0.45);
+                         animation: rarPulse 2.6s ease-in-out infinite; }
+        .rar-god       { border: 2px solid var(--r-god);       box-shadow: 0 0 0 2px rgba(255,68,221,0.45);
+                         animation: rarPulse 1.8s ease-in-out infinite; }
+        @keyframes rarPulse { 0%, 100% { border-color: currentColor; } 50% { border-color: #ffffff; } }
+        .rar-legendary { color: var(--r-legendary); }
+        .rar-god       { color: var(--r-god); }
+        .rar-badge {
+            font-size: 0.5rem; padding: 1px 4px; font-weight: bold; color: #111;
+            border-radius: 0 0 6px 0; letter-spacing: 0;
+        }
+        .rar-badge.b-common    { background: var(--r-common); }
+        .rar-badge.b-uncommon  { background: var(--r-uncommon); }
+        .rar-badge.b-rare      { background: var(--r-rare); }
+        .rar-badge.b-epic      { background: var(--r-epic); color: #fff; }
+        .rar-badge.b-legendary { background: var(--r-legendary); }
+        .rar-badge.b-god       { background: var(--r-god); color: #fff; }
+        @media (prefers-reduced-motion: reduce) {
+            .rar-legendary, .rar-god { animation: none; }
+        }
+        /* リザルトの入手宝物チップ */
+        .res-drop-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 2px 20px 10px; }
+        .res-drop {
+            position: relative; width: 34px; height: 34px; border-radius: 6px;
+            background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(0,8,32,0.7));
+            display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+        }
+        .res-drop .res-drop-rank {
+            position: absolute; top: 0; left: 0; font-size: 0.42rem; padding: 0 2px;
+            color: #111; font-weight: bold; border-radius: 0 0 4px 0;
+        }
+        .res-drop-more { color: var(--c-text-sub); font-size: 0.75rem; align-self: center; }
         /* 譲渡済み（取引コード発行済み）：色だけでなく記号＋斜線でも識別（D-4） */
         .tz-cell.traded { filter: grayscale(1); opacity: 0.5; border-style: dashed; }
-        .tz-cell .tz-trd { position: absolute; bottom: 1px; right: 3px; font-size: 0.62rem; color: #ffaa88; }
+        .tz-cell .tz-trd { position: absolute; bottom: 1px; right: 3px; font-size: 0.62rem; color: var(--c-traded); }
         /* 取引コード用テキストエリア（等幅・折り返し） */
         .trade-code {
             width: 100%; box-sizing: border-box; height: 84px; resize: vertical;
             font-family: 'Courier New', monospace; font-size: 0.62rem; line-height: 1.35;
-            background: #050a20; color: #cfe3ff; border: 1px solid #4466cc; border-radius: 2px;
+            background: var(--c-input-bg); color: var(--c-input-text);
+            border: 1px solid var(--c-frame); border-radius: var(--radius);
             padding: 6px; word-break: break-all;
         }
         .tz-slot {
@@ -741,24 +856,24 @@
         <div style="width:min(560px,94vw); max-height:50vh; overflow-y:auto; padding:2px;">
             <div id="tzInventoryList" class="tz-grid"></div>
         </div>
-        <div style="font-size:0.72rem; color:#889; margin-top:8px;">所持 <span id="tzInvCount">0</span>/<span id="tzInvMax">200</span></div>
-        <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.85rem; padding:8px 22px; margin-top:8px; background:#1a3a2a; border-color:#2ecc71;">📥 コードを受け取る</button>
+        <div style="font-size:0.72rem; color:var(--c-text-sub); margin-top:8px;">所持 <span id="tzInvCount">0</span>/<span id="tzInvMax">200</span></div>
+        <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.85rem; padding:8px 22px; margin-top:8px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">📥 コードを受け取る</button>
         <button class="btn-back" onclick="showSettings()" style="margin-top:14px;">← 戻る</button>
     </div>
 
     <!-- 宝物 詳細モーダル（グリッドのセルをタップで表示） -->
     <div id="tzDetailModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.68); align-items:center; justify-content:center;" onclick="if(event.target===this)tzCloseDetail()">
-        <div id="tzDetailCard" style="width:min(320px,88vw); background:#0a1230; border:2px solid #888; border-radius:12px; padding:20px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);"></div>
+        <div id="tzDetailCard" style="width:min(320px,88vw); background:var(--c-panel); border-radius:12px; padding:20px; text-align:center;"></div>
     </div>
 
     <!-- 譲渡コード発行モーダル（コピーして相手に渡す） -->
     <div id="tradeExportModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.78); align-items:center; justify-content:center;" onclick="if(event.target===this)tradeCloseExport()">
-        <div style="width:min(380px,92vw); background:#0a1230; border:2px solid #ffcc00; border-radius:12px; padding:18px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);">
-            <div style="color:#ffcc00; font-weight:bold; margin-bottom:6px;">📤 譲渡コードを発行しました</div>
-            <div id="tradeExportItem" style="font-size:0.8rem; color:#cde; margin-bottom:8px;"></div>
+        <div style="width:min(380px,92vw); background:var(--c-panel); border:2px solid var(--c-gold); border-radius:12px; padding:18px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);">
+            <div style="color:var(--c-gold); font-weight:bold; margin-bottom:6px;">📤 譲渡コードを発行しました</div>
+            <div id="tradeExportItem" style="font-size:0.8rem; color:var(--c-text); margin-bottom:8px;"></div>
             <textarea id="tradeExportCode" class="trade-code" readonly onclick="this.select()"></textarea>
-            <div style="font-size:0.66rem; color:#889; margin:6px 0 10px; text-align:left;">
-                このコードを相手に渡してください。<b style="color:#ff9977;">この宝物は「取引済み」になり、あなたは使えません。</b>
+            <div style="font-size:0.66rem; color:var(--c-text-sub); margin:6px 0 10px; text-align:left;">
+                このコードを相手に渡してください。<b style="color:var(--c-traded);">この宝物は「取引済み」になり、あなたは使えません。</b>
                 コードは1回しか受け取れません（受け取り側で二重受領を拒否）。
             </div>
             <button class="btn-start" id="tradeCopyBtn" onclick="tradeCopyCode()" style="width:100%; font-size:0.85rem; padding:8px;">📋 コードをコピー</button>
@@ -768,11 +883,11 @@
 
     <!-- コード受領モーダル（貼り付けて受け取る） -->
     <div id="tradeImportModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.78); align-items:center; justify-content:center;" onclick="if(event.target===this)tradeCloseImport()">
-        <div style="width:min(380px,92vw); background:#0a1230; border:2px solid #2ecc71; border-radius:12px; padding:18px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);">
-            <div style="color:#2ecc71; font-weight:bold; margin-bottom:8px;">📥 譲渡コードを受け取る</div>
+        <div style="width:min(380px,92vw); background:var(--c-panel); border:2px solid var(--c-ok); border-radius:12px; padding:18px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);">
+            <div style="color:var(--c-ok); font-weight:bold; margin-bottom:8px;">📥 譲渡コードを受け取る</div>
             <textarea id="tradeImportInput" class="trade-code" placeholder="MGKT1.… で始まるコードを貼り付け" spellcheck="false"></textarea>
             <div id="tradeImportMsg" style="font-size:0.7rem; min-height:2.4em; margin:6px 0; text-align:left;"></div>
-            <button class="btn-start" onclick="tradeDoImport()" style="width:100%; font-size:0.85rem; padding:8px; background:#1a3a2a; border-color:#2ecc71;">受け取る</button>
+            <button class="btn-start" onclick="tradeDoImport()" style="width:100%; font-size:0.85rem; padding:8px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">受け取る</button>
             <button class="btn-back" style="margin-top:10px;" onclick="tradeCloseImport()">閉じる</button>
         </div>
     </div>
@@ -826,8 +941,8 @@
                         <div class="ig-note">装備した宝物の効果は次のランに適用（<span id="igTzEquipCount">0</span>/<span id="igTzEquipMax">3</span> スロット）</div>
                         <div id="igTzEquippedRow" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:6px 0 12px; min-height:52px;"></div>
                         <div id="igTzInventoryList" class="tz-grid"></div>
-                        <div style="font-size:0.72rem; color:#889; margin-top:8px;">所持 <span id="igTzInvCount">0</span>/<span id="igTzInvMax">200</span></div>
-                        <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.8rem; padding:7px 18px; margin-top:6px; background:#1a3a2a; border-color:#2ecc71;">📥 コードを受け取る</button>
+                        <div style="font-size:0.72rem; color:var(--c-text-sub); margin-top:8px;">所持 <span id="igTzInvCount">0</span>/<span id="igTzInvMax">200</span></div>
+                        <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.8rem; padding:7px 18px; margin-top:6px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">📥 コードを受け取る</button>
                     </div>
                     <div id="igSettingsSection" style="width:100%; display:none; flex-direction:column; align-items:center;">
                         <div class="records-grid" id="igRecordsGrid"></div>
@@ -1009,9 +1124,11 @@
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
                     <span class="result-stat-label">🏆 入手した宝物</span>
-                    <span class="result-stat-value" id="resTreasures" style="color:#9b59b6;">0</span>
+                    <span class="result-stat-value" id="resTreasures" style="color:var(--r-epic);">0</span>
                     <span class="result-stat-unit">個</span>
                 </div>
+                <!-- P4-6/P4-10 入手宝物をレア度枠付きで並べる -->
+                <div class="res-drop-row" id="resDropRow"></div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
                     <span class="result-stat-label">💎 獲得ダイヤモンド</span>
@@ -1673,6 +1790,9 @@
 
     // ===== 宝物庫（Treasury）UI（ソシャゲ風グリッド＋詳細モーダル） =====
     const RARITY_ORDER = { god:5, legendary:4, epic:3, rare:2, uncommon:1, common:0 };
+    // P4-10 バッジ文字（色を抜いてもレア度が読めるようにする二重符号）
+    const RARITY_BADGE = { common:'並', uncommon:'良', rare:'稀', epic:'極', legendary:'伝★', god:'神✦' };
+    function rarBadge(key) { return RARITY_BADGE[key] || (RARITY_BY_KEY[key] ? RARITY_BY_KEY[key].name : '?'); }
     // 全画面版とゲーム内ドロワー版、2つのコンテナへ描画
     const TZ_FULL = { row:'tzEquippedRow', list:'tzInventoryList', count:'tzEquipCount', max:'tzEquipMax', invCount:'tzInvCount', invMax:'tzInvMax' };
     const TZ_IG   = { row:'igTzEquippedRow', list:'igTzInventoryList', count:'igTzEquipCount', max:'igTzEquipMax', invCount:'igTzInvCount', invMax:'igTzInvMax' };
@@ -1707,8 +1827,7 @@
                 const slot = document.createElement('div');
                 slot.className = 'tz-slot';
                 if (t) {
-                    const rar = RARITY_BY_KEY[t.rarity];
-                    slot.style.border = `2px solid ${rar.color}`;
+                    slot.className = 'tz-slot rar-' + t.rarity;    // P4-10 共通のレア度クラス
                     slot.innerText = t.icon;
                     slot.title = t.name + '（タップで詳細）';
                     slot.onclick = () => tzShowDetail(t.id);
@@ -1733,11 +1852,10 @@
             const rar = RARITY_BY_KEY[t.rarity];
             const isEq = eq.includes(t.id);
             const cell = document.createElement('div');
-            cell.className = 'tz-cell' + (t.traded ? ' traded' : '');
-            cell.style.borderColor = rar.color;
+            cell.className = `tz-cell rar-${t.rarity}` + (t.traded ? ' traded' : '');
             cell.onclick = () => tzShowDetail(t.id);
             cell.innerHTML =
-                `<div class="tz-rank" style="background:${rar.color};">${rar.name}</div>`
+                `<div class="tz-rank rar-badge b-${t.rarity}">${rarBadge(t.rarity)}</div>`
                 + (isEq ? '<div class="tz-eq">✅</div>' : '')
                 + (t.traded ? '<div class="tz-trd">📤済</div>' : '')
                 + `<div class="tz-ic">${t.icon}</div>`
@@ -1776,20 +1894,21 @@
         // 取引（道A）: 譲渡コード発行／取引済みなら削除で整理
         let trade;
         if (t.traded) {
-            trade = `<div style="margin-top:8px; font-size:0.7rem; color:#ff9977;">📤 譲渡コードを発行済み（この宝物は使えません）</div>`
-                + `<button class="btn-start" style="width:100%; margin-top:6px; background:#3a1a1a; border-color:#aa4433; font-size:0.8rem; padding:7px;" onclick="tzDelete('${id}')">🗑 宝物庫から削除</button>`;
+            trade = `<div style="margin-top:8px; font-size:0.7rem; color:var(--c-traded);">📤 譲渡コードを発行済み（この宝物は使えません）</div>`
+                + `<button class="btn-start" style="width:100%; margin-top:6px; background:var(--c-btn-warn-bg); border-color:var(--c-btn-warn); font-size:0.8rem; padding:7px;" onclick="tzDelete('${id}')">🗑 宝物庫から削除</button>`;
         } else if (isEq) {
-            trade = `<div style="margin-top:8px; font-size:0.7rem; color:#889;">📤 譲渡するには先に装備を解除</div>`;
+            trade = `<div style="margin-top:8px; font-size:0.7rem; color:var(--c-text-sub);">📤 譲渡するには先に装備を解除</div>`;
         } else {
-            trade = `<button class="btn-start" style="width:100%; margin-top:8px; background:#3a3210; border-color:#ffcc00; font-size:0.8rem; padding:7px;" onclick="tzExport('${id}')">📤 譲渡コード発行</button>`;
+            trade = `<button class="btn-start" style="width:100%; margin-top:8px; background:var(--c-btn-gold-bg); border-color:var(--c-gold); font-size:0.8rem; padding:7px;" onclick="tzExport('${id}')">📤 譲渡コード発行</button>`;
         }
         const origin = t.receivedAt ? '📥 コードで受け取った宝物' : `深度 ${t.bornDepth} で出土`;
-        document.getElementById('tzDetailCard').style.borderColor = rar.color;
-        document.getElementById('tzDetailCard').innerHTML =
+        const card = document.getElementById('tzDetailCard');
+        card.className = 'rar-' + t.rarity;               // P4-10 枠の太さ・二重枠・脈動はクラス側
+        card.innerHTML =
             `<div style="font-size:3.4rem; line-height:1;${t.traded ? 'filter:grayscale(1); opacity:0.55;' : ''}">${t.icon}</div>`
             + `<div style="color:${rar.color}; font-weight:bold; font-size:1.15rem; margin-top:6px;">${t.name}</div>`
-            + `<div style="display:inline-block; margin:8px 0; padding:2px 12px; border-radius:12px; color:${rar.color}; font-size:0.8rem; border:1px solid ${rar.color};">［${rar.name}］</div>`
-            + (t.traded ? `<div style="display:inline-block; margin:0 0 8px 6px; padding:2px 10px; border-radius:12px; color:#ff9977; font-size:0.75rem; border:1px solid #aa4433;">📤 取引済み</div>` : '')
+            + `<div style="display:inline-block; margin:8px 0; padding:2px 12px; border-radius:12px; color:${rar.color}; font-size:0.8rem; border:1px solid ${rar.color};">［${rar.name}］<span style="opacity:0.75;"> ${rarBadge(t.rarity)}</span></div>`
+            + (t.traded ? `<div style="display:inline-block; margin:0 0 8px 6px; padding:2px 10px; border-radius:12px; color:var(--c-traded); font-size:0.75rem; border:1px solid var(--c-btn-warn);">📤 取引済み</div>` : '')
             + `<div style="border-top:1px solid #334; border-bottom:1px solid #334; margin:8px 0; padding:8px 0;">${affix}</div>`
             + `<div style="font-size:0.72rem; color:#889; margin-bottom:14px;">${origin}</div>`
             + btn + synth + trade
@@ -1853,12 +1972,12 @@
         catch (e) { res = { ok:false, reason:'コードを読み取れませんでした' }; }
         if (!res.ok) {
             playSE('error');
-            msg.innerHTML = `<span style="color:#ff8866;">✖ ${res.reason}</span>`;
+            msg.innerHTML = `<span style="color:var(--c-traded);">✖ ${res.reason}</span>`;
             return;
         }
         const t = res.item, rar = RARITY_BY_KEY[t.rarity];
         playSE(rar.key === 'common' || rar.key === 'uncommon' ? 'buy' : 'gem');
-        msg.innerHTML = `<span style="color:#2ecc71;">✅ 受け取りました：</span>`
+        msg.innerHTML = `<span style="color:var(--c-ok);">✅ 受け取りました：</span>`
             + `<span style="color:${rar.color};">${t.icon} ${t.name}［${rar.name}］</span>`;
         document.getElementById('tradeImportInput').value = '';
         renderTreasuryAll();
@@ -1920,7 +2039,13 @@
     function showScreenOnly(id, displayMode) {
         for (const sid of ALL_SCREENS) {
             const el = document.getElementById(sid);
-            if (el) el.style.display = (sid === id) ? (displayMode || 'flex') : 'none';
+            if (!el) continue;
+            el.style.display = (sid === id) ? (displayMode || 'flex') : 'none';
+            if (sid !== id) { el.classList.remove('fade-in'); continue; }
+            // P4-5 表示する画面にフェードインを付ける（クラス付与のみ・入力は阻害しない）
+            el.classList.remove('fade-in');
+            void el.offsetWidth;                  // アニメーションを再生させるためのリフロー
+            el.classList.add('fade-in');
         }
         // 画面をまたぐときモーダルを残さない（宝物詳細・取引コード）
         for (const mid of ['tzDetailModal', 'tradeExportModal', 'tradeImportModal']) {
@@ -2113,6 +2238,107 @@
     canvas.width = COLS * TILE_SIZE;
     canvas.height = ROWS * TILE_SIZE;
 
+    // ===== タイル質感のプリレンダ（P4-2） =====
+    // 鉱石タイルの 30×30 を「起動時に1回だけ」オフスクリーンcanvasへ描き、
+    // 描画ループでは drawImage 1発にする（毎フレームの fillRect 群・グラデ生成をしない＝D-3）。
+    // ノイズは Math.random ではなく整数ハッシュで決定的に生成する。
+    //   理由: 起動時に乱数を消費すると等価性ハーネス（保存則2＝乱数消費不変）が壊れる。
+    // 空(4)/あくま部屋(5)/入口天井(3)/空洞(0) は現行の描画そのまま。
+    function tileNoise(x, y, salt) {                     // 0..1 の決定的ハッシュ
+        let h = (x * 73856093) ^ (y * 19349663) ^ (salt * 83492791);
+        h = Math.imul(h ^ (h >>> 13), 1274126177);
+        return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+    }
+    // 岩肌: 2×2 ブロック単位で3階調のうち1つを置く（ピクセルアート風の粒感）
+    function paintRockTexture(c, shades, salt, density) {
+        for (let py = 0; py < TILE_SIZE; py += 2) {
+            for (let px = 0; px < TILE_SIZE; px += 2) {
+                const n = tileNoise(px, py, salt);
+                if (n > density) continue;
+                c.fillStyle = shades[Math.floor(tileNoise(px + 7, py + 3, salt) * shades.length) % shades.length];
+                c.fillRect(px, py, 2, 2);
+            }
+        }
+    }
+    // 上辺に明るいベベル・下辺に影（レトロRPGのブロック感）
+    function paintBevel(c, light, dark) {
+        c.fillStyle = light; c.fillRect(0, 0, TILE_SIZE, 1); c.fillRect(0, 0, 1, TILE_SIZE);
+        c.fillStyle = dark;  c.fillRect(0, TILE_SIZE - 1, TILE_SIZE, 1); c.fillRect(TILE_SIZE - 1, 0, 1, TILE_SIZE);
+    }
+    function makeTileArt(paint) {
+        const cv = document.createElement('canvas');
+        cv.width = TILE_SIZE; cv.height = TILE_SIZE;
+        const c = cv.getContext('2d');
+        paint(c);
+        return cv;
+    }
+    // 深度トーン（P4-3）: 深度0=0 → DEPTH_TONE_RANGE で上限。掘れるタイルの視認性を残すため上限は控えめ。
+    const DEPTH_TONE_RANGE = 300, DEPTH_TONE_MAX = 0.4;
+    function depthTone(depth) {
+        return depth <= 0 ? 0 : Math.min(DEPTH_TONE_MAX, depth / DEPTH_TONE_RANGE * DEPTH_TONE_MAX);
+    }
+    const TILE_ART = {};
+    function buildTileArt() {
+        // 1: 石（灰）
+        TILE_ART[1] = makeTileArt(c => {
+            c.fillStyle = '#95a5a6'; c.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+            paintRockTexture(c, ['#a9b4b5', '#8a999a', '#7f8c8d'], 11, 0.55);
+            paintBevel(c, 'rgba(255,255,255,0.18)', 'rgba(0,0,0,0.28)');
+            c.strokeStyle = '#7f8c8d'; c.strokeRect(0.5, 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        });
+        // 2: 苔石（緑）
+        TILE_ART[2] = makeTileArt(c => {
+            c.fillStyle = '#7b8d41'; c.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+            paintRockTexture(c, ['#8fa24d', '#6d7d3a', '#5f6f33'], 23, 0.5);
+            c.fillStyle = 'rgba(150,180,90,0.5)';       // 苔のかたまり
+            for (let k = 0; k < 5; k++) {
+                const nx = Math.floor(tileNoise(k, 1, 23) * 24) + 2, ny = Math.floor(tileNoise(k, 2, 29) * 24) + 2;
+                c.fillRect(nx, ny, 3, 2);
+            }
+            paintBevel(c, 'rgba(255,255,255,0.14)', 'rgba(0,0,0,0.3)');
+            c.strokeStyle = '#556b2f'; c.strokeRect(0.5, 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        });
+        // 6: 銅鉱石（茶＋金属光）
+        TILE_ART[6] = makeTileArt(c => {
+            c.fillStyle = '#9A6229'; c.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+            paintRockTexture(c, ['#b17433', '#8a5623', '#7a4b1e'], 37, 0.5);
+            c.fillStyle = '#d9913f';                      // 銅の粒
+            [[7, 9], [18, 7], [12, 17], [21, 20]].forEach(([nx, ny]) => c.fillRect(nx, ny, 3, 3));
+            c.fillStyle = 'rgba(255,225,180,0.75)';       // ハイライト
+            [[7, 9], [18, 7], [12, 17]].forEach(([nx, ny]) => c.fillRect(nx, ny, 1, 1));
+            paintBevel(c, 'rgba(255,220,170,0.22)', 'rgba(0,0,0,0.32)');
+            c.strokeStyle = '#6d4219'; c.strokeRect(0.5, 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        });
+        // 7: 闇水晶（濃紫＋菱形クリスタル。既存の形を踏襲）
+        TILE_ART[7] = makeTileArt(c => {
+            c.fillStyle = '#2a1a4a'; c.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+            paintRockTexture(c, ['#352158', '#231540', '#1d1136'], 53, 0.45);
+            c.fillStyle = '#7d5bb5';
+            c.beginPath();
+            c.moveTo(15, 6); c.lineTo(22, 15); c.lineTo(15, 24); c.lineTo(8, 15);
+            c.closePath(); c.fill();
+            c.fillStyle = '#b39ddb';
+            c.beginPath();
+            c.moveTo(15, 6); c.lineTo(18, 12); c.lineTo(15, 15); c.lineTo(12, 12);
+            c.closePath(); c.fill();
+            c.fillStyle = 'rgba(255,255,255,0.5)'; c.fillRect(14, 8, 1, 4);   // きらめき
+            paintBevel(c, 'rgba(180,150,255,0.16)', 'rgba(0,0,0,0.36)');
+            c.strokeStyle = '#1a0f30'; c.strokeRect(0.5, 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        });
+        // 8: 宝石鉱脈（金の輝き。既存の粒配置を踏襲）
+        TILE_ART[8] = makeTileArt(c => {
+            c.fillStyle = '#8a7a3a'; c.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+            paintRockTexture(c, ['#9d8c44', '#7b6c32', '#6d5f28'], 71, 0.5);
+            c.fillStyle = '#ffcc00';
+            c.fillRect(6, 8, 4, 4); c.fillRect(18, 14, 5, 5); c.fillRect(10, 20, 3, 3);
+            c.fillStyle = '#fff8cc';
+            c.fillRect(7, 9, 1.5, 1.5); c.fillRect(19, 15, 2, 2);
+            paintBevel(c, 'rgba(255,240,180,0.22)', 'rgba(0,0,0,0.32)');
+            c.strokeStyle = '#6d5f28'; c.strokeRect(0.5, 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+        });
+    }
+    buildTileArt();
+
     // ゲーム内変数
     let map = []; 
     let heroes = [];
@@ -2220,6 +2446,7 @@
     let maxDepth = 0;
     let sessionBreeds = 0;              // このランでの繁殖数（記録用）
     let sessionTreasures = 0;           // このランで得た宝物数（記録用）
+    let sessionTreasureList = [];        // このランで得た宝物（リザルトのレア度枠表示用・{icon,rarity}のみ）
     let treasureBreedCap = 0;           // 装備宝物による繁殖上限ボーナス（ラン開始時に確定）
     let BABY_GROW_MS = 20000;           // ちび成長時間（ショップで短縮）
     const DIG_RANGE_BELOW_CASTLE = 10;
@@ -2731,6 +2958,7 @@
         totalEarnedDiamond = 0;
         sessionBreeds = 0;
         sessionTreasures = 0;
+        sessionTreasureList = [];
         treasureBreedCap = tzAffix.breedCap || 0;            // 宝物「繁殖上限」
         BABY_GROW_MS = [20000, 16000, 12000][shopData.growSpeed] || 20000;
 
@@ -2862,6 +3090,7 @@
         document.getElementById('resDepth').innerText = maxDepth;
         document.getElementById('resCarryOver').innerText = newCarry;
         document.getElementById('resTreasures').innerText = sessionTreasures;
+        renderResultDrops();
         document.getElementById('resEarnedDiamond').innerText = totalEarnedDiamond;
         document.getElementById('resCarryDiamond').innerText = diamond;
         document.getElementById('resMonsterLevels').innerText =
@@ -2870,7 +3099,61 @@
 
         showScreenOnly('gameOverScreen');
         // 表示後にレイアウトが確定してから倍率調整
+        // （↑の代入で「最終値」が入った状態で計測する。カウントアップは最終値以下の桁数しか出さないので溢れない）
         adjustResultScale();
+        // P4-6 数値のカウントアップ（見た目だけの演出。値と入力には影響しない）
+        animateResultNumbers([
+            { id:'resHeroes',        to: defeatedHeroesCount },
+            { id:'resEarnedGold',    to: totalEarnedGold },
+            { id:'resDepth',         to: maxDepth },
+            { id:'resFinalGold',     to: gold },
+            { id:'resTreasures',     to: sessionTreasures },
+            { id:'resEarnedDiamond', to: totalEarnedDiamond },
+        ]);
+    }
+
+    // P4-6/P4-10 このランで入手した宝物をレア度枠付きで並べる（高レア優先・上限 RESULT_DROP_MAX）
+    const RESULT_DROP_MAX = 10;          // 1行に収まる数。超過分は「+N」で示す
+    function renderResultDrops() {
+        const row = document.getElementById('resDropRow');
+        if (!row) return;
+        row.innerHTML = '';
+        const list = sessionTreasureList.slice()
+            .sort((a, b) => RARITY_ORDER[b.rarity] - RARITY_ORDER[a.rarity]);
+        for (const t of list.slice(0, RESULT_DROP_MAX)) {
+            const d = document.createElement('div');
+            d.className = 'res-drop rar-' + t.rarity;
+            d.title = RARITY_BY_KEY[t.rarity].name;
+            d.innerHTML = `<span class="res-drop-rank rar-badge b-${t.rarity}">${rarBadge(t.rarity)}</span>${t.icon}`;
+            row.appendChild(d);
+        }
+        if (list.length > RESULT_DROP_MAX) {
+            const more = document.createElement('div');
+            more.className = 'res-drop-more';
+            more.innerText = `+${list.length - RESULT_DROP_MAX}`;
+            row.appendChild(more);
+        }
+    }
+
+    // ===== P4-6 リザルト数値のカウントアップ =====
+    // rAF で RESULT_COUNTUP_MS かけて 0 → 最終値へ。ポーズや入力とは無関係（表示のみ）。
+    const RESULT_COUNTUP_MS = 600;
+    let resultCountupId = null;
+    function animateResultNumbers(specs) {
+        if (resultCountupId !== null) { cancelAnimationFrame(resultCountupId); resultCountupId = null; }
+        const items = specs.map(s => ({ el: document.getElementById(s.id), to: Math.round(s.to) || 0 }))
+                           .filter(it => it.el);
+        if (!items.length) return;
+        const t0 = performance.now();
+        const paint = k => { for (const it of items) it.el.innerText = Math.round(it.to * k); };
+        paint(0);
+        const step = now => {
+            const p = Math.min(1, (now - t0) / RESULT_COUNTUP_MS);
+            paint(1 - Math.pow(1 - p, 3));              // easeOutCubic
+            if (p < 1) { resultCountupId = requestAnimationFrame(step); }
+            else { resultCountupId = null; for (const it of items) it.el.innerText = it.to; }
+        };
+        resultCountupId = requestAnimationFrame(step);
     }
 
     function toggleCastleMode() {
@@ -3109,6 +3392,7 @@
                     const tz = rollTreasure(depthOf(y));
                     if (addTreasure(tz)) {
                         sessionTreasures++;
+                        sessionTreasureList.push({ icon: tz.icon, rarity: tz.rarity });
                         const rar = RARITY_BY_KEY[tz.rarity];
                         spawnFloatingText(x, y - 1, `${tz.icon} ${tz.name}`, rar.color, 14);
                         spawnFloatingText(x, y, `［${rar.name}］`, rar.color, 12);
@@ -3940,56 +4224,35 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         for (let y = 0; y < ROWS; y++) {
+            // P4-3 深度トーン: 深いほど行全体をわずかに闇へ沈める（行1回の計算のみ＝コスト増ほぼゼロ）
+            const rowDark = depthTone(depthOf(y));
+            let castleAtX = -1;                             // あくま部屋は暗幕の上に描く（常に鮮明）
             for (let x = 0; x < COLS; x++) {
-                if (map[y][x] === 1) {
-                    ctx.fillStyle = '#95a5a6'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    ctx.strokeStyle = '#7f8c8d'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                } else if (map[y][x] === 2) {
-                    ctx.fillStyle = '#7b8d41'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    ctx.strokeStyle = '#556b2f'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                const art = TILE_ART[map[y][x]];
+                if (art) {                                  // P4-2 プリレンダ済みタイルは drawImage 1発
+                    ctx.drawImage(art, x * TILE_SIZE, y * TILE_SIZE);
                 } else if (map[y][x] === 3) {
                     ctx.fillStyle = '#795548'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
                     ctx.strokeStyle = '#5D4037'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
                 } else if (map[y][x] === 4) {
                     ctx.fillStyle = '#87CEEB'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
                 } else if (map[y][x] === 5) {
-                    ctx.fillStyle = '#1a1060'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    ctx.strokeStyle = '#4466cc'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = '#cc0000'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - 6, TILE_SIZE, 4);
-                    ctx.fillStyle = '#00cc44';
-                    const hpRatio = Math.max(0, castleHp) / CASTLE_MAX_HP;
-                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE - 6, TILE_SIZE * hpRatio, 4);
-                } else if (map[y][x] === 6) {
-                    ctx.fillStyle = '#9A6229'; ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    ctx.strokeStyle = '#6d4219'; ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                } else if (map[y][x] === 7) {
-                    // 闇水晶：濃紫 + 菱形クリスタル
-                    const px = x * TILE_SIZE, py = y * TILE_SIZE;
-                    ctx.fillStyle = '#2a1a4a'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                    ctx.strokeStyle = '#1a0f30'; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = '#7d5bb5';
-                    ctx.beginPath();
-                    ctx.moveTo(px + 15, py + 6); ctx.lineTo(px + 22, py + 15);
-                    ctx.lineTo(px + 15, py + 24); ctx.lineTo(px + 8, py + 15);
-                    ctx.closePath(); ctx.fill();
-                    ctx.fillStyle = '#b39ddb';
-                    ctx.beginPath();
-                    ctx.moveTo(px + 15, py + 6); ctx.lineTo(px + 18, py + 12);
-                    ctx.lineTo(px + 15, py + 15); ctx.lineTo(px + 12, py + 12);
-                    ctx.closePath(); ctx.fill();
-                } else if (map[y][x] === 8) {
-                    // 宝石鉱脈：石地 + 金の輝き
-                    const px = x * TILE_SIZE, py = y * TILE_SIZE;
-                    ctx.fillStyle = '#8a7a3a'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                    ctx.strokeStyle = '#6d5f28'; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = '#ffcc00';
-                    ctx.fillRect(px + 6,  py + 8,  4, 4);
-                    ctx.fillRect(px + 18, py + 14, 5, 5);
-                    ctx.fillRect(px + 10, py + 20, 3, 3);
-                    ctx.fillStyle = '#fff8cc';
-                    ctx.fillRect(px + 7,  py + 9,  1.5, 1.5);
-                    ctx.fillRect(px + 19, py + 15, 2, 2);
+                    castleAtX = x;
                 }
+            }
+            // 行単位の暗幕（深度トーン）。行のタイル描画後に1回だけ重ねる
+            if (rowDark > 0) {
+                ctx.fillStyle = `rgba(4,4,18,${rowDark})`;
+                ctx.fillRect(0, y * TILE_SIZE, COLS * TILE_SIZE, TILE_SIZE);
+            }
+            if (castleAtX >= 0) {
+                const px = castleAtX * TILE_SIZE, py = y * TILE_SIZE;
+                ctx.fillStyle = '#1a1060'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                ctx.strokeStyle = '#4466cc'; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                ctx.fillStyle = '#cc0000'; ctx.fillRect(px, py - 6, TILE_SIZE, 4);
+                ctx.fillStyle = '#00cc44';
+                const hpRatio = Math.max(0, castleHp) / CASTLE_MAX_HP;
+                ctx.fillRect(px, py - 6, TILE_SIZE * hpRatio, 4);
             }
         }
 
@@ -4029,36 +4292,32 @@
             if (entity.isHero) {
                 const r = 8;
                 const enraged = entity.isEnraged;
-                // 外側オーラ
-                const auraColor = enraged ? 'rgba(231,76,60,' : 'rgba(52,152,219,';
-                const aura = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.8);
-                aura.addColorStop(0, auraColor + '0.45)');
-                aura.addColorStop(1, auraColor + '0)');
-                ctx.beginPath();
-                ctx.arc(cx, cy, r * 1.8, 0, Math.PI * 2);
-                ctx.fillStyle = aura; ctx.fill();
+                // 外側オーラ（同心円3枚の重ね。毎フレームのグラデ生成をしない＝D-3）
+                const auraRGB = enraged ? '231,76,60' : '52,152,219';
+                ctx.fillStyle = `rgba(${auraRGB},0.10)`;
+                ctx.beginPath(); ctx.arc(cx, cy, r * 1.8, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = `rgba(${auraRGB},0.15)`;
+                ctx.beginPath(); ctx.arc(cx, cy, r * 1.4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = `rgba(${auraRGB},0.2)`;
+                ctx.beginPath(); ctx.arc(cx, cy, r * 1.1, 0, Math.PI * 2); ctx.fill();
 
                 // 影
                 ctx.beginPath();
                 ctx.ellipse(cx, cy + r * 0.8, r * 0.85, r * 0.25, 0, 0, Math.PI * 2);
                 ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
 
-                // 本体
-                const grad = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, 1, cx, cy, r);
-                if (enraged) {
-                    grad.addColorStop(0, '#ff9999');
-                    grad.addColorStop(0.6, '#e74c3c');
-                    grad.addColorStop(1, '#7b241c');
-                } else {
-                    grad.addColorStop(0, '#74b9ff');
-                    grad.addColorStop(0.6, '#3498db');
-                    grad.addColorStop(1, '#1a5276');
-                }
+                // 本体（2階調シェーディング：地色 → 暗部 → 明部）
                 ctx.beginPath();
                 ctx.arc(cx, cy, r, 0, Math.PI * 2);
-                ctx.fillStyle = grad; ctx.fill();
+                ctx.fillStyle = enraged ? '#e74c3c' : '#3498db'; ctx.fill();
                 ctx.strokeStyle = enraged ? '#e74c3c' : '#85c1e9';
                 ctx.lineWidth = 1.5; ctx.stroke();
+                ctx.beginPath();                                  // 暗部（下右）
+                ctx.ellipse(cx + r * 0.2, cy + r * 0.3, r * 0.72, r * 0.6, 0, 0, Math.PI * 2);
+                ctx.fillStyle = enraged ? 'rgba(123,36,28,0.7)' : 'rgba(26,82,118,0.7)'; ctx.fill();
+                ctx.beginPath();                                  // 明部（上左）
+                ctx.ellipse(cx - r * 0.32, cy - r * 0.34, r * 0.42, r * 0.32, 0, 0, Math.PI * 2);
+                ctx.fillStyle = enraged ? 'rgba(255,153,153,0.85)' : 'rgba(116,185,255,0.85)'; ctx.fill();
 
                 // 剣マーク（十字）
                 ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.5;
@@ -4099,14 +4358,17 @@
                 ctx.ellipse(cx, cy + 1, r * 1.1, r * 0.85, 0, 0, Math.PI * 2);
                 ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fill();
 
+                // 本体（2階調シェーディング：地色 → 暗部 → 明部。毎フレームのグラデ生成をしない＝D-3）
                 ctx.beginPath();
                 ctx.ellipse(cx, cy, r * 1.1, r * 0.9, 0, 0, Math.PI * 2);
-                const sg = ctx.createRadialGradient(cx - 1.5, cy - 1.5, 0.5, cx, cy, r);
-                sg.addColorStop(0, '#d5d8dc');
-                sg.addColorStop(0.5, '#95a5a6');
-                sg.addColorStop(1, '#616a6b');
-                ctx.fillStyle = sg; ctx.fill();
+                ctx.fillStyle = '#95a5a6'; ctx.fill();
                 ctx.strokeStyle = '#717d7e'; ctx.lineWidth = 1; ctx.stroke();
+                ctx.beginPath();                                  // 暗部（下右）
+                ctx.ellipse(cx + r * 0.25, cy + r * 0.3, r * 0.8, r * 0.55, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(97,106,107,0.75)'; ctx.fill();
+                ctx.beginPath();                                  // 明部（上左）
+                ctx.ellipse(cx - r * 0.35, cy - r * 0.35, r * 0.5, r * 0.34, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(213,216,220,0.85)'; ctx.fill();
 
                 // 石の割れ目
                 ctx.strokeStyle = 'rgba(80,80,80,0.6)'; ctx.lineWidth = 0.8;
@@ -4139,12 +4401,14 @@
                 // 体（やや縦長）
                 ctx.beginPath();
                 ctx.ellipse(cx, cy + 1, r * 0.75, r, 0, 0, Math.PI * 2);
-                const gg = ctx.createRadialGradient(cx - 1, cy, 0.5, cx, cy, r);
-                gg.addColorStop(0, '#58d68d');
-                gg.addColorStop(0.5, '#27ae60');
-                gg.addColorStop(1, '#1d6a3a');
-                ctx.fillStyle = gg; ctx.fill();
+                ctx.fillStyle = '#27ae60'; ctx.fill();
                 ctx.strokeStyle = '#1a5632'; ctx.lineWidth = 0.8; ctx.stroke();
+                ctx.beginPath();                                  // 暗部（下右）
+                ctx.ellipse(cx + r * 0.2, cy + r * 0.5, r * 0.55, r * 0.6, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(29,106,58,0.7)'; ctx.fill();
+                ctx.beginPath();                                  // 明部（上左）
+                ctx.ellipse(cx - r * 0.28, cy - r * 0.2, r * 0.34, r * 0.42, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(88,214,141,0.8)'; ctx.fill();
 
                 // 苔の斑点
                 ctx.fillStyle = 'rgba(130,224,170,0.55)';
@@ -4179,15 +4443,15 @@
                 ctx.fillStyle = 'rgba(0,0,0,0.3)';
                 ctx.fillRect(cx - s*0.9, cy + s*0.7, s*1.8, s*0.4);
 
-                // 本体（角丸四角）
-                const grd = ctx.createLinearGradient(cx - s, cy - s, cx + s, cy + s);
-                grd.addColorStop(0, '#e59866');
-                grd.addColorStop(0.4, '#ca6f1e');
-                grd.addColorStop(1, '#7e5109');
+                // 本体（角丸四角・2階調シェーディング。グラデ生成なし＝D-3）
                 ctx.beginPath();
                 ctx.roundRect(cx - s, cy - s, s*2, s*2, 2);
-                ctx.fillStyle = grd; ctx.fill();
+                ctx.fillStyle = '#ca6f1e'; ctx.fill();
                 ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 1; ctx.stroke();
+                ctx.fillStyle = 'rgba(126,81,9,0.8)';             // 暗部（下半分）
+                ctx.fillRect(cx - s + 1, cy + s * 0.15, s * 2 - 2, s * 0.85 - 1);
+                ctx.fillStyle = 'rgba(229,152,102,0.85)';         // 明部（上左）
+                ctx.fillRect(cx - s + 1, cy - s + 1, s * 1.1, s * 0.75);
 
                 // 銅の継ぎ目ライン
                 ctx.strokeStyle = 'rgba(80,40,0,0.5)'; ctx.lineWidth = 0.8;
@@ -4200,12 +4464,13 @@
                     ctx.beginPath(); ctx.arc(cx + dx*(s-1.5), cy + dy*(s-1.5), 1, 0, Math.PI*2); ctx.fill();
                 });
 
-                // 目（黄色く光る）
+                // 目（黄色く光る）。shadowBlur は最重の描画処理なので使わず、半透明レイヤーで発光風に（D-2）
+                ctx.fillStyle = 'rgba(255,204,0,0.28)';
+                ctx.beginPath(); ctx.arc(cx - 1.8, cy - 1, 2.6, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 1.8, cy - 1, 2.6, 0, Math.PI * 2); ctx.fill();
                 ctx.fillStyle = '#ffcc00';
-                ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 4;
                 ctx.beginPath(); ctx.arc(cx - 1.8, cy - 1, 1.2, 0, Math.PI * 2); ctx.fill();
                 ctx.beginPath(); ctx.arc(cx + 1.8, cy - 1, 1.2, 0, Math.PI * 2); ctx.fill();
-                ctx.shadowBlur = 0;
 
                 const bw = 12, bh = 2;
                 const bx = cx - bw/2, by = cy - s - 6;

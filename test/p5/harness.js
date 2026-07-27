@@ -131,7 +131,9 @@ global.prompt = windowStub.prompt;
 global.AudioContext = undefined;
 global.webkitAudioContext = undefined;
 const __realNow = require('perf_hooks').performance.now.bind(require('perf_hooks').performance);
-global.HARNESS = { lcg, get rngCount(){return rngCount;}, setClock:(v)=>{clockMs=v;}, getClock:()=>clockMs, rafQueue, realNow: __realNow };
+// htmlPath / readFile はエピローグからソースを静的検査するためのもの（indirect eval 下では require が使えない）
+global.HARNESS = { lcg, get rngCount(){return rngCount;}, setClock:(v)=>{clockMs=v;}, getClock:()=>clockMs, rafQueue, realNow: __realNow,
+                   htmlPath, readFile:(p)=>fs.readFileSync(p, 'utf8') };
 
 // ---- テストエピローグを読み込んで連結 ----
 const epilogue = fs.readFileSync(path.join(__dirname, 'epilogue_' + mode + '.js'), 'utf8');

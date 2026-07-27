@@ -128,7 +128,8 @@
   // ---- 7. traded 品の隔離（合成 fodder・装備効果から除外）----
   reset();
   const pack = [];
-  for (let n = 0; n < 12; n++) { const t = rollTreasure(0); t.rarity = 'common'; t.name = TREASURE_NAMES.common.names[0]; t.icon = TREASURE_NAMES.common.icons[0]; pack.push(t); }
+  const c0 = TREASURE_NAMES.common[0];
+  for (let n = 0; n < 12; n++) { const t = rollTreasure(0); t.rarity = 'common'; t.name = c0.name; t.icon = c0.icon; t.kind = c0.kind; pack.push(t); }
   saveInventory(pack);
   chk('7a 同レア11個で合成可', canSynthesize(loadInventory()[0]) === true);
   const burned = loadInventory().map((t, k) => (k > 0 && k < 12 ? Object.assign({}, t, { traded: true }) : t));

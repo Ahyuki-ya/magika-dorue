@@ -1512,14 +1512,85 @@
         return a.pct ? Math.round(raw * 100) / 100 : Math.max(1, Math.round(raw));
     }
     const AFFIX_BY_KEY = Object.fromEntries(AFFIX_TYPES.map(a => [a.key, a]));
-    const TREASURE_NAMES = {
-        common:    { icons:['🪨','🔩','🗝️'], names:['錆びた剣','欠けた石','古びた鍵','ひび割れた盾'] },
-        uncommon:  { icons:['🛡️','📿','🥾'], names:['銅の護符','丈夫な革帯','磨かれた守石'] },
-        rare:      { icons:['💍','🔮','⚱️'], names:['苔むした王笏','蒼の宝珠','秘めた指輪','古代の香炉'] },
-        epic:      { icons:['👑','🗡️','💠'], names:['深淵のクリスタル','漆黒の刃','魔石の宝冠'] },
-        legendary: { icons:['🌟','🐉','🔱'], names:['魔王の宝冠','竜の心臓','世界樹の雫'] },
-        god:       { icons:['✨','🌈','⭐'], names:['神々の遺宝','創世のカケラ','無限の宝珠'] },
+
+    // ===== 系統（アーキタイプ）: 見た目と効果の傾向を結びつける =====
+    // 剣なら攻撃、盾なら体力…と「アイコン/名前から効果が想像できる」ようにするための重み。
+    // weights は非復元の重み付き抽選で使う相対値（未指定の affix は KIND_WEIGHT_DEFAULT）。
+    // 0 にはしない＝どの系統でもごく低確率で他の効果が付く（当たりの幅を残す）。
+    // KIND_WEIGHT_STRENGTH で「傾向の強さ」をまとめて調整できる（実効重み = 1 + (w-1)×強さ）:
+    //   0 = 完全に均等（系統なしと同じ） / 0.7 = 現行（刃で攻撃系が約46%） / 1 = 表の重みそのまま（約55%）
+    const KIND_WEIGHT_DEFAULT = 0.6;
+    const KIND_WEIGHT_STRENGTH = 0.7;
+    const TREASURE_KINDS = {
+        blade:   { label:'刃', hint:'攻撃寄り',       weights:{ atk:4, mulAtk:4, agi:1.5, range:1.5 } },
+        shield:  { label:'盾', hint:'体力寄り',       weights:{ hp:4, mulHp:4 } },
+        ward:    { label:'護', hint:'守り寄り',       weights:{ hp:3, mulHp:2, sight:1.5, startGold:1 } },
+        belt:    { label:'装', hint:'敏捷寄り',       weights:{ agi:4, mulAgi:4, hp:1 } },
+        stone:   { label:'石', hint:'頑丈寄り',       weights:{ hp:2.5, atk:2, mulHp:1.5 } },
+        relic:   { label:'遺', hint:'財宝寄り',       weights:{ startGold:4, breedCap:2.5 } },
+        ring:    { label:'環', hint:'万能（倍率）',   weights:{ startGold:2.5, mulAtk:1.5, mulAgi:1.5, mulHp:1.5, breedCap:1.5 } },
+        orb:     { label:'珠', hint:'索敵・射程',     weights:{ sight:4, range:3, mulAtk:1.5 } },
+        censer:  { label:'香', hint:'索敵・繁殖',     weights:{ sight:3, breedCap:3 } },
+        scepter: { label:'笏', hint:'攻撃倍率・繁殖', weights:{ mulAtk:3, breedCap:2.5, atk:2 } },
+        crown:   { label:'冠', hint:'全体強化',       weights:{ mulAtk:2.5, mulAgi:2.5, mulHp:2.5, startGold:2 } },
+        crystal: { label:'晶', hint:'倍率特化',       weights:{ mulAtk:3, mulHp:3, mulAgi:3, sight:1 } },
+        heart:   { label:'心', hint:'体力・繁殖',     weights:{ hp:4, mulHp:3, breedCap:1.5 } },
+        dew:     { label:'雫', hint:'敏捷・繁殖',     weights:{ agi:3, mulAgi:3, breedCap:2 } },
+        shard:   { label:'片', hint:'万能',           weights:{ startGold:2, atk:2, agi:2, hp:2, mulAtk:2, mulAgi:2, mulHp:2, range:2, sight:2, breedCap:2 } },
     };
+    // 宝物カタログ：アイコンと名前を1対1のペアにし、系統(kind)を持たせる。
+    // ※アイコンと名前が別々に抽選されて「🪨 錆びた剣」になる旧仕様は廃止。
+    const TREASURE_NAMES = {
+        common: [
+            { icon:'🗡️', name:'錆びた剣',     kind:'blade' },
+            { icon:'🪨', name:'欠けた石',     kind:'stone' },
+            { icon:'🗝️', name:'古びた鍵',     kind:'relic' },
+            { icon:'🛡️', name:'ひび割れた盾', kind:'shield' },
+        ],
+        uncommon: [
+            { icon:'📿', name:'銅の護符',     kind:'ward' },
+            { icon:'🥾', name:'丈夫な革帯',   kind:'belt' },
+            { icon:'🧿', name:'磨かれた守石', kind:'ward' },
+        ],
+        rare: [
+            { icon:'🪄', name:'苔むした王笏', kind:'scepter' },
+            { icon:'🔮', name:'蒼の宝珠',     kind:'orb' },
+            { icon:'💍', name:'秘めた指輪',   kind:'ring' },
+            { icon:'🪔', name:'古代の香炉',   kind:'censer' },
+        ],
+        epic: [
+            { icon:'💠', name:'深淵のクリスタル', kind:'crystal' },
+            { icon:'⚔️', name:'漆黒の刃',     kind:'blade' },
+            { icon:'💎', name:'魔石の宝冠',   kind:'crown' },
+        ],
+        legendary: [
+            { icon:'👑', name:'魔王の宝冠',   kind:'crown' },
+            { icon:'🐉', name:'竜の心臓',     kind:'heart' },
+            { icon:'💧', name:'世界樹の雫',   kind:'dew' },
+        ],
+        god: [
+            { icon:'✨', name:'神々の遺宝',   kind:'relic' },
+            { icon:'🌈', name:'創世のカケラ', kind:'shard' },
+            { icon:'♾️', name:'無限の宝珠',   kind:'orb' },
+        ],
+    };
+    // カタログ照合（取引コードのホワイトリスト検証・旧セーブの系統逆引きに使う）
+    function treasureEntry(rarity, name) {
+        const pool = TREASURE_NAMES[rarity];
+        return pool ? (pool.find(e => e.name === name) || null) : null;
+    }
+    function treasureNameExists(rarity, name) { return !!treasureEntry(rarity, name); }
+    function treasureIconExists(rarity, icon) {
+        const pool = TREASURE_NAMES[rarity];
+        return !!pool && pool.some(e => e.icon === icon);
+    }
+    // 宝物の系統。保存された kind → 名前からの逆引き（旧セーブ救済）→ null（＝均等抽選だった品）
+    function kindOfTreasure(t) {
+        if (!t) return null;
+        if (t.kind && TREASURE_KINDS[t.kind]) return t.kind;
+        const e = treasureEntry(t.rarity, t.name);
+        return e ? e.kind : null;
+    }
     const EQUIP_SLOTS = 3;
 
     function loadInventory() { try { return JSON.parse(localStorage.getItem('magika_inventory') || '[]'); } catch { return []; } }
@@ -1556,18 +1627,33 @@
         for (let i = 0; i < weights.length; i++) { x -= weights[i]; if (x < 0) return i; }
         return 0;
     }
-    function rollAffixes(n, mult) {
-        const pool = AFFIX_TYPES.slice().sort(() => Math.random() - 0.5).slice(0, n);
-        return pool.map(a => ({ key: a.key, value: rollAffixValue(a, mult) }));
+    // 系統の重みに従って affix を n 個、重複なしで引く（非復元の重み付き抽選）。
+    // kind を渡さない/未知の場合は全 affix 均等（旧仕様と同じ傾向）。
+    function rollAffixes(n, mult, kind) {
+        const w = (kind && TREASURE_KINDS[kind]) ? TREASURE_KINDS[kind].weights : null;
+        const pool = AFFIX_TYPES.slice();
+        const picked = [];
+        for (let i = 0; i < n && pool.length; i++) {
+            const weights = pool.map(a => {
+                if (!w) return 1;
+                const raw = w[a.key] !== undefined ? w[a.key] : KIND_WEIGHT_DEFAULT;
+                return Math.max(0.01, 1 + (raw - 1) * KIND_WEIGHT_STRENGTH);   // 傾向の強さで圧縮
+            });
+            const total = weights.reduce((s, v) => s + v, 0);
+            let x = Math.random() * total, idx = weights.length - 1;
+            for (let k = 0; k < weights.length; k++) { x -= weights[k]; if (x < 0) { idx = k; break; } }
+            picked.push(pool.splice(idx, 1)[0]);
+        }
+        return picked.map(a => ({ key: a.key, value: rollAffixValue(a, mult) }));
     }
     function rollTreasure(depth) {
         const ri = rollRarityIndex(depth, leverage.mult); // レバレッジLでレア度分布を強化
         const rar = RARITIES[ri];
-        const pool = TREASURE_NAMES[rar.key];
+        const entry = tzPick(TREASURE_NAMES[rar.key]);    // アイコンと名前はペアで抽選
         return {
             id: 'tz_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-            name: tzPick(pool.names), icon: tzPick(pool.icons), rarity: rar.key,
-            affixes: rollAffixes(rar.affixCount, rar.mult),
+            name: entry.name, icon: entry.icon, rarity: rar.key, kind: entry.kind,
+            affixes: rollAffixes(rar.affixCount, rar.mult, entry.kind),   // 系統で効果に重み
             bornDepth: Math.max(0, Math.round(depth)), bornRun: loadRunCount(), createdAt: Date.now()
         };
     }
@@ -1602,16 +1688,24 @@
     }
     function evolveTreasure(base, nxtKey) {
         const rar = RARITY_BY_KEY[nxtKey];
-        // ベースの系統(affix種)を継承し、次レア度のアフィックス数まで補完、値は次レア度multで再ロール
-        const keys = [...new Set(base.affixes.map(a => a.key))];
-        const pool = AFFIX_TYPES.map(a => a.key).filter(k => !keys.includes(k)).sort(() => Math.random() - 0.5);
-        while (keys.length < rar.affixCount && pool.length) keys.push(pool.shift());
-        const affixes = keys.slice(0, rar.affixCount).map(k =>
-            ({ key: k, value: rollAffixValue(AFFIX_BY_KEY[k], rar.mult) }));
+        const baseKind = kindOfTreasure(base);
+        // 進化先は「同じ系統の宝物」を優先（刃→刃）。次レア度に同系統が無ければ全候補から抽選。
         const pool2 = TREASURE_NAMES[nxtKey];
+        const sameKind = baseKind ? pool2.filter(e => e.kind === baseKind) : [];
+        const entry = tzPick(sameKind.length ? sameKind : pool2);
+        // ベースの効果(affix種)を継承し、次レア度のアフィックス数まで補完。
+        // 補完は「進化後の系統」の重みで引く＝進化しても性格が保たれる。値は次レア度multで再ロール。
+        const keys = [...new Set(base.affixes.map(a => a.key))].slice(0, rar.affixCount);
+        const need = rar.affixCount - keys.length;
+        if (need > 0) {
+            const extra = rollAffixes(AFFIX_TYPES.length, rar.mult, entry.kind)
+                .map(a => a.key).filter(k => !keys.includes(k)).slice(0, need);
+            keys.push(...extra);
+        }
+        const affixes = keys.map(k => ({ key: k, value: rollAffixValue(AFFIX_BY_KEY[k], rar.mult) }));
         return {
             id: 'tz_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-            name: tzPick(pool2.names), icon: tzPick(pool2.icons), rarity: nxtKey,
+            name: entry.name, icon: entry.icon, rarity: nxtKey, kind: entry.kind,
             affixes, bornDepth: base.bornDepth, bornRun: loadRunCount(), createdAt: Date.now(), evolvedFrom: base.rarity
         };
     }
@@ -1719,8 +1813,9 @@
             // ホワイトリスト：レア度
             const rar = RARITY_BY_KEY[t.rarity];
             if (!rar) return { ok:false, reason:'レア度が不正です' };
-            const pool = TREASURE_NAMES[t.rarity];
-            if (!pool.names.includes(t.name) || !pool.icons.includes(t.icon))
+            // 名前とアイコンはそれぞれカタログに実在すればよい（ペア一致までは求めない）。
+            // 理由: アイコンと名前が独立抽選だった旧バージョンの宝物も譲渡できるようにするため。
+            if (!treasureNameExists(t.rarity, t.name) || !treasureIconExists(t.rarity, t.icon))
                 return { ok:false, reason:'存在しない宝物です（名前かアイコンが表に無い）' };
             if (t.affixes.length !== rar.affixCount)
                 return { ok:false, reason:`効果の数が不正です（［${rar.name}］は${rar.affixCount}個）` };
@@ -1754,6 +1849,9 @@
                 receivedAt: Date.now(),
             };
             if (typeof t.evolvedFrom === 'string' && RARITY_BY_KEY[t.evolvedFrom]) item.evolvedFrom = t.evolvedFrom;
+            // 系統は名前から引き直す（送り主が書き換えても効果傾向の表示が破綻しないように）
+            const kind = kindOfTreasure({ rarity: t.rarity, name: t.name });
+            if (kind) item.kind = kind;
             return { ok:true, item };
         } catch (e) {
             return { ok:false, reason:'コードを読み取れませんでした' };
@@ -1902,12 +2000,18 @@
             trade = `<button class="btn-start" style="width:100%; margin-top:8px; background:var(--c-btn-gold-bg); border-color:var(--c-gold); font-size:0.8rem; padding:7px;" onclick="tzExport('${id}')">📤 譲渡コード発行</button>`;
         }
         const origin = t.receivedAt ? '📥 コードで受け取った宝物' : `深度 ${t.bornDepth} で出土`;
+        // 系統（この宝物がどんな効果を持ちやすいか）
+        const kind = kindOfTreasure(t);
+        const kindLine = kind
+            ? `<div style="font-size:0.72rem; color:var(--c-text-sub); margin-bottom:4px;">系統：<b style="color:var(--c-text);">${TREASURE_KINDS[kind].label}</b> — ${TREASURE_KINDS[kind].hint}</div>`
+            : '';
         const card = document.getElementById('tzDetailCard');
         card.className = 'rar-' + t.rarity;               // P4-10 枠の太さ・二重枠・脈動はクラス側
         card.innerHTML =
             `<div style="font-size:3.4rem; line-height:1;${t.traded ? 'filter:grayscale(1); opacity:0.55;' : ''}">${t.icon}</div>`
             + `<div style="color:${rar.color}; font-weight:bold; font-size:1.15rem; margin-top:6px;">${t.name}</div>`
             + `<div style="display:inline-block; margin:8px 0; padding:2px 12px; border-radius:12px; color:${rar.color}; font-size:0.8rem; border:1px solid ${rar.color};">［${rar.name}］<span style="opacity:0.75;"> ${rarBadge(t.rarity)}</span></div>`
+            + kindLine
             + (t.traded ? `<div style="display:inline-block; margin:0 0 8px 6px; padding:2px 10px; border-radius:12px; color:var(--c-traded); font-size:0.75rem; border:1px solid var(--c-btn-warn);">📤 取引済み</div>` : '')
             + `<div style="border-top:1px solid #334; border-bottom:1px solid #334; margin:8px 0; padding:8px 0;">${affix}</div>`
             + `<div style="font-size:0.72rem; color:#889; margin-bottom:14px;">${origin}</div>`

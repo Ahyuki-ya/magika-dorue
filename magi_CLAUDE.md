@@ -19,7 +19,7 @@ No build tools, no dependencies, no server required. Open any `.html` file direc
 - 過去の `magiNN.html` / 名前付き変種 / `magi_claudN.html` はすべて **`archive/` に退避**（バックアップとして git 追跡下に残す。編集しない）
 - `index.html` の内容系譜: かつての `magi_claud.html → … → magi_claud6.html` を経て、現行 `index.html` は `magi_claud6.html` 相当
 
-> **Roadmap:** 大型改修の要件ドラフトは [FABLE_要件定義_大型改修.md](FABLE_要件定義_大型改修.md)。①ハードモードのレバレッジ化＝**Phase 1 実装済み**（2026-07-24, 下記 Recent Session Changes 参照）。②レア度付き宝物＋インベントリ＝**実装済み**（時価売却のみ未着手）／③取引コード（道A・焼却付き譲渡）＝**Phase 3 実装済み**（2026-07-25）／④オンライン市場（道B）は未着手。**Phase 4 デザイン強化も実装済み**（2026-07-26・下記 その13）。設計思想の全経緯はメモリ `leverage-design.md`。
+> **Roadmap:** 大型改修の要件ドラフトは [FABLE_要件定義_大型改修.md](FABLE_要件定義_大型改修.md)。①ハードモードのレバレッジ化＝**Phase 1 実装済み**（2026-07-24, 下記 Recent Session Changes 参照）。②レア度付き宝具＋インベントリ＝**実装済み**（時価売却のみ未着手）／③取引コード（道A・焼却付き譲渡）＝**Phase 3 実装済み**（2026-07-25）／④オンライン市場（道B）は未着手。**Phase 4 デザイン強化も実装済み**（2026-07-26・下記 その13）。設計思想の全経緯はメモリ `leverage-design.md`。
 
 ## Architecture
 
@@ -161,7 +161,32 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - **`ctx.shadowBlur` は Phase 4 で全廃（下記 その13）**。ゴーレムの目の発光は半透明レイヤー重ねに置換した。
 - **毎フレームのグラデーション生成もゼロ**（Phase 4）。モンスター/勇者は「地色＋暗部＋明部」の2階調ベタ塗り、鉱石タイルは起動時プリレンダ画像の `drawImage`。新規描画を足すときもこの2方針を崩さないこと（D-2/D-3）。
 
-## Recent Session Changes (2026-07-26 その14：宝物の系統（アーキタイプ）)
+## Recent Session Changes (2026-07-26 その15：宝具のレベル・鍛冶場（ソシャゲ風の合成）)
+
+**用語変更: 「宝物」→「宝具」**（UI文言・ドキュメントを全置換。localStorage キー `magika_inventory` 等は互換のため据え置き。書き込み用リストは `宝具リスト.md` に改名）。
+一発進化だった合成を「**育てて → 昇格する**」2段構えに作り替えた。
+
+### レベル（鍛錬）
+- `lv` / `exp` を宝具に追加（**旧セーブは Lv1 扱い**＝`lvOf`/`expOf` が未設定を吸収）。
+- **Lv は効果値を伸ばす**: `affixValueAt(t, a)` = 基礎値 × `(1 + (lv-1)/(cap-1) × LV_VALUE_GAIN)`。Lv1 = 基礎値、**Lv MAX で2倍**（`LV_VALUE_GAIN=1.0`）。表示も `equippedAffixTotals` もこの関数を通る。
+- ランク別 Lv 上限 `LV_CAP_BY_RARITY` = 並5 / 良10 / 稀15 / 極20 / 伝説25 / 神30。
+- 経験値: 素材1個 = `EXP_UNIT_BY_RARITY`（並10 / 良25 / 稀60 / 極150 / 伝説400 / 神1000）×`(1 + (素材Lv-1)×MAT_LV_BONUS)`。**育てた素材ほど多く入る**。
+- 必要経験値 `expToNext(rarity, lv)` は「総量 = EXP_UNIT×`MAT_TO_MAX`(=10)」を**等差配分**（後半ほど重い）。設計どおり **同ランク素材10個で Lv1→MAX**（全ランクで検証済み）。Lv MAX では余剰 exp を持ち越さない。
+
+### 昇格
+- 条件は **Lv MAX ＋ 同ランク `PROMOTE_COST`(=10) 個**。昇格すると次ランクの Lv1 になり、**系統と効果種を引き継ぐ**（値は新ランクの mult で再ロール）。
+- **消費されるのは Lv の低い順**（`promoteMaterialIds` がソート）。鍛えた宝具が勝手に溶けない。UI でも消費対象に🔥と赤枠を出す。
+- 昇格先の系統: 上位に同系統があれば継承、無ければ **`nearestKindEntry`（重みベクトルのコサイン類似度）で最も傾向の近い系統**へ。主要系統（blade/shield/orb/relic）は**全ランクに配置**したので、剣を育てれば剣のまま上がれる。カタログを 20→32 エントリに拡充。
+
+### 鍛冶場（合成画面）
+`forgeOpen(id)` で全画面モーダル。ベースカード（アイコン・ランクバッジ・Lv・経験値バー）＋素材グリッド（タップで複数選択・獲得exp表示）＋プレビュー（`＋N exp → Lv.x (+n)`）。
+「次のLvまで/MAXまで自動選択」（**小さい素材から詰める**＝無駄が出にくい）・「選択解除」。Lv アップで**カードが金色に発光＋`Lv.a → Lv.b` のフラッシュ**（`playSE('levelup')`）。
+Lv MAX になると画面が**昇格モード**に切り替わり、同ランクのみを表示して消費対象を明示する。
+
+### 検証
+`node test/p5/harness.js index.html forge` → **49項目すべてPASS**（Lv補正の値・ランク別上限・旧セーブ救済・経験値設計（全ランクで10個MAX）・鍛錬の拒否条件（装備中/ベース自身/MAX後）・昇格の条件と継承・**消費はLv昇順**・UI経路スモーク）。`trade` 53 / `kind` 18 / `design` 26 / `verify.sh` も PASS。
+
+## Recent Session Changes (2026-07-26 その14：宝具の系統（アーキタイプ）)
 
 「アイコンと名前が噛み合わない」「剣なら攻撃、盾なら防御にしたい」という要望への対応。
 
@@ -170,7 +195,7 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - **傾向の強さは `KIND_WEIGHT_STRENGTH`（現行 0.7）で一括調整**。実効重み = `1 + (w-1)×強さ`。0＝均等、1＝表の重みそのまま。実測（1個あたりの出現率）: 刃 攻撃系 47.1%（mulAtk 23.9 / atk 23.2）、盾 体力系 51.2%、遺物 startGold 28.1 + breedCap 19.0。均等時は各10%。**どの系統でも他効果は 5% 前後で出る**（`KIND_WEIGHT_DEFAULT=0.6`・0にはしない）。
 - **進化は同系統を優先**（刃→刃）。次レア度に同系統が無ければ全候補。継承affixの不足分は**進化後の系統の重み**で補完。
 - **旧セーブ救済**: `kindOfTreasure(t)` が `t.kind` → 名前からの逆引き → null の順で解決。旧データ（kind なし・アイコン不一致）もそのまま表示・装備・**取引可能**。取引コードのホワイトリストは「名前とアイコンがそれぞれカタログに実在」までで、ペア一致は要求しない（旧バージョンの品を弾かないため）。受領時に kind は名前から引き直す。
-- 宝物詳細に「系統：刃 — 攻撃寄り」の1行を追加。カタログと系統の一覧は [宝物リスト.md](宝物リスト.md)（ユーザー追記用・系統列あり）。
+- 宝具詳細に「系統：刃 — 攻撃寄り」の1行を追加。カタログと系統の一覧は [宝具リスト.md](宝具リスト.md)（ユーザー追記用・系統列あり）。
 
 ### 検証
 `node test/p5/harness.js index.html kind` → **18項目すべてPASS**（ペア整合・系統定義・4000回ドロップで名前とアイコンが常に一致・系統別出現率・複数affixの重複なし・進化の同系統優先・旧セーブ逆引き・旧仕様のちぐはぐな品の取引）。`trade` 52 / `design` 26 / `verify.sh` も PASS。
@@ -184,39 +209,39 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - **P4-3 深度トーン**: 行ごとに `depthTone(depth)`（深度0=0 → `DEPTH_TONE_RANGE=300` で `DEPTH_TONE_MAX=0.4` 頭打ち）の暗幕を **行1回の fillRect** で重ねる。実測 石タイル中心色 depth0 `rgb(127,140,141)` → 100 `(111,122,124)` → 200 `(94,103,108)` → 300 `(78,86,91)`。**あくま部屋(5)だけは暗幕の後に描いて常に鮮明**。掘れるタイルの視認性を残すため上限は控えめ。
 - **P4-4 2階調シェーディング**: スライム/ゴブリン/ゴーレム**と勇者**の毎フレーム `createRadialGradient` / `createLinearGradient` を全廃し「地色 → 暗部（下右）→ 明部（上左）」のベタ塗り重ねに。**ゴーレムの目の `shadowBlur` も廃止**し半透明レイヤー2枚の発光風に。勇者オーラは同心円3枚。レイスは既存の重ねレイヤー表現を維持。
 - **P4-5 画面遷移フェード**: `showScreenOnly` が表示画面に `.fade-in`（opacity 0→1 / `--dur-mid`）を付与。クラス付与のみでロジック不変。
-- **P4-6 リザルト演出**: `animateResultNumbers()` が討伐/稼いだG/最大深度/最終所持G/宝物/ダイヤを rAF で `RESULT_COUNTUP_MS=600` かけて 0→最終値へ（easeOutCubic）。**代入で最終値を入れた後に `adjustResultScale()` を呼び、その後カウントアップを開始する順序**（縮小率を最終値の桁数で決めるため溢れない）。入手宝物は `sessionTreasureList` からレア度枠付きチップで並べる（高レア優先・`RESULT_DROP_MAX=10`・超過は「+N」）。
+- **P4-6 リザルト演出**: `animateResultNumbers()` が討伐/稼いだG/最大深度/最終所持G/宝具/ダイヤを rAF で `RESULT_COUNTUP_MS=600` かけて 0→最終値へ（easeOutCubic）。**代入で最終値を入れた後に `adjustResultScale()` を呼び、その後カウントアップを開始する順序**（縮小率を最終値の桁数で決めるため溢れない）。入手宝具は `sessionTreasureList` からレア度枠付きチップで並べる（高レア優先・`RESULT_DROP_MAX=10`・超過は「+N」）。
 - **P4-7 タイトルの空気感**: `#titleScreen::before/::after` の多重 `radial-gradient` を `@keyframes` で流す星屑＋ロゴに滲みの text-shadow を1層追加。**JS追加なし**。`prefers-reduced-motion` で停止。
 - **P4-8 ボタン状態の統一**: 全ボタン共通で `:active:not(:disabled)` に `scale(0.97)`、`:focus-visible` に `outline: 2px solid var(--c-frame)`、`:disabled` に `filter: saturate(0.4)`。
 - **P4-9 HUD可読性**: フローティングテキストの `strokeText` は既存。ボスHPバー（label に text-shadow・track に inset影）と次勇者予告をトークン準拠に微調整。
-- **P4-10 レア度の視覚言語**: `.rar-common/.../.rar-god`（枠太さ→二重枠→脈動）＋ `.rar-badge.b-*`（並/良/稀/極/伝★/神✦）を宝物庫グリッド・装備スロット・詳細カード・リザルトチップで共有。**色を抜いてもバッジ文字と枠の形でレア度が判別できる**（D-4）。
+- **P4-10 レア度の視覚言語**: `.rar-common/.../.rar-god`（枠太さ→二重枠→脈動）＋ `.rar-badge.b-*`（並/良/稀/極/伝★/神✦）を宝具庫グリッド・装備スロット・詳細カード・リザルトチップで共有。**色を抜いてもバッジ文字と枠の形でレア度が判別できる**（D-4）。
 
 ### 検証
-`node test/p5/harness.js index.html design` → **26項目すべてPASS**（プリレンダが起動時1回・乱数非消費・深度トーンの単調性と上限・描画ループにグラデ/パターン/shadowBlurが無い・外部リソースなし・全レア度にクラスとバッジ・描画とリザルト演出で例外なし）。`verify.sh` ✅ PASS（挙動不変）、`trade` 52項目 PASS。実機は Chrome で タイトル / 深度200付近 / 宝物庫 / リザルト / モバイル幅390px を目視確認（レイアウト崩れなし）。
+`node test/p5/harness.js index.html design` → **26項目すべてPASS**（プリレンダが起動時1回・乱数非消費・深度トーンの単調性と上限・描画ループにグラデ/パターン/shadowBlurが無い・外部リソースなし・全レア度にクラスとバッジ・描画とリザルト演出で例外なし）。`verify.sh` ✅ PASS（挙動不変）、`trade` 52項目 PASS。実機は Chrome で タイトル / 深度200付近 / 宝具庫 / リザルト / モバイル幅390px を目視確認（レイアウト崩れなし）。
 
 ## Recent Session Changes (2026-07-25 その12：Phase 3 取引コード（道A・焼却付き譲渡）)
 
-ロードマップ③。**プレイヤー間で宝物をコード文字列で受け渡す**。サーバー不要・完全オフライン。指示書 `OPUS_実装指示_大型改修.md` の Phase 3 準拠。
+ロードマップ③。**プレイヤー間で宝具をコード文字列で受け渡す**。サーバー不要・完全オフライン。指示書 `OPUS_実装指示_大型改修.md` の Phase 3 準拠。
 
 ### コード形式
 `MGKT1.<payload>.<checksum>`
-- `payload` = 宝物オブジェクト（`traded` 除去）を `JSON.stringify` → UTF-8 → **base64url**（`+/=` → `-_`・パディング除去）
+- `payload` = 宝具オブジェクト（`traded` 除去）を `JSON.stringify` → UTF-8 → **base64url**（`+/=` → `-_`・パディング除去）
 - `checksum` = `payload + SALT` の **FNV-1a 32bit** 16進8桁（`TRADE_CONFIG.SALT='magika-dorue-trade-v1'`）
 - ⚠️ **チェックサムはコピペ事故・破損検出用であり、改ざん防止ではない**（SALTもコード内にある＝道Aはチート耐性を目標にしない仕様）。代わりに受領時のホワイトリスト検証でバランス破壊値の流入だけ弾く。
 
 ### 焼却付き譲渡（エクスポート）
-- 宝物詳細モーダルに **「📤 譲渡コード発行」**（確認ダイアログ必須）。装備中・取引済みは不可。
-- 発行すると元の宝物に `traded:true` / `tradedAt` が立ち **使用不可**（装備・合成核・fodder・再エクスポートすべて不可、`equippedAffixTotals` も無視）。グリッドはグレースケール＋破線＋`📤済`バッジで末尾へ。取引済みは **🗑 削除** で整理できる。
+- 宝具詳細モーダルに **「📤 譲渡コード発行」**（確認ダイアログ必須）。装備中・取引済みは不可。
+- 発行すると元の宝具に `traded:true` / `tradedAt` が立ち **使用不可**（装備・合成核・fodder・再エクスポートすべて不可、`equippedAffixTotals` も無視）。グリッドはグレースケール＋破線＋`📤済`バッジで末尾へ。取引済みは **🗑 削除** で整理できる。
 - 発行モーダル：コード表示（読み取り専用 textarea）＋📋コピー（`navigator.clipboard` → `execCommand` フォールバック）。
 
 ### 受領（インポート）
-宝物庫（全画面／ゲーム内ドロワー両方）に **「📥 コードを受け取る」**。`validateTradeCode(code)`（純関数）→ `importTreasure(code)`（副作用）に分離。検証順:
+宝具庫（全画面／ゲーム内ドロワー両方）に **「📥 コードを受け取る」**。`validateTradeCode(code)`（純関数）→ `importTreasure(code)`（副作用）に分離。検証順:
 1. 形式・バージョン `MGKT1` / 2. チェックサム / 3. JSONパースと型 / 4. **ホワイトリスト**（`name`/`icon` が `TREASURE_NAMES` に実在・`rarity` 実在・affix個数がレア度定義と一致・key 実在・重複なし・**value が `rollAffixValue` の上下限内**）/ 5. 二重受領（自分の `magika_inventory` に同ID or `magika_trade_seen` にID）/ 6. 所持上限
 - 受領時：不明フィールドを落として正規化（`receivedAt` 付与）→ インベントリ追加 → `magika_trade_seen` にID追記。
 
 ### 追加キー・定数
 - `magika_trade_seen` — 受領済みID配列（`SEEN_MAX=1000`、超過分は古い順に間引き）
-- `TRADE_CONFIG.INV_MAX = 200` — 宝物庫の所持上限。**`addTreasure` が満杯で `false` を返し、掘削側は「宝物庫が満杯！」の警告表示（エラーにしない）**。取引済みも席を占めるので削除で整理する。
-- 宝物庫に「所持 n/200」表示。`showScreenOnly` が宝物詳細・取引モーダルを閉じる（画面またぎの残留防止）。
+- `TRADE_CONFIG.INV_MAX = 200` — 宝具庫の所持上限。**`addTreasure` が満杯で `false` を返し、掘削側は「宝具庫が満杯！」の警告表示（エラーにしない）**。取引済みも席を占めるので削除で整理する。
+- 宝具庫に「所持 n/200」表示。`showScreenOnly` が宝具詳細・取引モーダルを閉じる（画面またぎの残留防止）。
 
 ### 検証
 `node test/p5/harness.js index.html trade` → **52項目すべてPASS**（受け入れ条件1〜5：同一ブラウザ再受領拒否／1文字改変でチェックサム拒否／affix値域外・名前・アイコン・レア度・個数の偽造拒否／別プレイヤー相互交換成功＋元側は取引済み／不正コード200本でクラッシュせず全拒否。加えて所持上限・traded隔離・FNV-1a既知値・UI経路スモーク）。`verify.sh` ✅ PASS（挙動不変）。
@@ -227,7 +252,7 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - **レア度分布に実効深度 ×L**: `rollRarityIndex(depth, lev)` で `dEff = depth × L` を用いて非伝説4種を計算（高Lほど深部相当＝高レア増）。**伝説の解禁ゲートだけは「実深度500以上」を維持**（高Lでも浅部で伝説を出さない）。伝説値も dEff で 1%→2%（上限2%）。`rollTreasure` が `leverage.mult` を渡す。標準(L1)は従来と完全一致。
 - 実測(epilogue_levtz): 宝石鉱脈 d1000 L1=0.49/L2=0.99/L5=2.53/L10=4.96%。レア度 d500 L1=…/伝1 → L2+で並40/良35/稀16/極7/伝2、d400・L10でも伝説0%（ゲート堅持）。verify.sh ✅ PASS。
 
-## Recent Session Changes (2026-07-24 その10：宝物レア度分布刷新・効果拡張・宝石鉱脈レート)
+## Recent Session Changes (2026-07-24 その10：宝具レア度分布刷新・効果拡張・宝石鉱脈レート)
 
 - **宝石鉱脈(8)ポップ率**: `extraOreAt` を深度比例に。`pGem = 0.005 × min(1, depth/1000)`（深度1000で標準0.5%）＝先行ロール。※ハード倍率は当初×2、**その11で ×L に変更**。
 - **闇水晶(7)を銅/石/苔と同じ「基本分布ロール」に統一**（その10追記）: 先行ロール＋レバレッジ変調をやめ、`generateRow` の主分布 `r < pCopper+pMoss+pDark` に組み込み。レート据置（深度100から線形、300で12%）・レイス解禁ゲート維持。**`levTreasureFactor` とLEV_TREASURE定数は廃止**（宝スポーンのレバレッジ変調そのものを撤廃）。C-4は尊重（oreProbAt本体は不変更、pDarkはextraOreAt側）。
@@ -239,7 +264,7 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 ## Recent Session Changes (2026-07-24 その9：レベル上限方式・ランダム強化廃止・開発コマンド)
 
 - **レベル上限（cap）方式に変更**: モンスターのレベルアップは「ダイヤ=上限解放 / ゴールド=実レベル」の二段。上限 `monsterCap`（初期5・最大 `MAX_LEVEL`=100・**恒久**、`magika_monstercaps`）を **1💎で+1**（`raiseCapDiamond`。旧 `levelUpDiamond` は廃止＝ダイヤで実レベルを上げるのをやめた）。ゲーム内ゴールドの `levelUp` は `monsterCap[mt]` までしか上げられず、到達時はメッセージ＋error音。`loadMonsterCaps()` は**旧セーブ救済**として `max(5, 既存レベル)` を保証。`enterGameScreen` で cap 読込＋実レベルを cap にクランプ。お買い物タブ＝「上限+1 💎1／Lv X ／上限 N/100」表示（非live時はストレージ値を参照＝タイトルからも正しい）。ゲーム内⚗パネルも上限表示・上限到達でロック。`resetCarryOver` は caps も削除。
-- **ランダム強化（🎲）を廃止**（強すぎたため）: `randomUpgrade`/`RAND_WEIGHTS`/`randCount` と4つの🎲ボタンを削除。**`randBonus` は残置**（装備宝物アフィックス 全モンスター 攻/敏/HP の反映器として継続使用。旧はランダム強化と共用していた）。
+- **ランダム強化（🎲）を廃止**（強すぎたため）: `randomUpgrade`/`RAND_WEIGHTS`/`randCount` と4つの🎲ボタンを削除。**`randBonus` は残置**（装備宝具アフィックス 全モンスター 攻/敏/HP の反映器として継続使用。旧はランダム強化と共用していた）。
 - **開発者コマンド**: タイトル画面表示中に **Shift+Cmd(Meta or Ctrl)+Enter** で prompt を開き銀行残高(`magika_carryover`)を任意設定（マイナス可）。デバッグ用。
 - 検証: `test/p5/verify.sh` ✅ PASS（経路探索/sim 不変）、cap ロジック（初期5・ゴールド頭打ち・💎で上限+1・旧セーブ救済30）を `test/p5/epilogue_cap.js` で確認。
 
@@ -251,19 +276,19 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - **P5-1 世代スタンプ法**: `getNextStepTowardsCastle`/`getNextStepTowards` の毎クエリ `new Int32Array(ROWS*COLS)` を、モジュール共有スクラッチ `__pfParent/__pfStamp/__pfQueue/__pfDist` ＋世代 `__pfGen`（訪問⇔stamp===gen）に置換。初期化 O(V)→O(1)、GC圧ゼロ。`__pfEnsure()` は ROWS 増加時のみ再確保。
 - **P5-2 城フローフィールド**: `getNextStepTowardsCastle` の全呼び出しは素の `isPassable`（空域許可・monsterOnly非適用）＝単一クラスで足りる（城目標の `getNextStepTowards` 呼び出しは存在しない）。城を単一源とする逆向きBFSで距離場 `__ffDist` を構築し、参照時は `PF_DIRS` 順に「d が1減る最初の近傍」を返す（距離場等価定理で前向きBFSと第一手一致）。`__ffDirty`＋`__ffValidFor`(castlePos同一性) で遅延再計算。無効化フック `__p5_bumpTerrain()` を **dig / 勇者の家四方破壊 / expandMap / generateMap** に配線（placeCastleは castlePos 新オブジェクト＝同一性ガードで自動）。O(M·V)/tick → O(V)/地形変更。
 - **P5-4 追跡BFSホライズン化**: `getNextStepTowards` を半径 `H=PATHFIND_CONFIG.horizonFactor(=3)*range` のBFSに制限。`__bfsToward(e,tx,ty,mo,maxDist)` が BFS距離を追跡し「距離<maxDist のセルのみ展開・ターゲット隣接returnは常時」。H内未発見なら `maxDist=Infinity` で全域BFSへフォールバック。**Dの値によらず強保存**（D≤H+1で展開順が全域と同一、D>H+1でフォールバック一致）。訪問セル ≤ 2H(H+1)+1 で深度非依存。
-- **P5-6 gameTime一本化**: 非ポーズ時のみ `gameTime += interval` で進む論理時刻を導入。スタック検出/城直行(`castleRushUntil`)/ちび成長(`bornAt`比較・成長バー)の参照時刻を `Date.now()`→`gameTime` に統一。**ポーズ中に壁時計だけ進む→再開直後の一斉城直行・即成体化を解消**（非ポーズ時は挙動同一）。宝物ID/`createdAt`・レイス揺らめきは視覚/実時刻用途で `Date.now()` 据え置き。`enterGameScreen` で `gameTime=0` リセット。
+- **P5-6 gameTime一本化**: 非ポーズ時のみ `gameTime += interval` で進む論理時刻を導入。スタック検出/城直行(`castleRushUntil`)/ちび成長(`bornAt`比較・成長バー)の参照時刻を `Date.now()`→`gameTime` に統一。**ポーズ中に壁時計だけ進む→再開直後の一斉城直行・即成体化を解消**（非ポーズ時は挙動同一）。宝具ID/`createdAt`・レイス揺らめきは視覚/実時刻用途で `Date.now()` 据え置き。`enterGameScreen` で `gameTime=0` リセット。
 - **P5-5 フレームゲートのキャリー化**: `gameLoop` のゲートを `lastFrameTime = timestamp`（代入）→ `lastFrameTime += interval`（繰越、大幅遅延時は再同期クランプ）。高リフレッシュ環境で早送りが量子化されて遅くなる問題を是正（60Hzでは差なし＝強保存）。
 - **P5-3（未実装・確定）**: Union-Find 到達不能早期判定は**ユーザー判断で見送り**（「到達不能ターゲットはいない」。深度非依存は P5-2/4 で達成済み、DSU stale による保存則違反リスクに見合わないと判断）。
 - **PF_DIRS**: 経路探索の方向走査順をモジュール定数に一本化（受け入れ条件6＝距離場・前向きBFS・城フィールドが単一定義を共有）。ランダムウォークの方向順は別用途で非共有。
 - **検証結果**: 経路探索オラクル hash `a72aec6f`(19926)・全軌道sim hash `f554277b`/rng458 ともに baseline と完全一致。ポーズ中 gameTime 凍結を確認。実測（深度25→250, 各20万回）: 城直行 baseline 2757→34489ms(12.5倍悪化) → **最適化 35.6→5.85ms(約5900倍高速・深度非依存)**、追跡 baseline 157→574ms → **最適化 26→25ms(約23倍高速・ratio0.96)**。`new Int32Array` はモジュール初期化と grow ガード内のみ（クエリ毎確保なし）。
 
-## Recent Session Changes (2026-07-24 その7：ミニマップ勇者・宝物合成・ゴッドレア)
+## Recent Session Changes (2026-07-24 その7：ミニマップ勇者・宝具合成・ゴッドレア)
 
 - **ミニマップに勇者を動的表示**: `drawMinimap` で生存勇者を水色ドット（怒りはピンク大）で描画。6フレームごと再描画で位置追従。
 - **ゴッドレア追加**: `RARITIES` に `god`（名:神, 色:#ff44dd, affixCount4, mult4.5, **weight0＝ドロップしない合成専用**）。`RARITY_ORDER.god=5`、`TREASURE_NAMES.god`、`RARITY_KEYS`/`nextRarityKey` 追加。
 - **合成（進化）システム**: 同レア度の追加 `SYNTH_FODDER=10` 個 ＋ ベース1個 → 次レア度1個（計11消費）。`synthesize(baseId)`=fodder10+base消費し `evolveTreasure` で生成。**ベースの系統（affix種）を継承**し、次レア度のaffixCountまで補完・値は次レア度multで再ロール。装備中は fodder に使わない／消費品が装備中なら解除。神は最上位で進化不可。レジェンド→神が「金10集める」ルールの具体例。
-- **合成UI**: 宝物庫の詳細モーダルに「🔨 進化 → {次レア度}」ボタン（fodder10個以上で有効、不足時は残り必要数を表示）。`tzSynthesize(id)` が確認→生成→`renderTreasuryAll`→新アイテムの詳細表示。
-- **書き込み用宝物表 `宝物リスト.md`** を新規作成（レア度別のアイコン/名前/メモ表＋効果種一覧）。ユーザーが追記→`TREASURE_NAMES` へ反映する運用。
+- **合成UI**: 宝具庫の詳細モーダルに「🔨 進化 → {次レア度}」ボタン（fodder10個以上で有効、不足時は残り必要数を表示）。`tzSynthesize(id)` が確認→生成→`renderTreasuryAll`→新アイテムの詳細表示。
+- **書き込み用宝具表 `宝具リスト.md`** を新規作成（レア度別のアイコン/名前/メモ表＋効果種一覧）。ユーザーが追記→`TREASURE_NAMES` へ反映する運用。
 - 検証: 構文OK・div188/188・合成（11→1・god生成・系統継承・神ドロップ0・神進化不可）・全関数存在 合格。
 
 ## Recent Session Changes (2026-07-24 その6：モンスターLv 100化・線形ステータス・ダイヤ強化)
@@ -281,22 +306,22 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - `drawMinimap()`: 全体マップ（掘削済み/空/鉱脈を色分け）＋**あくま部屋（赤+白枠）/勇者部屋（オレンジ）を強調**＋現在の表示範囲を白枠で表示。gameLoopで6フレームごと再描画、scroll時は即再描画。
 - **タップでカメラ移動**: クリックYの割合→`canvasContainer.scrollTop` を該当深度が中央に来るよう設定（`getBoundingClientRect` でtransform scale補正）。
 
-### 宝物庫UIをソシャゲ風グリッド＋ゲーム内アクセスに（その4の宝物庫項に統合済み）
+### 宝具庫UIをソシャゲ風グリッド＋ゲーム内アクセスに（その4の宝具庫項に統合済み）
 
-## Recent Session Changes (2026-07-24 その4：Phase 2 レア度付き宝物システム v1)
+## Recent Session Changes (2026-07-24 その4：Phase 2 レア度付き宝具システム v1)
 
-ロードマップ②に着手。宝石鉱脈から**レア度付き宝物**をドロップ、収集→装備でランに効果を反映するところまで実装（v1＝収集＋装備）。時価売却/取引は次段。
+ロードマップ②に着手。宝石鉱脈から**レア度付き宝具**をドロップ、収集→装備でランに効果を反映するところまで実装（v1＝収集＋装備）。時価売却/取引は次段。
 
-- **データ**: localStorage `magika_inventory`（宝物配列）/`magika_equipped`（装備ID配列, `EQUIP_SLOTS=3`）。宝物 = `{id,name,rarity,icon,affixes[],bornDepth,bornRun,createdAt}`。
+- **データ**: localStorage `magika_inventory`（宝具配列）/`magika_equipped`（装備ID配列, `EQUIP_SLOTS=3`）。宝具 = `{id,name,rarity,icon,affixes[],bornDepth,bornRun,createdAt}`。
 - **レア度** `RARITIES`: common/uncommon/rare/epic/legendary（重み60/25/10/4/1、affix数1/1/2/2/3、value倍率0.7/1.0/1.4/2.0/3.0、色付き）。**深度でレア度上昇**（`rollRarityIndex`: 重み×(1+tier×min(1.5,depth/200))。深度250で伝説≈3%）。
 - **アフィックス** `AFFIX_TYPES`: startGold / atk / agi / hp（全モンスター）/ breedCap。value = base×レア度倍率。名前/アイコンは `TREASURE_NAMES` の固定表からランダム（自由入力なし=安全）。
-- **ドロップ**: `dig()` の宝石鉱脈(tile8)で `rollTreasure(depthOf(y))` → `addTreasure` + レア度別演出（色/バースト/SE）。ゴールドは8〜20Gに減、旧ダイヤドロップは廃止（宝物に置換）。ハードの深度駆動スポーン(`levTreasureFactor`)と噛み合い「深い＝宝の山＝高レア度」。
+- **ドロップ**: `dig()` の宝石鉱脈(tile8)で `rollTreasure(depthOf(y))` → `addTreasure` + レア度別演出（色/バースト/SE）。ゴールドは8〜20Gに減、旧ダイヤドロップは廃止（宝具に置換）。ハードの深度駆動スポーン(`levTreasureFactor`)と噛み合い「深い＝宝の山＝高レア度」。
 - **装備適用**: `equippedAffixTotals()` を `enterGameScreen` で反映。startGold→開始gold加算、atk/agi/hp→全 `randBonus[mt]` の初期値、breedCap→`treasureBreedCap`（BREED_MAX に加算）。両モードで有効。
-- **宝物庫UI**（2026-07-24 その5 で刷新）: **ソシャゲ風グリッド**（`.tz-grid` レスポンシブ・レア度色枠のセル＝アイコン/名前/レア度バッジ/装備✅）＋**詳細モーダル** `#tzDetailModal`（セルタップ→大アイコン・アフィックス・出土深度・装備/解除）。`renderTreasuryInto(ctx)` で全画面版(`TZ_FULL`)とゲーム内ドロワー版(`TZ_IG`)の2コンテナに描画、`renderTreasuryAll` で両方更新。
-  - **ゲーム内アクセス**: in-gameドロワー `#inGamePanel` に「🏆 宝物庫」タブ追加（`switchInGameTab('treasury')`→`renderTreasuryInto(TZ_IG)`）。サイドパネル/モバイルメニューに直接ボタン（`openInGamePanel('treasury')`）。全画面版は設定画面の「🏆 宝物庫」ボタン(`showTreasury`)から。`ALL_SCREENS` に `treasuryScreen` 追加。
-- リザルトに「🏆 入手した宝物」(`sessionTreasures`)を追加。
+- **宝具庫UI**（2026-07-24 その5 で刷新）: **ソシャゲ風グリッド**（`.tz-grid` レスポンシブ・レア度色枠のセル＝アイコン/名前/レア度バッジ/装備✅）＋**詳細モーダル** `#tzDetailModal`（セルタップ→大アイコン・アフィックス・出土深度・装備/解除）。`renderTreasuryInto(ctx)` で全画面版(`TZ_FULL`)とゲーム内ドロワー版(`TZ_IG`)の2コンテナに描画、`renderTreasuryAll` で両方更新。
+  - **ゲーム内アクセス**: in-gameドロワー `#inGamePanel` に「🏆 宝具庫」タブ追加（`switchInGameTab('treasury')`→`renderTreasuryInto(TZ_IG)`）。サイドパネル/モバイルメニューに直接ボタン（`openInGamePanel('treasury')`）。全画面版は設定画面の「🏆 宝具庫」ボタン(`showTreasury`)から。`ALL_SCREENS` に `treasuryScreen` 追加。
+- リザルトに「🏆 入手した宝具」(`sessionTreasures`)を追加。
 - **検証**: 構文OK・div167/167・全ID/関数存在・DOMスタブ全ロード・レア度分布(深度0/250)・生成構造・装備合計・スロット上限 の各テスト合格。
-- **次段(Phase2.5/3)**: 時価売却（市場価格で宝物を換金）／宝物の分解・整理／道A取引コード。
+- **次段(Phase2.5/3)**: 時価売却（市場価格で宝具を換金）／宝具の分解・整理／道A取引コード。
 
 ## Recent Session Changes (2026-07-24 その3)
 
@@ -367,7 +392,7 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - **リザルト**: `#resLevBox`（借入D・×L・複利返済R・手持ち・純益ΔB）。撤退時は 🏳 WITHDRAWN、陥落時は 💀 表示切替
 - **検証**: node構文OK・div 160/160・全参照ID/ハンドラ存在確認・DOMスタブ全ロード成功・精算/モード分離/ρカーブの数値ロジックテスト合格
 - **勇者の富スケール（バランス）**: レバレッジで開始ゴールドが膨らみ敵が相対的に弱いため、勇者をプレイヤーの富に比例強化＝難易度が賭けに自動追従。**非怒り勇者**に `floor(HERO_GOLD_SCALE·√gold)`（`=1.5`）、**怒り勇者**は旧線形 `floor(gold/2.5)` を `floor(RAGE_GOLD_SCALE·√gold)`（`=4`）へ変更（gold=100で旧線形と一致・以降は発散抑制。gold=5000で+2000→+282）。√圧縮で高ゴールドでも爆発しない。スポーン限定でheroBaseには焼き込まない
-- **未実装（次段）**: バランス較正（利確ジレンマの交差点を面白い深度に寄せる）／Phase2で宝石湧き口をレア度・アフィックス付き「宝物」＋インベントリ＋時価売却へ格上げ
+- **未実装（次段）**: バランス較正（利確ジレンマの交差点を面白い深度に寄せる）／Phase2で宝石湧き口をレア度・アフィックス付き「宝具」＋インベントリ＋時価売却へ格上げ
 
 ## Recent Session Changes (2026-07-02 その4)
 

@@ -1,4 +1,4 @@
-// 宝物の「系統（アーキタイプ）」の検証と、効果の出現率の実測。
+// 宝具の「系統（アーキタイプ）」の検証と、効果の出現率の実測。
 //   ・アイコンと名前がペアで一貫しているか（🪨 錆びた剣 のような不一致が出ないこと）
 //   ・系統ごとに効果へ重みが乗っているか（剣＝攻撃、盾＝体力…）
 //   ・進化が同系統を優先するか／旧セーブ（kind なし）を名前から救済できるか
@@ -51,7 +51,7 @@
       for (const a of rollAffixes(n, 1, kind)) cnt[a.key] = (cnt[a.key] || 0) + 1;
     const out = {};
     for (const k of Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]))
-      out[k] = +(cnt[k] / trials * 100).toFixed(1);   // 1個の宝物に付く確率(%)
+      out[k] = +(cnt[k] / trials * 100).toFixed(1);   // 1個の宝具に付く確率(%)
     return out;
   }
   const T = 20000;
@@ -88,12 +88,12 @@
   chk('4c 進化後の名前とアイコンもペア一致',
       (e => !!e && e.icon === evBlade.icon)(treasureEntry('legendary', evBlade.name)), `${evBlade.icon} ${evBlade.name}`);
 
-  // ---- 5. 旧セーブ救済（kind を持たない宝物）----
+  // ---- 5. 旧セーブ救済（kind を持たない宝具）----
   chk('5a 名前から系統を逆引きできる', kindOfTreasure({ rarity:'common', name:'ひび割れた盾' }) === 'shield');
   chk('5b 未知の名前は null（表示は出さない）', kindOfTreasure({ rarity:'common', name:'謎の何か' }) === null);
   chk('5c 旧仕様のちぐはぐな組み合わせも取引できる',
       validateTradeCode(exportOf({ rarity:'common', name:'錆びた剣', icon:'🪨' })).ok === true);
-  function exportOf(part) {                       // 旧バージョン相当の宝物からコードを作る
+  function exportOf(part) {                       // 旧バージョン相当の宝具からコードを作る
     reset();
     const t = { id:'tz_old1', name:part.name, icon:part.icon, rarity:part.rarity,
                 affixes:[{ key:'atk', value:1 }], bornDepth:10, bornRun:1, createdAt:1 };

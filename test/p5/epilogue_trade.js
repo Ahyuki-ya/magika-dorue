@@ -18,7 +18,7 @@
   const ex1 = exportTreasure(t1.id);
   chk('0b 発行成功', ex1.ok, ex1.reason);
   chk('0c 形式 MGKT1.<payload>.<sum>', /^MGKT1\.[A-Za-z0-9_-]+\.[0-9a-f]{8}$/.test(ex1.code || ''), (ex1.code || '').slice(0, 24));
-  chk('0d 元の宝物が traded になる', loadInventory().find(x => x.id === t1.id).traded === true);
+  chk('0d 元の宝具が traded になる', loadInventory().find(x => x.id === t1.id).traded === true);
   chk('0e traded は装備不可（canExport=false）', canExportTreasure(loadInventory().find(x => x.id === t1.id)) === false);
   chk('0f 再エクスポート不可', exportTreasure(t1.id).ok === false);
 
@@ -31,7 +31,7 @@
   reset();                                    // = 別ブラウザ相当
   const imp2 = importTreasure(ex1.code);
   chk('4a 別プレイヤーは受領成功', imp2.ok, imp2.reason);
-  chk('4b 宝物庫に入る', loadInventory().length === 1 && loadInventory()[0].id === t1.id);
+  chk('4b 宝具庫に入る', loadInventory().length === 1 && loadInventory()[0].id === t1.id);
   chk('4c 受領品に traded は付かない', !loadInventory()[0].traded);
   chk('4d 受領品は装備・譲渡可能', canExportTreasure(loadInventory()[0]) === true);
   chk('4e 内容が同一（レア度/名前/効果）',
@@ -125,18 +125,25 @@
   saveInventory(inv.slice(0, TRADE_CONFIG.INV_MAX - 1));
   chk('6c 1枠空けば受領できる', validateTradeCode(ex1.code).ok === true);
 
-  // ---- 7. traded 品の隔離（合成 fodder・装備効果から除外）----
+  // ---- 7. traded 品の隔離（鍛錬の素材・昇格・装備効果から除外）----
   reset();
   const pack = [];
   const c0 = TREASURE_NAMES.common[0];
-  for (let n = 0; n < 12; n++) { const t = rollTreasure(0); t.rarity = 'common'; t.name = c0.name; t.icon = c0.icon; t.kind = c0.kind; pack.push(t); }
+  for (let n = 0; n < 12; n++) {
+    const t = rollTreasure(0);
+    t.rarity = 'common'; t.name = c0.name; t.icon = c0.icon; t.kind = c0.kind;
+    t.lv = lvCapOf('common'); t.exp = 0;              // Lv MAX（昇格の前提）
+    pack.push(t);
+  }
   saveInventory(pack);
-  chk('7a 同レア11個で合成可', canSynthesize(loadInventory()[0]) === true);
+  chk('7a Lv MAX＋同ランク11個で昇格可', canPromote(loadInventory()[0]) === true);
   const burned = loadInventory().map((t, k) => (k > 0 && k < 12 ? Object.assign({}, t, { traded: true }) : t));
   saveInventory(burned);
-  chk('7b traded は fodder に数えない', canSynthesize(loadInventory()[0]) === false);
-  chk('7c traded 自身は核にできない', canSynthesize(loadInventory()[1]) === false);
-  chk('7d synthesize も null を返す', synthesize(loadInventory()[1].id) === null);
+  chk('7b traded は素材に数えない', canPromote(loadInventory()[0]) === false);
+  chk('7c traded 自身は核にできない', canPromote(loadInventory()[1]) === false);
+  chk('7d promoteTreasure も null を返す', promoteTreasure(loadInventory()[1].id) === null);
+  chk('7d2 素材候補に traded は入らない',
+      forgeMaterialIds(loadInventory()[0].id, null).length === 0);
   // 装備中に traded になった場合（データ細工）でも効果は乗らない
   const one = burned[1];
   saveEquipped([one.id]);
@@ -164,7 +171,7 @@
     chk('9a 発行モーダルにコードが入る', /^MGKT1\./.test(code9 || ''), (code9 || '').slice(0, 12));
     tradeCloseExport();
     tzDelete(t9.id);                             // confirm=true → 削除
-    chk('9b 削除で宝物庫が空になる', loadInventory().length === 0);
+    chk('9b 削除で宝具庫が空になる', loadInventory().length === 0);
     tradeOpenImport();
     document.getElementById('tradeImportInput').value = code9;
     tradeDoImport();                             // 別プレイヤー扱い（seen も消してある）

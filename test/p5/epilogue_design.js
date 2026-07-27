@@ -4,7 +4,7 @@
 //   ・描画ループでグラデーション/パターンを新規生成しない、shadowBlur を使わない
 //   ・プリレンダが乱数を消費しない（保存則2＝等価性ハーネスを壊さない）
 //   ・深度トーンが単調非減少で上限に収まる
-//   ・リザルトのカウントアップ／入手宝物チップが例外を出さない
+//   ・リザルトのカウントアップ／入手宝具チップが例外を出さない
 // 使い方: node test/p5/harness.js index.html design
 (function () {
   const results = [];
@@ -71,12 +71,12 @@
     isPaused = true;                       // ロジックを進めず描画だけ通す
     gameLoop(16);
     isPaused = false;
-    // リザルト演出（カウントアップ＋入手宝物チップ）
+    // リザルト演出（カウントアップ＋入手宝具チップ）
     sessionTreasureList = [];
     for (let i = 0; i < RESULT_DROP_MAX + 3; i++) sessionTreasureList.push({ icon: '💎', rarity: RARITY_KEYS[i % RARITY_KEYS.length] });
     renderResultDrops();
     const row = document.getElementById('resDropRow');
-    chk('6a 入手宝物チップは上限＋残数表示', row.children.length === RESULT_DROP_MAX + 1, row.children.length);
+    chk('6a 入手宝具チップは上限＋残数表示', row.children.length === RESULT_DROP_MAX + 1, row.children.length);
     animateResultNumbers([{ id: 'resHeroes', to: 42 }, { id: 'resEarnedGold', to: 1234 }]);
     chk('6b カウントアップは0から始まる', document.getElementById('resHeroes').innerText === '0',
         document.getElementById('resHeroes').innerText);

@@ -1528,7 +1528,13 @@
         if (isMuted) return;
         try {
             switch (name) {
-                case 'dig':       noiseSE(0.06, 0.05); tone(150, 0.06, { slide: -70, vol: 0.04 }); break;
+                case 'dig':
+                    // ポクッ：木を叩いたような丸い打撃音。中音のサイン波を素早くピッチダウンさせ、
+                    // ノイズはアタックにごく少量だけ添える（ザラついた破砕音にしない）。
+                    noiseSE(0.012, 0.018);
+                    tone(520, 0.07, { type: 'sine',     slide: -300, vol: 0.06 });
+                    tone(260, 0.09, { type: 'triangle', slide: -120, vol: 0.03, delay: 0.005 });
+                    break;
                 case 'spawn':     tone(392, 0.07, { slide: 180, type: 'triangle', vol: 0.06 }); break;
                 case 'gem':       tone(1320, 0.07, { vol: 0.05 }); tone(1760, 0.12, { delay: 0.06, vol: 0.05 }); break;
                 case 'heroKill':  tone(660, 0.07); tone(880, 0.07, { delay: 0.07 }); tone(1100, 0.11, { delay: 0.14 }); break;
@@ -4388,9 +4394,11 @@
     const FAST_THRESHOLD = 100;                               // 早送り（→ 通常の約3.3倍速）
     const ATK_UNITS_CAP = 9;                                  // 攻撃の手数の上限（敏捷11相当で頭打ち）
     const MONSTER_HP_MULT = 4;                                // モンスターHP倍率（一撃死の解消）
-    const HERO_HP_MULT = 2.5;                                 // 勇者HP倍率（削る時間を作る）
+    const HERO_HP_MULT = 5;                                   // 勇者HP倍率（削る時間を作る）
     const KILL_REWARD_MULT = 2;                               // 討伐報酬倍率（テンポ低下ぶんの収入補正）
-    const HERO_SPAWN_SEC = 25, HERO_SPAWN_SEC_FAST = 7;       // 次の勇者までの秒数
+    // 次の勇者までの秒数。短いほど「絶え間なく来る」＝待ち時間が減るかわりに、
+    // 侵攻中の勇者が累積する（深度100なら常時10体前後が坑道を降りてくる計算）。
+    const HERO_SPAWN_SEC = 5, HERO_SPAWN_SEC_FAST = 2;
     const LERP_SPEED = 0.09;                                  // 移動アニメの補間（遅い行動に合わせて緩やかに）
     // 移動は敏捷にそのまま比例、攻撃は上限つき
     function moveUnits(agi) { return Math.log2(agi + 1) * 4; }

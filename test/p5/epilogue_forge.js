@@ -7,7 +7,11 @@
 (function () {
   const results = [];
   const chk = (name, cond, detail) => results.push({ name, ok: !!cond, detail: detail === undefined ? '' : String(detail) });
-  const reset = () => ['magika_inventory', 'magika_equipped', 'magika_trade_seen'].forEach(k => localStorage.removeItem(k));
+  const RICH = 10000000;   // 鍛冶代・昇格費用が常に払える残高
+  const reset = () => {
+    ['magika_inventory', 'magika_equipped', 'magika_trade_seen'].forEach(k => localStorage.removeItem(k));
+    saveCarryOver(RICH);   // 鍛冶は銀行から支払う仕様なので、既定では潤沢にしておく
+  };
   // 指定ランク・Lvの宝具を作る（affix は固定して比較しやすくする）
   function make(rarity, lv, affixes) {
     const e = TREASURE_NAMES[rarity][0];
@@ -92,6 +96,26 @@
       return forgeTreasure(b.id, [b.id]).ok === false;
   })());
 
+  // ---- 4.5 鍛冶代（銀行から支払う）----
+  chk('4j 鍛冶代が銀行から引かれる', (() => {
+      reset(); const b = make('rare', 1), m = make('common', 1);
+      saveInventory([b, m]);
+      const before = loadCarryOver();
+      const r = forgeTreasure(b.id, [m.id]);
+      return r.ok && r.fee === forgeFeeOf(m) && loadCarryOver() === before - r.fee;
+  })(), `並素材1個=${FORGE_FEE_UNIT}G`);
+  chk('4k 素材のランクが高いほど鍛冶代も高い',
+      forgeFeeOf(make('legendary', 1)) > forgeFeeOf(make('common', 1)),
+      `並${forgeFeeOf(make('common',1))}G < 伝説${forgeFeeOf(make('legendary',1))}G`);
+  chk('4l 銀行が足りなければ鍛えられない（素材も減らない）', (() => {
+      reset(); const b = make('rare', 1), m = make('epic', 1);
+      saveInventory([b, m]); saveCarryOver(0);
+      const r = forgeTreasure(b.id, [m.id]);
+      const kept = loadInventory().length === 2;
+      saveCarryOver(RICH);
+      return r.ok === false && /残高/.test(r.reason || '') && kept;
+  })());
+
   // ---- 5. 昇格（promoteTreasure）----
   reset();
   const pb = make('rare', 1, [{ key: 'atk', value: 5 }, { key: 'mulAtk', value: 0.8 }]);
@@ -141,6 +165,27 @@
     return JSON.stringify(left) === JSON.stringify(survive)
         && JSON.stringify(doomed) === JSON.stringify(lvs.slice().sort((x, y) => x - y).slice(0, PROMOTE_COST));
   })(), 'Lv昇順で消費');
+  chk('5m 昇格で銀行から費用が引かれる', (() => {
+      reset();
+      const b = make('common', lvCapOf('common'));
+      saveInventory([b, ...Array.from({ length: PROMOTE_COST }, () => make('common', 1))]);
+      const before = loadCarryOver();
+      const made = promoteTreasure(b.id);
+      return !!made && loadCarryOver() === before - promoteGoldCost('common');
+  })(), `並→良 ${promoteGoldCost('common')}G`);
+  chk('5n 銀行が足りなければ昇格できない（素材も減らない）', (() => {
+      reset();
+      const b = make('rare', lvCapOf('rare'));
+      saveInventory([b, ...Array.from({ length: PROMOTE_COST }, () => make('rare', 1))]);
+      saveCarryOver(promoteGoldCost('rare') - 1);
+      const made = promoteTreasure(b.id);
+      const kept = loadInventory().length === PROMOTE_COST + 1;
+      saveCarryOver(RICH);
+      return made === null && kept;
+  })());
+  chk('5o 上位ランクほど昇格費用が高い',
+      promoteGoldCost('common') < promoteGoldCost('rare') && promoteGoldCost('rare') < promoteGoldCost('legendary'),
+      RARITY_KEYS.filter(k=>k!=='god').map(k => `${RARITY_BY_KEY[k].name}${promoteGoldCost(k)}G`).join(' '));
   chk('5k 神（最上位）は昇格できない', (() => {
       reset();
       const b = make('god', lvCapOf('god'));

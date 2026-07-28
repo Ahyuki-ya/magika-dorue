@@ -731,9 +731,14 @@
             padding: 14px 16px 18px; box-shadow: 0 10px 50px rgba(0,0,0,0.7);
         }
         .forge-header {
-            display: flex; align-items: center; justify-content: space-between;
+            display: flex; align-items: center; gap: 10px;
             color: var(--c-gold); font-weight: bold; letter-spacing: 2px; margin-bottom: 10px;
         }
+        .forge-header .ig-close { margin-left: auto; }
+        .forge-bank { font-size: 0.8rem; color: var(--c-text-sub); letter-spacing: 0; }
+        .forge-bank b { color: var(--c-gold); }
+        .forge-cost { color: var(--c-gold); }
+        .forge-cost.short { color: var(--c-danger); }   /* 残高不足 */
         .forge-base-card {
             display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 8px;
             background: linear-gradient(160deg, rgba(255,255,255,0.05), rgba(0,8,32,0.6));
@@ -957,6 +962,7 @@
         <div class="forge-panel">
             <div class="forge-header">
                 <span>⚒ 鍛冶場</span>
+                <span class="forge-bank">🏦 <b id="forgeBank">0</b> G</span>
                 <button class="ig-close" onclick="forgeClose()" title="閉じる">✕</button>
             </div>
             <div id="forgeBase"></div>
@@ -1627,10 +1633,10 @@
             list.appendChild(row);
         }
 
-        // ===== モンスターのレベル上限を解放（1💎で上限+1・初期5・最大100・恒久） =====
+        // ===== モンスターのレベル上限を解放（1💎で上限+DIAMOND_CAP_STEP・最大100・恒久） =====
         const header = document.createElement('div');
         header.style.cssText = 'width:100%; text-align:center; color:#8899cc; font-size:0.8rem; letter-spacing:2px; margin:14px 0 6px; border-top:1px solid #223; padding-top:10px;';
-        header.textContent = '— レベル上限の解放（1💎で上限+1・最大100）—';
+        header.textContent = `— レベル上限の解放（1💎で上限+${DIAMOND_CAP_STEP}・最大${MAX_LEVEL}）—`;
         list.appendChild(header);
         // liveなら実行中の値、非liveならストレージの値を参照（タイトルからでも正しく表示）
         const shopLevels = live ? monsterLevels : loadMonsterLevels();
@@ -1645,14 +1651,14 @@
                 `<span class="shop-item-icon">${MONSTER_ICONS[mt]}</span>` +
                 `<div class="shop-item-body">` +
                     `<div class="shop-item-name">${MONSTER_NAMES[mt]}</div>` +
-                    `<div class="shop-item-desc">上限+1（実レベルはゲーム内ゴールドで）</div>` +
+                    `<div class="shop-item-desc">上限+${DIAMOND_CAP_STEP}（実レベルはゲーム内ゴールドで）</div>` +
                     `<div class="shop-item-rank">Lv ${lv} ／ 上限 ${cap} / ${MAX_LEVEL}</div>` +
                 `</div>`;
             const btn = document.createElement('button');
             btn.className = 'shop-buy-btn';
             if (isMax) { btn.textContent = 'MAX'; btn.disabled = true; }
             else {
-                btn.textContent = '上限+1 💎1';
+                btn.textContent = `上限+${DIAMOND_CAP_STEP} 💎1`;
                 btn.disabled = available < 1;
                 btn.onclick = () => raiseCapDiamond(mt, live);
             }
@@ -1882,6 +1888,15 @@
     const MAT_TO_MAX = 10;              // 「同ランク素材 何個で Lv1→MAX か」の設計値
     const MAT_LV_BONUS = 0.5;           // 育った素材のボーナス（Lv1超過ぶん×この係数）
     const PROMOTE_COST = 10;            // 昇格に必要な同ランクの個数（Lv MAX に加えて）
+    // 鍛冶にはゴールドがかかる。支払いは **銀行残高**（ラン中の手持ちではない）＝
+    // 「standard で稼ぐ → 精算で銀行に入る → 宝具を育てる」というメタ進行の流れを作るため。
+    // ハードの精算 ΔB = gold − S×L には影響しない。
+    const FORGE_FEE_UNIT = 20;          // 鍛錬の手数料 = 素材のランク段位 × この値
+    const PROMOTE_GOLD_COST = { common:300, uncommon:800, rare:2000, epic:5000, legendary:15000 };
+    // 素材1個ぶんの鍛冶代（並20 / 良40 / 稀60 / 極80 / 伝説100 / 神120）
+    function forgeFeeOf(t) { return FORGE_FEE_UNIT * ((RARITY_ORDER[t.rarity] || 0) + 1); }
+    function forgeFeeTotal(mats) { return mats.reduce((s, t) => s + forgeFeeOf(t), 0); }
+    function promoteGoldCost(rarity) { return PROMOTE_GOLD_COST[rarity] || 0; }
 
     function lvCapOf(rarity) { return LV_CAP_BY_RARITY[rarity] || 1; }
     function lvOf(t) { return Math.max(1, Math.min(lvCapOf(t && t.rarity), Math.round((t && t.lv) || 1))); }
@@ -2041,11 +2056,16 @@
         const mats = (matIds || []).filter(id => allowed.has(id));
         if (!mats.length) return { ok:false, reason:'素材を選んでください' };
         const consume = new Set(mats);
-        const gained = inv.filter(t => consume.has(t.id)).reduce((s, t) => s + matExpOf(t), 0);
+        const matObjs = inv.filter(t => consume.has(t.id));
+        const fee = forgeFeeTotal(matObjs);                           // 鍛冶代（銀行から）
+        const bank = loadCarryOver();
+        if (bank < fee) return { ok:false, reason:`銀行残高が足りません（必要 ${fee}G / 残高 ${bank}G）` };
+        const gained = matObjs.reduce((s, t) => s + matExpOf(t), 0);
         const res = applyExp(base, gained);
+        saveCarryOver(bank - fee);
         saveInventory(inv.filter(t => !consume.has(t.id)));           // base は inv 内の参照を書き換え済み
         saveEquipped(loadEquipped().filter(id => !consume.has(id)));
-        return { ok:true, from:res.from, to:res.to, gained, item:base };
+        return { ok:true, from:res.from, to:res.to, gained, fee, item:base };
     }
     function evolveTreasure(base, nxtKey) {
         const rar = RARITY_BY_KEY[nxtKey];
@@ -2082,6 +2102,10 @@
         if (!nxt || !isMaxLv(base)) return null;
         const mats = promoteMaterialIds(base.rarity, baseId).slice(0, PROMOTE_COST);
         if (mats.length < PROMOTE_COST) return null;
+        const cost = promoteGoldCost(base.rarity);                    // 昇格の費用（銀行から）
+        const bank = loadCarryOver();
+        if (bank < cost) return null;
+        saveCarryOver(bank - cost);
         const consume = new Set([baseId, ...mats]);
         const newItem = evolveTreasure(base, nxt);
         saveInventory(inv.filter(t => !consume.has(t.id)).concat([newItem]));
@@ -2506,10 +2530,13 @@
         if (need <= 0) { renderForge(); return; }
         const mats = forgeMaterials(base).slice()
             .sort((a, b) => matExpOf(a) - matExpOf(b));    // 小さい素材から
-        let acc = 0;
+        const bank = loadCarryOver();
+        let acc = 0, fee = 0;
         for (const m of mats) {
             if (acc >= need) break;
-            forgeSelected.add(m.id); acc += matExpOf(m);
+            const f = forgeFeeOf(m);
+            if (fee + f > bank) break;                     // 銀行で払える範囲までしか選ばない
+            forgeSelected.add(m.id); acc += matExpOf(m); fee += f;
         }
         renderForge();
     }
@@ -2534,6 +2561,9 @@
         if (!base) { forgeClose(); return; }
         const rar = RARITY_BY_KEY[base.rarity], cap = lvCapOf(base.rarity), max = isMaxLv(base);
         const nxt = nextRarityKey(base.rarity);
+        const bank = loadCarryOver();
+        const bankEl = document.getElementById('forgeBank');
+        if (bankEl) bankEl.innerText = bank;
         // --- ベース表示 ---
         const gained = [...forgeSelected].reduce((s, id) => {
             const m = loadInventory().find(x => x.id === id);
@@ -2559,17 +2589,25 @@
         const acts = document.getElementById('forgeActions');
         if (max) {
             const mats = promoteMaterialIds(base.rarity, base.id).length;
-            const ok = !!nxt && mats >= PROMOTE_COST;
+            const cost = promoteGoldCost(base.rarity);
+            const matOk = !!nxt && mats >= PROMOTE_COST;
+            const goldOk = bank >= cost;
+            const ok = matOk && goldOk;
             const nrar = nxt ? RARITY_BY_KEY[nxt] : null;
             acts.innerHTML = nxt
                 ? `<button class="btn-start forge-btn" ${ok ? '' : 'disabled'} style="border-color:${nrar.color};"
-                     onclick="forgeDoPromote()">⬆ 昇格 → <span style="color:${nrar.color};">${nrar.name}</span></button>`
-                  + `<div class="forge-note">${ok
-                        ? `同じ［${rar.name}］を ${PROMOTE_COST} 個消費します（Lv は1に戻り、系統と効果を引き継ぎます）`
-                        : `昇格には同じ［${rar.name}］があと <b style="color:var(--c-gold);">${PROMOTE_COST - mats}</b> 個必要（計${PROMOTE_COST}）`}</div>`
+                     onclick="forgeDoPromote()">⬆ 昇格 → <span style="color:${nrar.color};">${nrar.name}</span>`
+                  + `<span class="forge-cost${goldOk ? '' : ' short'}">（${cost}G）</span></button>`
+                  + `<div class="forge-note">`
+                  +   (matOk ? `同じ［${rar.name}］を ${PROMOTE_COST} 個` : `同じ［${rar.name}］があと <b style="color:var(--c-gold);">${PROMOTE_COST - mats}</b> 個（計${PROMOTE_COST}）`)
+                  +   ` と <span class="forge-cost${goldOk ? '' : ' short'}">${cost}G</span>（銀行 ${bank}G）を消費します`
+                  +   (goldOk ? '' : ` — <b style="color:var(--c-danger);">残高不足</b>`)
+                  +   `<br>Lv は1に戻り、系統と効果を引き継ぎます</div>`
                 : `<div class="forge-note">最上位ランクです。これ以上の昇格はありません。</div>`;
         } else {
-            const ok = forgeSelected.size > 0;
+            const fee = forgeFeeTotal([...forgeSelected].map(id => loadInventory().find(x => x.id === id)).filter(Boolean));
+            const goldOk = bank >= fee;
+            const ok = forgeSelected.size > 0 && goldOk;
             acts.innerHTML =
                 `<div class="forge-auto">`
                 + `<button class="forge-mini" onclick="forgeAutoSelect('next')">次のLvまで自動選択</button>`
@@ -2577,7 +2615,10 @@
                 + `<button class="forge-mini" onclick="forgeSelected.clear(); renderForge();">選択解除</button>`
                 + `</div>`
                 + `<button class="btn-start forge-btn" ${ok ? '' : 'disabled'} onclick="forgeDoForge()">`
-                +   `⚒ 鍛える（素材 ${forgeSelected.size} 個 / +${gained} exp）</button>`;
+                +   `⚒ 鍛える（素材 ${forgeSelected.size} 個 / +${gained} exp / <span class="forge-cost${goldOk ? '' : ' short'}">鍛冶代 ${fee}G</span>）</button>`
+                + (forgeSelected.size && !goldOk
+                    ? `<div class="forge-note"><b style="color:var(--c-danger);">銀行残高が足りません</b>（必要 ${fee}G / 残高 ${bank}G）</div>`
+                    : `<div class="forge-note">鍛冶代は銀行残高から支払います（素材のランクに応じて 1個 ${FORGE_FEE_UNIT}G〜）</div>`);
         }
         // --- 素材グリッド ---
         // Lv MAX（＝昇格モード）では「昇格で消費される同ランク」だけを出し、消費される品に印を付ける。
@@ -2630,8 +2671,10 @@
         const nxt = nextRarityKey(base.rarity);
         if (!nxt) return;
         const nrar = RARITY_BY_KEY[nxt];
+        const cost = promoteGoldCost(base.rarity);
         if (!confirm(`「${base.name}」を［${nrar.name}］へ昇格させますか？\n\n`
             + `※同じ［${RARITY_BY_KEY[base.rarity].name}］の宝具 ${PROMOTE_COST} 個を消費します。\n`
+            + `※銀行から ${cost}G を支払います（残高 ${loadCarryOver()}G）。\n`
             + `※Lv は 1 に戻り、系統と効果を引き継ぎます。`)) return;
         const made = promoteTreasure(forgeBaseId);
         if (!made) { playSE('error'); return; }
@@ -2865,7 +2908,14 @@
     const monsterLevels = { slime: 1, goblin: 1, golem: 1, wraith: 1 };
     // レベル上限（キャップ）。初期5・ダイヤ1個で+1（最大MAX_LEVEL・恒久）。ゲーム内ゴールドの
     // レベルアップはこの上限までしか上げられない。ダイヤ=上限解放 / ゴールド=実レベル。
-    const monsterCap = { slime: 5, goblin: 5, golem: 5, wraith: 5 };
+    // ===== モンスターのレベル上限 =====
+    // ゴールド＝実レベル、ダイヤ＝上限の解放、という役割分担。
+    // 初期上限は「ダイヤを1個も持たない standard プレイヤーが、ゴールドだけでどこまで戦えるか」を決める。
+    // 5 だと Lv1→5 が累計47Gで終わり（40秒）ゴールドの使い道が消え、波25で頭打ちになっていたので 20 にした。
+    // 20 なら累計1,322G（約19分ぶん）を注げ、破綻の目安が波100まで伸びる。
+    const MONSTER_CAP_INIT = 20;
+    const DIAMOND_CAP_STEP = 5;      // 1💎 で解放されるレベル数（20→100 に16💎）
+    const monsterCap = { slime: MONSTER_CAP_INIT, goblin: MONSTER_CAP_INIT, golem: MONSTER_CAP_INIT, wraith: MONSTER_CAP_INIT };
     // 装備宝具アフィックス（全モンスター 攻/敏/HP）の反映用ボーナス。ラン開始時に装備から確定。
     // （旧「ランダム強化」も同じ器を使っていたが、ランダム強化は廃止し装備専用に。）
     const randBonus = { slime: {atk:0,agi:0,hp:0}, goblin: {atk:0,agi:0,hp:0}, golem: {atk:0,agi:0,hp:0}, wraith: {atk:0,agi:0,hp:0} };
@@ -3132,7 +3182,7 @@
         const dDark = Math.max(0, Math.min(1, (depth - 100) / 200));
         const pDark = shopData.wraith ? 0.12 * dDark : 0;
         const dGem = Math.max(0, Math.min(1, depth / 1000)); // 深度1000で最大
-        const pGem = depth >= 20 ? 0.005 * dGem : 0;         // 標準：深度1000で0.5%
+        const pGem = depth >= 20 ? 0.010 * dGem : 0;         // 標準：深度1000で1.0%（深さ比例のまま2倍）
         return { pDark, pGem };
     }
 
@@ -3393,7 +3443,7 @@
             if (carryDia < 1) { playSE('error'); return; }
             saveCarryDiamond(carryDia - 1);
         }
-        monsterCap[mt] = Math.min(MAX_LEVEL, monsterCap[mt] + 1);
+        monsterCap[mt] = Math.min(MAX_LEVEL, monsterCap[mt] + DIAMOND_CAP_STEP);
         saveMonsterCaps();
         playSE('buy');
         if (live) { updateLevelPanel(); updateGoldUI(); }
@@ -3423,15 +3473,17 @@
     function saveMonsterLevels() {
         localStorage.setItem('magika_monsterlevels', JSON.stringify(monsterLevels));
     }
-    // レベル上限（初期5・最大MAX_LEVEL）。旧セーブ救済として既存レベル以上・5以上を保証。
+    // レベル上限（初期 MONSTER_CAP_INIT・最大 MAX_LEVEL）。
+    // 旧セーブ救済: 保存済みの上限が初期値より低くても MONSTER_CAP_INIT まで引き上げる
+    // （上限5時代のセーブでも、今の初期値ぶんは無条件で使えるようにする）。
     function loadMonsterCaps() {
-        const caps = { slime: 5, goblin: 5, golem: 5, wraith: 5 };
+        const caps = { slime: MONSTER_CAP_INIT, goblin: MONSTER_CAP_INIT, golem: MONSTER_CAP_INIT, wraith: MONSTER_CAP_INIT };
         try {
             const saved = JSON.parse(localStorage.getItem('magika_monstercaps'));
             if (saved) Object.assign(caps, saved);
         } catch (e) {}
         const lv = loadMonsterLevels();
-        for (const mt of ALL_MTYPES) caps[mt] = Math.min(MAX_LEVEL, Math.max(5, caps[mt] || 5, lv[mt] || 1));
+        for (const mt of ALL_MTYPES) caps[mt] = Math.min(MAX_LEVEL, Math.max(MONSTER_CAP_INIT, caps[mt] || 0, lv[mt] || 1));
         return caps;
     }
     function saveMonsterCaps() {

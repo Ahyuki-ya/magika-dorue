@@ -73,8 +73,11 @@
     });
   }
 
-  // 連続流入：HERO_SPAWN_SEC ごとに勇者が湧き続ける状況で、防衛線が処理し切れるか。
-  // 「到達間隔 < 交戦時間」になると勇者が城前に溜まって崩壊する。その分岐点を測る。
+  // 連続流入のシミュレーション。
+  // ★これは現行の挙動ではない。本体の HERO_SPAWN_SEC は「勇者が全滅してから次が湧くまでの
+  //   クールダウン」（startHeroCountdown は remainingHeroes.length === 0 のときだけ呼ばれる）。
+  //   ここでは spawnHero() を一定間隔で強制的に呼び、「もし湧き続けたら防衛線が処理し切れるか」を測る。
+  //   hard モードを連続流入方式にする案（magi_CLAUDE.md「次セッションへの持ち越し」1）の検証用。
   function runFlood(label, opts) {
     const o = Object.assign({ fast: false, monCount: 8, monLv: 10, mtype: 'golem', sec: 120 }, opts);
     generateMap();

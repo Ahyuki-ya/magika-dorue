@@ -174,7 +174,7 @@ Canvas draw order per frame: map tiles → monsters → heroes → particles →
 - **`ctx.shadowBlur` は Phase 4 で全廃（下記 その13）**。ゴーレムの目の発光は半透明レイヤー重ねに置換した。
 - **毎フレームのグラデーション生成もゼロ**（Phase 4）。モンスター/勇者は「地色＋暗部＋明部」の2階調ベタ塗り、鉱石タイルは起動時プリレンダ画像の `drawImage`。新規描画を足すときもこの2方針を崩さないこと（D-2/D-3）。
 
-## Recent Session Changes (2026-07-29 その20：コロシアムモードの新設)
+## Recent Session Changes (2026-07-30 その20：コロシアムモードの新設)
 
 standard / hard に続く第3のモード。**スクロールなし・固定盤面・何wave耐えられるか**のスコアアタック。
 設計の全文は [コロシアムモード_設計案.md](コロシアムモード_設計案.md)。
@@ -254,7 +254,7 @@ standard / hard に続く第3のモード。**スクロールなし・固定盤�
 
 ---
 
-## Recent Session Changes (2026-07-29 その21：宝具の装備をラン中に反映)
+## Recent Session Changes (2026-07-30 その21：宝具の装備をラン中に反映)
 
 **変更前**: 装備宝具の効果は `enterGameScreen` でしか読まれず、ラン中に宝具庫で装備を変えても**次のランまで反映されなかった**。
 

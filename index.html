@@ -858,6 +858,9 @@
 </head>
 <body>
 
+    <!-- BGM（全モード共通・ループ） -->
+    <audio id="bgmAudio" src="bgm/magikadorue_bgm_01.mp3" loop preload="auto"></audio>
+
     <!-- タイトル画面 -->
     <div id="titleScreen" class="screen">
         <h1 class="title">Magika・Dorue</h1>
@@ -1594,10 +1597,20 @@
             }
         } catch (e) { /* サウンド失敗はゲームに影響させない */ }
     }
+    // ===== BGM（全モード共通・タイトル操作後にループ再生し続ける） =====
+    const BGM_VOL = 0.35;
+    const bgmAudio = document.getElementById('bgmAudio');
+    if (bgmAudio) bgmAudio.volume = isMuted ? 0 : BGM_VOL;
+    function startBGM() {
+        if (!bgmAudio || !bgmAudio.paused) return;
+        bgmAudio.volume = isMuted ? 0 : BGM_VOL;
+        bgmAudio.play().catch(() => { /* 自動再生ブロックはユーザー操作後の再試行に任せる */ });
+    }
     function toggleMute() {
         isMuted = !isMuted;
         localStorage.setItem('magika_mute', isMuted ? '1' : '0');
         updateMuteButtons();
+        if (bgmAudio) bgmAudio.volume = isMuted ? 0 : BGM_VOL;
         if (!isMuted) playSE('buy');
     }
     function updateMuteButtons() {
@@ -3736,6 +3749,7 @@
     }
     function showMainMenu() {
         showScreenOnly('startScreen');
+        startBGM();
     }
     function showModeSelect() {
         showScreenOnly('modeSelectScreen');

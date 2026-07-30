@@ -470,6 +470,22 @@
             box-shadow: none;
         }
         .btn-mode-hard:hover { transform: translateY(-2px); border-color: #ff4422; background: #5a1010; }
+        .btn-mode-colosseum {
+            background: #3a2a08;
+            border: 3px solid #cc9922;
+            box-shadow: none;
+        }
+        .btn-mode-colosseum:hover { transform: translateY(-2px); border-color: #ffcc44; background: #4e3a0c; }
+
+        /* 指令ボタン（コロシアム限定・種別ごとの集合地点） */
+        .lv-rally-btn {
+            background: #223; border: 1px solid #556; border-radius: 4px; color: #ccd;
+            font-size: 12px; line-height: 1; padding: 3px 5px; margin-left: 6px; cursor: pointer;
+            font-family: 'Courier New', Courier, monospace; transition: 0.15s;
+        }
+        .lv-rally-btn:hover { border-color: #ffcc44; color: #fff; }
+        .lv-rally-btn.active { background: #6a5000; border-color: #ffcc44; color: #fff; }
+        .lv-rally-btn.set { border-color: #44cc66; color: #8f8; }
 
         /* ===== 強化パネル 開閉 ===== */
         #levelPanel.collapsed { display: none; }
@@ -897,6 +913,16 @@
                     <div class="btn-mode-desc">銀行を預入してレバレッジ</div>
                 </div>
             </button>
+            <button class="btn-mode btn-mode-colosseum" onclick="enterGameScreen('colosseum')">
+                <div class="btn-mode-icon">🏛</div>
+                <div>
+                    <div class="btn-mode-name">コロシアム</div>
+                    <div class="btn-mode-desc">固定盤面・何wave耐えられるか</div>
+                </div>
+            </button>
+        </div>
+        <div id="colBestNote" style="display:none; margin-top:8px; font-size:0.85rem; color:#ffcc44;">
+            🏛 最高記録: Wave <b id="colBestVal">0</b>
         </div>
         <div id="hardLockNote" style="display:none; margin-top:10px; font-size:0.85rem; color:#ff6688; background:rgba(30,0,10,0.7); border:1px solid #ff4466; border-radius:2px; padding:8px 16px;">
             🔒 ハードには銀行残高が <b>100 G 以上</b> 必要です。まず<b>スタンダード</b>で元手を稼いでください。
@@ -1069,7 +1095,9 @@
                     <div class="hero-stat-chip">敏 <span id="hAgi">-</span></div>
                     <div class="hero-stat-chip">HP <span id="hHp">-</span></div>
                 </div>
-                <div style="font-size:10px; color:#8899cc; margin-top:4px;">🕳 深度 <span id="depthUI">0</span> m</div>
+                <div id="depthRow" style="font-size:10px; color:#8899cc; margin-top:4px;">🕳 深度 <span id="depthUI">0</span> m</div>
+                <div id="colWaveUI" style="display:none; font-size:12px; color:#ffcc44; margin-top:4px; font-weight:bold;">🏛 Wave <span id="colWaveNum">0</span><span id="colWaveBest" style="color:#8899cc; font-weight:normal; font-size:10px;"></span></div>
+                <div id="colArmyUI" style="display:none; font-size:10px; color:#8899cc; margin-top:2px;">⚔ 兵 <span id="colArmyNum">0</span>/<span id="colArmyCap">100</span>　🥚 繁殖 <span id="colBredNum">0</span>/<span id="colBredCap">12</span><br>🚪 開通した門 <span id="colGateNum">0</span>/4 <span id="colGateNames" style="color:#ffcc44;"></span></div>
                 <div id="nextHeroUI"></div>
             </div>
             <div id="bossHpUI">
@@ -1089,6 +1117,8 @@
             <div id="dashboard">
                 <div class="btn-group">
                     <button class="btn-castle" id="castleBtn" onclick="toggleCastleMode()">🏰 あくま部屋作成(0 Gold)</button>
+                    <button class="btn-castle" id="colSkipBtn" onclick="colSkipPrep()" style="display:none; font-size:14px; padding:10px 14px;">⚔ 早出し</button>
+                    <button class="btn-castle" id="colRepairBtn" onclick="colRepairCastle()" style="display:none; font-size:14px; padding:10px 14px;">🔧 修復(100 G)</button>
                     <button class="btn-castle" id="levelPanelToggleBtn" onclick="toggleLevelPanel()" style="font-size:14px; padding:10px 14px;">⚗ 強化 ▲</button>
                 </div>
                 <div id="message"></div>
@@ -1128,6 +1158,7 @@
                 <div class="lv-card-header">
                     <span class="lv-card-name slime">🪨 石スライム</span>
                     <span class="lv-badge" id="slime-lv-badge">Lv.1</span>
+                    <button class="lv-rally-btn" id="slime-rally" onclick="colToggleRallyMode('slime')" title="集合地点を指令する" style="display:none;">🚩</button>
                 </div>
                 <div class="lv-controls">
                     <button class="lv-pm-btn lv-minus slime" id="slime-btn-down" onclick="levelDown('slime')">－</button>
@@ -1143,6 +1174,7 @@
                 <div class="lv-card-header">
                     <span class="lv-card-name goblin">🌿 苔ゴブリン</span>
                     <span class="lv-badge" id="goblin-lv-badge">Lv.1</span>
+                    <button class="lv-rally-btn" id="goblin-rally" onclick="colToggleRallyMode('goblin')" title="集合地点を指令する" style="display:none;">🚩</button>
                 </div>
                 <div class="lv-controls">
                     <button class="lv-pm-btn lv-minus goblin" id="goblin-btn-down" onclick="levelDown('goblin')">－</button>
@@ -1158,6 +1190,7 @@
                 <div class="lv-card-header">
                     <span class="lv-card-name golem">🟤 銅ゴーレム</span>
                     <span class="lv-badge" id="golem-lv-badge">Lv.1</span>
+                    <button class="lv-rally-btn" id="golem-rally" onclick="colToggleRallyMode('golem')" title="集合地点を指令する" style="display:none;">🚩</button>
                 </div>
                 <div class="lv-controls">
                     <button class="lv-pm-btn lv-minus golem" id="golem-btn-down" onclick="levelDown('golem')">－</button>
@@ -1173,6 +1206,7 @@
                 <div class="lv-card-header">
                     <span class="lv-card-name wraith">👻 シャドウレイス</span>
                     <span class="lv-badge" id="wraith-lv-badge">Lv.1</span>
+                    <button class="lv-rally-btn" id="wraith-rally" onclick="colToggleRallyMode('wraith')" title="集合地点を指令する" style="display:none;">🚩</button>
                 </div>
                 <div class="lv-controls">
                     <button class="lv-pm-btn lv-minus wraith" id="wraith-btn-down" onclick="levelDown('wraith')">－</button>
@@ -1203,6 +1237,15 @@
                 <div style="display:flex; justify-content:space-between;"><span>🎯 開始資本（損益分岐）</span><span id="resLevRepay" style="color:#ff8899;">0</span></div>
                 <div style="display:flex; justify-content:space-between;"><span>🏦 手持ちゴールド</span><span id="resLevHold" style="color:#ffcc00;">0</span></div>
                 <div style="display:flex; justify-content:space-between; border-top:1px solid #553; margin-top:4px; padding-top:4px; font-weight:bold;"><span>💹 純益 ΔB</span><span id="resLevDelta" style="color:#ffcc00; font-size:1.2rem;">0</span></div>
+            </div>
+
+            <!-- コロシアム：到達waveと記録 -->
+            <div id="resColBox" style="display:none; margin:0 auto 14px; width:min(420px,90vw); background:rgba(30,22,0,0.85); border:2px solid #cc9922; border-radius:2px; padding:12px 18px; text-align:left; color:#f0e4c0; font-size:0.9rem; line-height:1.9;">
+                <div style="text-align:center; color:#ffcc44; font-weight:bold; letter-spacing:2px; margin-bottom:6px;">— コロシアム —</div>
+                <div style="display:flex; justify-content:space-between;"><span>🏛 到達 Wave</span><span id="resColWave" style="color:#ffcc00; font-size:1.3rem; font-weight:bold;">0</span></div>
+                <div style="display:flex; justify-content:space-between;"><span>🏅 最高記録</span><span id="resColBest" style="color:#ffcc00;">0</span></div>
+                <div id="resColNewRecord" style="display:none; text-align:center; color:#44cc66; font-weight:bold; margin-top:4px;">🎉 記録更新！</div>
+                <div style="display:flex; justify-content:space-between; border-top:1px solid #553; margin-top:4px; padding-top:4px;"><span>💎 記録報酬</span><span id="resColDiamond" style="color:#00ffee;">0</span></div>
             </div>
 
             <div class="result-stats">
@@ -1306,6 +1349,7 @@
         return { top, shown, rows };
     }
     function drawMinimap() {
+        if (isColosseum()) return;   // 固定盤面は全面が見えているのでミニマップを持たない
         if (!map || !map.length) return;
         const mmW = minimap.width, mmH = minimap.height;
         const cols = COLS;
@@ -2289,7 +2333,10 @@
     const TZ_FULL = { row:'tzEquippedRow', list:'tzInventoryList', count:'tzEquipCount', max:'tzEquipMax', invCount:'tzInvCount', invMax:'tzInvMax' };
     const TZ_IG   = { row:'igTzEquippedRow', list:'igTzInventoryList', count:'igTzEquipCount', max:'igTzEquipMax', invCount:'igTzInvCount', invMax:'igTzInvMax' };
     function showTreasury() { showScreenOnly('treasuryScreen'); renderTreasuryInto(TZ_FULL); }
-    function renderTreasuryAll() { renderTreasuryInto(TZ_FULL); renderTreasuryInto(TZ_IG); }
+    // 宝具庫に変化があったら必ずここを通る（装備・解除・鍛錬・昇格・受領・削除）。
+    // ラン中でも装備の効果を効かせるため、ここでアフィックスを再適用する。
+    // ＝ 装備を変えたら「以降に湧く／繁殖する／成長する個体」から新しい効果になる。
+    function renderTreasuryAll() { applyEquippedAffixes(); renderTreasuryInto(TZ_FULL); renderTreasuryInto(TZ_IG); }
     function tzEquip(id) {
         const eq = loadEquipped();
         const t = loadInventory().find(x => x.id === id);
@@ -2898,6 +2945,43 @@
             atkRange: mt === 'wraith' ? 1 + equipRange : 1,
         };
     }
+    // ===== 装備宝具のアフィックスを反映 =====
+    // ラン開始時だけでなく、宝具庫で装備・鍛錬・昇格をした時にも呼ぶ（renderTreasuryAll 経由）。
+    // effStat() を通る全経路（掘削の召喚・繁殖・ちびの成長）がこれを読むので、
+    // **以降に湧く個体から**新しい効果になる。既に場にいる個体のステータスは据え置き
+    // （モンスターのレベルアップが既存個体に遡及しないのと同じ扱い）。
+    // 「初期ゴールド」だけは開始時限定：ラン中に付け外しで無限に稼げてしまうため、ここでは扱わない。
+    function applyEquippedAffixes() {
+        const tz = equippedAffixTotals();
+        const eqAtk = tz.atk || 0, eqAgi = tz.agi || 0, eqHp = tz.hp || 0;
+        for (const mt of ALL_MTYPES) randBonus[mt] = { atk: eqAtk, agi: eqAgi, hp: eqHp };
+        equipMul = { atk: tz.mulAtk || 0, agi: tz.mulAgi || 0, hp: tz.mulHp || 0 };
+        equipRange = tz.range || 0;          // 射程（攻撃距離）
+        equipSight = tz.sight || 0;          // 索敵（探知距離）
+        treasureBreedCap = tz.breedCap || 0; // 繁殖上限
+        if (isGameRunning) refreshMonsterStats();   // 今いる兵にも効かせる（装備の実感を出す）
+        return tz;
+    }
+
+    // 場にいるモンスターのステータスを現在の実効値（effStat）へ揃える。
+    // HP は割合を維持する（満タンなら満タン、半分なら半分）＝装備の付け外しで回復させない。
+    // ちびは成体の半分、という生成時のルールをここでも踏襲する。
+    function refreshMonsterStats() {
+        const half = v => Math.max(1, Math.floor(v / 2));
+        for (const m of monsters) {
+            if (m.hp <= 0 || !m.mtype) continue;
+            const e = effStat(m.mtype);
+            const maxHp = m.isBaby ? half(e.hp) : e.hp;
+            const ratio = m.maxHp > 0 ? Math.min(1, m.hp / m.maxHp) : 1;
+            m.maxHp = maxHp;
+            m.hp = Math.max(1, Math.round(maxHp * ratio));
+            m.atk = m.isBaby ? half(e.atk) : e.atk;
+            m.agi = m.isBaby ? half(e.agi) : e.agi;
+            m.range = e.range;
+            m.atkRange = e.atkRange;
+        }
+    }
+
     // Lv→Lv+1 のゴールドコスト（序盤は据え置き、以降は線形上昇）
     function goldCostFor(lv) {
         const early = [0, 5, 8, 13, 21];        // index=現在Lv（Lv1→2〜Lv4→5）
@@ -2935,13 +3019,75 @@
     let heroLevel = 1;
     let heroPower = 0; // 勇者総合力（atk+agi+hp の合計）
     
-    const COLS = 20;
+    // 盤面の幅はモードで変わる（standard/hard=BASE_COLS、コロシアム=COL_SIZE の正方形）。
+    // 参照側はすべて実行時に COLS を読むので let で足りる（BFSスクラッチは ROWS*COLS で再確保判定）。
+    const BASE_COLS = 20;
+    let COLS = BASE_COLS;
     const INITIAL_ROWS = 23;
     const TILE_SIZE = 30;
     let ROWS = INITIAL_ROWS; // 動的に増える
 
     canvas.width = COLS * TILE_SIZE;
     canvas.height = ROWS * TILE_SIZE;
+
+    // ===== コロシアムモード =====
+    // 固定盤面・四方侵攻・wave制。壁＝未来の兵の在庫で、掘る判断そのものがゲームになる。
+    // 詳細は コロシアムモード_設計案.md
+    const COL_SIZE = 21;              // 一辺（外周1マスは破壊不能の闘技場壁）→ 内側 19×19 = 361マス
+    const COL_C = 10;                 // 城の座標 (COL_C, COL_C) = 盤面の中心
+    const COL_PREP_SEC = 8, COL_PREP_SEC_FAST = 3;   // wave間の準備時間
+    const COL_HEROES_MAX = 8;         // 1waveの同時体数の上限
+    const COL_CASTLE_HP = 150;        // 早送りでも迎撃の猶予が残る値（通常モードは40）
+    const COL_CASTLE_HEAL = 20;       // waveクリアごとの自然回復
+    const COL_REPAIR_COST = 100;      // 全回復の費用（wave間のみ）
+    // ===== 枠の設計（ここを間違えると「掘る楽しさ」が消える） =====
+    // 闘技場に同時に立てる兵の総数。性能予算（体感スローダウンは80〜100体）の上端に置く。
+    const COL_ARMY_CAP = 100;
+    // 繁殖で生まれた個体の生存数の上限。**掘削とは別枠**にするのが要点。
+    //   共通枠にすると、繁殖は毎フレーム自動判定されるぶん戦闘で空いた枠を先に埋めてしまい、
+    //   プレイヤーが掘る余地が残らない（実測：全waveで兵が上限に張り付き、掘削0・繁殖0・fertile 46体余り）。
+    //   このモードの芯は「有限の壁を、いつ兵に換えるか」なので、掘削の枠は常に空けておく。
+    const COL_BREED_POP = 12;
+    const COL_BREED_MAX = 3;          // 種別ごとの「ちび」同時数（通常は8＋ショップ）。繁殖の瞬発力を抑える
+    const COL_DIAMOND_PER = 5;        // 何waveごとに1💎か（最高記録の更新時のみ支給）
+    const COL_GEM_TILES = 4;          // 宝石鉱脈の数（固定・r5〜8に配置）
+    const COL_GATE_NAMES = ['北', '東', '南', '西'];
+    // 帯ごとの鉱石分布（中心ほど良質＝最後の切り札を中心に温存する設計）
+    const COL_BANDS = [
+        { rMax: 3, pCopper: 0.40, pMoss: 0.30 },
+        { rMax: 6, pCopper: 0.20, pMoss: 0.25 },
+        { rMax: 99, pCopper: 0.05, pMoss: 0.20 },
+    ];
+    let colWave = 0;                  // 現在のwave（0=まだ始まっていない）
+    let colGates = [];                // 四辺中央の門 [{x,y,dx,dy,name}]
+    let colNextGates = [];            // 次waveが来る門
+    let colNextInfo = null;           // { wave, n, boss }
+    let colPrepRemaining = 0;         // 準備時間の残り秒（0=戦闘中）
+    let colPrepTimerId = null;
+    // ===== 指令（種別ごとの集合地点） =====
+    // 指令が無い種は従来どおりカオスにランダムウォークする。指令を出すと、その種は指定地点の
+    // 3×3で待機する＝掘った迷路の要所に兵を張れる（通路の途中で迎撃できる）。
+    // ただし fertile な個体は繁殖のため城の3×3を優先する（繁殖条件がその範囲なので）。
+    let colRally = {};                // mtype → {x,y}
+    let colRallyMode = null;          // 指令の設定中の種別（null=設定していない）
+    function colRallyOf(mt) { return (isColosseum() && mt && colRally[mt]) || null; }
+    // コロシアムで「あと何体を fertile にしていいか」。繁殖に必要なのは2体なので、それ以上は付けない。
+    //   fertile な個体は繁殖のため城を優先する（＝指令に従わない）が、**fertile は繁殖しないと消えない**。
+    //   勇者が湧くたびに最大6体ぶん付与されるので、無制限だと城に張り付く個体が際限なく増え、
+    //   途中から「指令にもランダムウォークにも従わない」状態になる（実プレイで発覚）。
+    // standard/hard は従来どおり常に2体（挙動を変えない）。
+    function colFertileNeed(mt) {
+        if (!isColosseum()) return 2;
+        const already = monsters.reduce((n, m) =>
+            n + (m.mtype === mt && !m.isBaby && m.fertile && m.hp > 0 ? 1 : 0), 0);
+        return Math.max(0, 2 - already);
+    }
+    // gameMode は下の分岐（報酬・盤面・AI）から広く参照されるのでここで宣言する
+    let gameMode = 'standard'; // 'standard' | 'hard' | 'colosseum'
+    function isColosseum() { return gameMode === 'colosseum'; }
+    // 勇者が「空」扱いで無視される行。コロシアムには空が無いので0にする。
+    function skyLimit() { return isColosseum() ? 0 : SKY_LAYERS; }
+    function castleMaxHp() { return isColosseum() ? COL_CASTLE_HP : CASTLE_MAX_HP; }
 
     // ===== タイル質感のプリレンダ（P4-2） =====
     // 鉱石タイルの 30×30 を「起動時に1回だけ」オフスクリーンcanvasへ描き、
@@ -3237,7 +3383,68 @@
         __p5_bumpTerrain(); // P5-2 マップ拡張で城距離場を無効化
     }
 
+    // ===== コロシアム：固定アリーナの生成 =====
+    // 21×21。外周1マスは破壊不能の闘技場壁（タイル3）、四辺の中央が門。
+    // 中心に城、そこから四方へ十字の初期通路が開通した状態で始まる（＝城は最初から到達可能）。
+    // 鉱石は中心ほど良質（COL_BANDS）。掘れる壁は 361 − 城1 − 通路36 = 324マス＝兵の総在庫。
+    function generateArena() {
+        COLS = COL_SIZE;
+        ROWS = COL_SIZE;
+        canvas.width  = COLS * TILE_SIZE;
+        canvas.height = ROWS * TILE_SIZE;
+        map = [];
+        for (let y = 0; y < ROWS; y++) {
+            map[y] = [];
+            for (let x = 0; x < COLS; x++) {
+                if (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) { map[y][x] = 3; continue; }
+                const r = Math.max(Math.abs(x - COL_C), Math.abs(y - COL_C));
+                const band = COL_BANDS.find(b => r <= b.rMax);
+                const pDark = (shopData.wraith && r <= 2) ? 0.15 : 0;
+                const rr = Math.random();
+                if      (rr < band.pCopper)                            map[y][x] = 6;
+                else if (rr < band.pCopper + band.pMoss)               map[y][x] = 2;
+                else if (rr < band.pCopper + band.pMoss + pDark)       map[y][x] = 7;
+                else                                                   map[y][x] = 1;
+            }
+        }
+        // 門（四辺の中央）。穴は**この1マスだけ**で、内側は全部壁。
+        // 通路はプレイヤーが掘って作る＝迷路づくりがそのままゲームになる。
+        colGates = [
+            { x: COL_C, y: 0,        dx: 0,  dy: 1,  name: '北' },
+            { x: COLS - 1, y: COL_C, dx: -1, dy: 0,  name: '東' },
+            { x: COL_C, y: ROWS - 1, dx: 0,  dy: -1, name: '南' },
+            { x: 0, y: COL_C,        dx: 1,  dy: 0,  name: '西' },
+        ];
+        for (const g of colGates) map[g.y][g.x] = 0;
+        // 宝石鉱脈：r5〜8 に固定数。位置が見えるので「取りに行く」目標になる
+        let placed = 0;
+        for (let guard = 0; placed < COL_GEM_TILES && guard < 800; guard++) {
+            const x = 1 + Math.floor(Math.random() * (COLS - 2));
+            const y = 1 + Math.floor(Math.random() * (ROWS - 2));
+            const r = Math.max(Math.abs(x - COL_C), Math.abs(y - COL_C));
+            if (r < 5 || r > 8) continue;
+            if (map[y][x] === 0 || map[y][x] === 8) continue;
+            map[y][x] = 8; placed++;
+        }
+        // 城はプレイヤーが置く（門から掘り進んで、置いた瞬間に防衛が始まる）
+        castlePos = null;
+        castleHp = COL_CASTLE_HP;
+        __p5_bumpTerrain();
+    }
+
+    // 城に到達できる門＝勇者が入って来られる門。掘って繋げた門だけが攻め口になる。
+    // 「兵力が欲しくて掘り広げる」と「攻め口が増える」が正面からぶつかる、このモードの中心の緊張。
+    // 城の距離場をそのまま使う（O(1)／毎フレームHUDから呼ばれるので BFS を張り直さない）。
+    // 距離場は isPassable（0/4/5）、isReachable は 0/5 だが、コロシアムに空(4)は無いので同値。
+    function colOpenGates() {
+        if (!castlePos || !colGates.length) return [];
+        if (__ffDirty || __ffValidFor !== castlePos) __ffRebuild();
+        return colGates.filter(g => __ffDist[g.y * COLS + g.x] >= 0);
+    }
+
     function generateMap() {
+        COLS = BASE_COLS;
+        canvas.width = COLS * TILE_SIZE;
         ROWS = INITIAL_ROWS;
         canvas.height = ROWS * TILE_SIZE;
         map = [];
@@ -3288,6 +3495,7 @@
         document.getElementById('diamondAmount').innerText = diamond;
         updateLevelPanel();
         if (leverage.active) updateLevHUD();
+        if (isColosseum()) updateColRepairBtn();
         // ゲーム内ショップ表示中はライブなダイヤ残高・購入可否を追従
         if (isInGamePanelOpen && inGamePanelTab === 'shop') renderShopLive();
     }
@@ -3337,6 +3545,18 @@
 
             // バッジ
             document.getElementById(`${mt}-lv-badge`).innerText = `Lv.${lv}`;
+
+            // 指令ボタン（コロシアム限定）。設定済みなら座標を出す
+            const rallyBtn = document.getElementById(`${mt}-rally`);
+            if (rallyBtn) {
+                rallyBtn.style.display = isColosseum() ? '' : 'none';
+                const r = colRally[mt];
+                rallyBtn.classList.toggle('active', colRallyMode === mt);
+                rallyBtn.classList.toggle('set', !!r && colRallyMode !== mt);
+                rallyBtn.innerText = colRallyMode === mt ? '🚩選択中' : (r ? `🚩${r.x},${r.y}` : '🚩');
+                rallyBtn.title = r ? `集合地点 (${r.x},${r.y})／🚩を押して変更・同じ場所で解除`
+                                   : '集合地点を指令する（未設定＝ランダムに動き回る）';
+            }
 
             // レベルバー（Lv/MAX の連続プログレス）
             const barEl = document.getElementById(`${mt}-bar`);
@@ -3390,14 +3610,11 @@
     }
 
     // 現在レベル＋装備（effStat）を、場にいる同種モンスター全てに反映
+    // レベルアップ／ダウンを場にいる個体へ反映する。実体は refreshMonsterStats に統合済み。
+    // （旧実装には2つの不備があった：ちびを成体のステータスにしていた／HPが割合維持でなく
+    //   `Math.min(hp, maxHp)` だったため、Lvを上げると満タンの兵が相対的に欠けた状態になっていた）
     function applyMonsterLevel(mt) {
-        const e = effStat(mt);
-        monsters.forEach(m => {
-            if (m.mtype !== mt) return;
-            m.atk = e.atk; m.agi = e.agi;
-            m.maxHp = e.hp; m.hp = Math.min(m.hp, m.maxHp);
-            m.range = e.range; m.atkRange = e.atkRange;
-        });
+        refreshMonsterStats();
     }
 
     function levelDown(mt) {
@@ -3495,6 +3712,14 @@
     function saveMonsterCaps() {
         localStorage.setItem('magika_monstercaps', JSON.stringify(monsterCap));
     }
+    // コロシアムの最高到達wave。💎は「累計 floor(best/COL_DIAMOND_PER) 個」を上限に、
+    // 記録を更新したぶんだけ差分で支給する（周回では増えない＝腕前の記録に対する報酬）。
+    function loadColBest() {
+        return parseInt(localStorage.getItem('magika_colosseum_best') || '0');
+    }
+    function saveColBest(w) {
+        localStorage.setItem('magika_colosseum_best', String(w));
+    }
     function loadRunCount() {
         return parseInt(localStorage.getItem('magika_runcount') || '0');
     }
@@ -3517,6 +3742,15 @@
         updateStartScreenCarryOver();
         closeHardConfig();
         updateHardLock();
+        updateColBestNote();
+    }
+    // モード選択画面にコロシアムの最高記録を出す（未プレイなら出さない）
+    function updateColBestNote() {
+        const note = document.getElementById('colBestNote');
+        if (!note) return;
+        const best = loadColBest();
+        note.style.display = best > 0 ? 'block' : 'none';
+        if (best > 0) document.getElementById('colBestVal').innerText = best;
     }
 
     // ===== ハード：レバレッジ設定パネル（預入モデルA） =====
@@ -3652,15 +3886,23 @@
         cameraFollow = false; updateFollowBtn();      // 追尾カメラはランごとに OFF から
         positionMinimap();
 
-        generateMap();
-        maxDepth = 0;
-        document.getElementById('depthUI').innerText = 0;
         heroHouses = []; heroSpawn = null; lastHouseDepth = 0;
         heroes = []; monsters = []; particles = []; floatingTexts = [];
-        castlePos = null; castleHp = CASTLE_MAX_HP;
-        
+        colWave = 0; colNextInfo = null; colNextGates = []; colPrepRemaining = 0;
+        colRally = {}; colRallyMode = null;
+        if (colPrepTimerId) { clearInterval(colPrepTimerId); colPrepTimerId = null; }
+        if (isColosseum()) {
+            generateArena();                                 // 城は generateArena が中央に置く
+        } else {
+            generateMap();
+            castlePos = null; castleHp = CASTLE_MAX_HP;
+        }
+        maxDepth = 0;
+        document.getElementById('depthUI').innerText = 0;
+
         // パラメータの初期化（ショップ「初期ゴールド増加」を反映）
         // スタンダード：引継ぎゴールド非連動。ハード：開始ゴールド = 預入S×L（＝損益分岐＝最大損失）
+        // コロシアム：standard と同じ開始ゴールド（レバレッジなし・参加条件なし）
         const tzAffix = equippedAffixTotals();               // 装備宝具のアフィックス合計
         gold = leverage.active ? levCapital() : (20 + shopData.startGold * 15);
         gold += (tzAffix.startGold || 0);                    // 宝具「初期ゴールド」
@@ -3671,19 +3913,32 @@
         sessionBreeds = 0;
         sessionTreasures = 0;
         sessionTreasureList = [];
-        treasureBreedCap = tzAffix.breedCap || 0;            // 宝具「繁殖上限」
+        // treasureBreedCap（宝具「繁殖上限」）は applyEquippedAffixes() が設定する（下）
         BABY_GROW_MS = [20000, 16000, 12000][shopData.growSpeed] || 20000;
 
         // シャドウレイス解禁状態のUI反映
         document.getElementById('wraith-card').style.display = shopData.wraith ? '' : 'none';
         document.getElementById('legendWraith').style.display = shopData.wraith ? '' : 'none';
         document.getElementById('legendDark').style.display = shopData.wraith ? '' : 'none';
-        // 撤退ボタンは両モードで表示（standardは常時＝ラン終了、hardは波の合間のみ＝利確）
+        // 撤退ボタンは standard/hard で表示（standardは常時＝ラン終了、hardは波の合間のみ＝利確）。
+        // コロシアムは「耐えるだけ」なので撤退という概念を持たない（タイトルへ抜けるのみ）。
         const rBtn = document.getElementById('retreatBtn');
-        rBtn.style.display = 'block';
+        rBtn.style.display = isColosseum() ? 'none' : 'block';
         rBtn.style.opacity = '1';
         rBtn.innerText = '🏳 撤退';
         updateLevHUD();
+        // ===== コロシアム専用のUI切り替え =====
+        // 深度→Wave、ミニマップ非表示（全面が見えている）、城ボタン→早出し、修復ボタン表示
+        document.getElementById('depthRow').style.display   = isColosseum() ? 'none' : '';
+        document.getElementById('colWaveUI').style.display  = isColosseum() ? '' : 'none';
+        document.getElementById('colArmyUI').style.display  = isColosseum() ? '' : 'none';
+        document.getElementById('colRepairBtn').style.display = isColosseum() ? '' : 'none';
+        document.getElementById('colSkipBtn').style.display   = isColosseum() ? '' : 'none';
+        minimap.style.display = isColosseum() ? 'none' : '';
+        // コロシアムは盤面全体が一画面に収まる＝内側スクロールを持たない
+        const cc = document.getElementById('canvasContainer');
+        cc.style.width  = isColosseum() ? (COLS * TILE_SIZE) + 'px' : '';
+        cc.style.height = isColosseum() ? (ROWS * TILE_SIZE) + 'px' : '';
         // ボスUIリセット
         document.getElementById('bossHpUI').style.display = 'none';
         bossUIVisible = false;
@@ -3694,7 +3949,7 @@
         isPlacingCastle = false;
         castleBtn.classList.remove('active');
         castleBtn.innerText = "🏰 あくま部屋作成(0 Gold)";
-        
+
         isFirstCastlePlaced = false;
         isWaveStarted = false;
         gameTime = 0;          // P5-6 論理時刻をラン開始でリセット
@@ -3705,20 +3960,14 @@
         heroPower = 20; // 初期ステータス合計(5+5+10)
         const savedLevels = loadMonsterLevels();
         const savedCaps = loadMonsterCaps();
-        // 上限（キャップ）を読み込み、実レベルは上限を超えないようクランプ
+        // 上限（キャップ）を読み込み、実レベルは上限を超えないようクランプ。
+        // コロシアムは実レベルを Lv1 から育て直す（＝記録が公平になる）。上限・ショップ・宝具は反映する。
         for (const mt of ALL_MTYPES) {
             monsterCap[mt] = savedCaps[mt];
-            monsterLevels[mt] = Math.min(savedLevels[mt] || 1, monsterCap[mt]);
+            monsterLevels[mt] = isColosseum() ? 1 : Math.min(savedLevels[mt] || 1, monsterCap[mt]);
         }
-        // 装備宝具のアフィックスを反映：基礎（加算）は randBonus、倍率/射程/索敵は equip* へ確定
-        const eqAtk = tzAffix.atk || 0, eqAgi = tzAffix.agi || 0, eqHp = tzAffix.hp || 0;
-        randBonus.slime  = {atk:eqAtk, agi:eqAgi, hp:eqHp};
-        randBonus.goblin = {atk:eqAtk, agi:eqAgi, hp:eqHp};
-        randBonus.golem  = {atk:eqAtk, agi:eqAgi, hp:eqHp};
-        randBonus.wraith = {atk:eqAtk, agi:eqAgi, hp:eqHp};
-        equipMul = { atk: tzAffix.mulAtk || 0, agi: tzAffix.mulAgi || 0, hp: tzAffix.mulHp || 0 };
-        equipRange = tzAffix.range || 0;   // 射程（攻撃距離）
-        equipSight = tzAffix.sight || 0;   // 索敵（探知距離）
+        // 装備宝具のアフィックスを反映（ラン中の装備変更でも同じ関数が呼ばれる）
+        applyEquippedAffixes();
         rageBonus = { atk: 0, agi: 0, hp: 0 };
         heroGold = 0;
         
@@ -3729,8 +3978,14 @@
         isGameRunning = true;
         gameLoop();
 
-        msgDiv.innerText = "あくま部屋を配置して防衛を開始してください！";
-        setTimeout(() => { if(msgDiv.innerText.includes("配置")) msgDiv.innerText = ""; }, 4000);
+        if (isColosseum()) {
+            updateColWaveUI();
+            msgDiv.innerText = "四方の門のどれかから掘り進み、あくま部屋を置け！ 置いた瞬間に防衛が始まる。";
+            setTimeout(() => { if(msgDiv.innerText.includes("四方")) msgDiv.innerText = ""; }, 6000);
+        } else {
+            msgDiv.innerText = "あくま部屋を配置して防衛を開始してください！";
+            setTimeout(() => { if(msgDiv.innerText.includes("配置")) msgDiv.innerText = ""; }, 4000);
+        }
     }
 
     function triggerGameOver(voluntary = false) {
@@ -3740,13 +3995,17 @@
         if (heroTimerId) clearInterval(heroTimerId);
         if (countdownTimerId) clearInterval(countdownTimerId);
         countdownTimerId = null;
+        if (colPrepTimerId) { clearInterval(colPrepTimerId); colPrepTimerId = null; }
         document.getElementById('retreatBtn').style.display = 'none';
 
         // === 精算 ===
         //  スタンダード：引継ぎゴールドと非連動（銀行は不変）
         //  ハード：ΔB = 手持ちgold − 複利返済R を引継ぎ銀行へ加算（マイナス可）
+        //  コロシアム：ゴールドは銀行に入らない（standard の「稼ぐモード」という役割と競合させない）
         let newCarry, levResult = null;
-        if (leverage.active) {
+        if (isColosseum()) {
+            newCarry = loadCarryOver();
+        } else if (leverage.active) {
             levResult = levSettle();          // 銀行を精算・保存
             newCarry = levResult.bank;
         } else {
@@ -3754,8 +4013,19 @@
             newCarry = loadCarryOver() + gold;
             saveCarryOver(newCarry);
         }
+        // コロシアム：最高記録の更新と、その差分ぶんの💎支給
+        let colResult = null;
+        if (isColosseum()) {
+            const prevBest = loadColBest();
+            const newBest = Math.max(prevBest, colWave);
+            const gain = Math.floor(newBest / COL_DIAMOND_PER) - Math.floor(prevBest / COL_DIAMOND_PER);
+            if (gain > 0) { diamond += gain; totalEarnedDiamond += gain; }
+            if (newBest > prevBest) saveColBest(newBest);
+            colResult = { wave: colWave, prevBest, newBest, gain, isNew: newBest > prevBest };
+        }
         saveCarryDiamond(diamond);
-        saveMonsterLevels();
+        // コロシアムの実レベルはラン内限定（Lv1スタート）なので保存しない
+        if (!isColosseum()) saveMonsterLevels();
         saveRunCount(loadRunCount() + 1);
 
         // 実績・記録の更新（magika_records）
@@ -3768,7 +4038,11 @@
         saveRecords(rec);
 
         // ヘッダ（撤退＝利確 / 陥落＝強制清算）
-        if (voluntary) {
+        if (isColosseum()) {
+            document.getElementById('resIcon').innerText = colResult.isNew ? '🏅' : '🏛';
+            document.getElementById('resTitle').innerText = colResult.isNew ? 'NEW RECORD!' : 'ARENA CLOSED';
+            document.getElementById('resSubtitle').innerText = `Wave ${colWave} まで耐えた。壁はまだ残っていたか？`;
+        } else if (voluntary) {
             document.getElementById('resIcon').innerText = '🏳';
             document.getElementById('resTitle').innerText = 'WITHDRAWN';
             document.getElementById('resSubtitle').innerText = leverage.active
@@ -3793,6 +4067,18 @@
             dEl.style.color = levResult.delta >= 0 ? '#44cc66' : '#ff5566';
         } else {
             levBox.style.display = 'none';
+        }
+
+        // コロシアム：到達waveと記録のサマリ
+        const colBox = document.getElementById('resColBox');
+        if (colResult) {
+            colBox.style.display = 'block';
+            document.getElementById('resColWave').innerText = colResult.wave;
+            document.getElementById('resColBest').innerText = colResult.newBest;
+            document.getElementById('resColNewRecord').style.display = colResult.isNew ? 'block' : 'none';
+            document.getElementById('resColDiamond').innerText = '+' + colResult.gain;
+        } else {
+            colBox.style.display = 'none';
         }
 
         // リザルト画面への値の代入
@@ -3869,6 +4155,7 @@
     }
 
     function toggleCastleMode() {
+        if (colRallyMode) { colRallyMode = null; updateLevelPanel(); }   // 指令モードとは排他
         isPlacingCastle = !isPlacingCastle;
         castleBtn.classList.toggle('active', isPlacingCastle);
         msgDiv.innerText = isPlacingCastle ? "配置したい空間をクリックしてください" : "";
@@ -3886,7 +4173,7 @@
             for (let d of dirs) {
                 let nx = curr.x + d.x; let ny = curr.y + d.y;
                 if (nx === targetX && ny === targetY) return true;
-                if (nx >= 0 && nx < COLS && ny >= SKY_LAYERS && ny < ROWS && !visited[ny][nx]) {
+                if (nx >= 0 && nx < COLS && ny >= skyLimit() && ny < ROWS && !visited[ny][nx]) {
                     if (map[ny][nx] === 0 || map[ny][nx] === 5) {
                         visited[ny][nx] = true; queue.push({x: nx, y: ny});
                     }
@@ -3926,6 +4213,7 @@
 
     canvas.addEventListener('mousedown', (e) => {
         const pos = canvasOffset(e.clientX, e.clientY);
+        if (colHandleRallyClick(pos)) return;              // 指令の設定中は掘らない
         // Shift+クリック または 配置モード中 → あくま部屋を設置（掘削しない）
         if (e.shiftKey || isPlacingCastle) { placeCastle(pos); }
         else { isDragging = true; dig(pos); }
@@ -3963,7 +4251,8 @@
         } else {
             touchScrollStartY = null;
             const pos = touchToCanvasOffset(e.touches[0]);
-            if (isPlacingCastle) { placeCastle(pos); }
+            if (colHandleRallyClick(pos)) { /* 指令の設定中は掘らない */ }
+            else if (isPlacingCastle) { placeCastle(pos); }
             else { isDragging = true; dig(pos); }
         }
     }, { passive: false });
@@ -4005,11 +4294,15 @@
         const x = Math.floor(e.offsetX / TILE_SIZE);
         const y = Math.floor(e.offsetY / TILE_SIZE);
 
-        if (x < 0 || x >= COLS || y < SKY_LAYERS || y >= ROWS) return; 
+        if (x < 0 || x >= COLS || y < skyLimit() || y >= ROWS) return;
 
         if (map[y][x] === 0) {
-            if (isReachable(ENTRANCE_X, SKY_LAYERS, x, y)) {
-                
+            // コロシアムは「四方の門のいずれかから到達可能」。通常モードは入り口から。
+            const connected = isColosseum()
+                ? colGates.some(g => isReachable(g.x, g.y, x, y))
+                : isReachable(ENTRANCE_X, SKY_LAYERS, x, y);
+            if (connected) {
+
                 // コスト判定 (初回は0、2回目以降は50)
                 let cost = isFirstCastlePlaced ? 50 : 0;
                 if (gold < cost) {
@@ -4024,44 +4317,56 @@
                 if (castlePos) map[castlePos.y][castlePos.x] = 0;
                 map[y][x] = 5;
                 castlePos = {x: x, y: y};
-                castleHp = CASTLE_MAX_HP;
+                castleHp = castleMaxHp();
+                __p5_bumpTerrain();          // 城が動いたので距離場を作り直す
                 toggleCastleMode();
 
-                // 深度を更新（地表 y=SKY_LAYERS からの距離）
-                const castleDepth = castlePos.y - SKY_LAYERS;
-                maxDepth = Math.max(maxDepth, castleDepth);
-                document.getElementById('depthUI').innerText = castleDepth;
+                if (!isColosseum()) {
+                    // 深度を更新（地表 y=SKY_LAYERS からの距離）
+                    const castleDepth = castlePos.y - SKY_LAYERS;
+                    maxDepth = Math.max(maxDepth, castleDepth);
+                    document.getElementById('depthUI').innerText = castleDepth;
 
-                // 最深記録は到達時点で即時保存（シャドウレイス解禁条件・リロード対策）
-                const recD = loadRecords();
-                if (castleDepth > recD.maxDepthEver) {
-                    recD.maxDepthEver = castleDepth;
-                    saveRecords(recD);
-                    if (castleDepth >= 100 && !shopData.wraith) {
-                        spawnFloatingText(x, y - 2, '🏅 深淵の主 達成！', '#00ffee', 15);
+                    // 最深記録は到達時点で即時保存（シャドウレイス解禁条件・リロード対策）
+                    const recD = loadRecords();
+                    if (castleDepth > recD.maxDepthEver) {
+                        recD.maxDepthEver = castleDepth;
+                        saveRecords(recD);
+                        if (castleDepth >= 100 && !shopData.wraith) {
+                            spawnFloatingText(x, y - 2, '🏅 深淵の主 達成！', '#00ffee', 15);
+                        }
                     }
+
+                    // あくま部屋の下を確保
+                    expandMap(castlePos.y + DIG_RANGE_BELOW_CASTLE);
+
+                    // あくま部屋が見えるようにスクロール
+                    const container = document.getElementById('canvasContainer');
+                    const castlePxY = castlePos.y * TILE_SIZE;
+                    container.scrollTo({ top: castlePxY - 200, behavior: 'smooth' });
                 }
 
-                // あくま部屋の下を確保
-                expandMap(castlePos.y + DIG_RANGE_BELOW_CASTLE);
-
-                // あくま部屋が見えるようにスクロール
-                const container = document.getElementById('canvasContainer');
-                const castlePxY = castlePos.y * TILE_SIZE;
-                container.scrollTo({ top: castlePxY - 200, behavior: 'smooth' });
-                
                 if (!isWaveStarted) {
                     isFirstCastlePlaced = true;
                     isWaveStarted = true;
                     castleBtn.innerText = "🏰 あくま部屋移動(50 Gold)";
-                    startHeroCountdown(isFastMode ? HERO_SPAWN_SEC_FAST : HERO_SPAWN_SEC);
-                    msgDiv.innerText = "あくま部屋を配置しました！勇者の襲撃が始まります！";
+                    if (isColosseum()) {
+                        updateColWaveUI();
+                        colStartPrep();                       // 置いた瞬間に第1波の準備が始まる
+                        const g = colOpenGates().map(o => o.name).join('・');
+                        msgDiv.innerText = `あくま部屋を配置！ ${g}の門と繋がった。掘り広げれば兵は増えるが、繋げた門からも勇者が来る。`;
+                    } else {
+                        startHeroCountdown(isFastMode ? HERO_SPAWN_SEC_FAST : HERO_SPAWN_SEC);
+                        msgDiv.innerText = "あくま部屋を配置しました！勇者の襲撃が始まります！";
+                    }
                 } else {
                     msgDiv.innerText = `あくま部屋を移動しました！(-${cost}G)`;
                 }
-                setTimeout(() => { if(msgDiv.innerText.includes("あくま部屋")) msgDiv.innerText = ""; }, 3000);
+                setTimeout(() => { if(msgDiv.innerText.includes("あくま部屋")) msgDiv.innerText = ""; }, 4000);
             } else {
-                msgDiv.innerText = "そこは入り口から繋がっていないため配置できません！";
+                msgDiv.innerText = isColosseum()
+                    ? "四方の門のどれかから掘り進んだ場所にしか置けません！"
+                    : "そこは入り口から繋がっていないため配置できません！";
             }
         }
     }
@@ -4074,7 +4379,8 @@
         if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
 
         // あくま部屋から下DIG_RANGE_BELOW_CASTLEマスまでしか掘れない
-        if (castlePos && y > castlePos.y + DIG_RANGE_BELOW_CASTLE) {
+        // （コロシアムは固定盤面で「下へ潜る」概念がないので適用しない）
+        if (castlePos && !isColosseum() && y > castlePos.y + DIG_RANGE_BELOW_CASTLE) {
             msgDiv.innerText = 'あくま部屋から遠すぎて掘れません！';
             setTimeout(() => { if(msgDiv.innerText.includes('遠すぎ')) msgDiv.innerText = ''; }, 1500);
             return;
@@ -4082,6 +4388,14 @@
 
         const TILE_TO_MTYPE = { 1: 'slime', 2: 'goblin', 6: 'golem', 7: 'wraith' };
         const tile = map[y][x];
+        // コロシアム：軍が満員なら壁を掘らない（壁＝兵の在庫なので、無駄撃ちで在庫を失わせない）
+        if (isColosseum() && tile !== 8 && monsters.length >= COL_ARMY_CAP) {
+            if (!isDragging) {
+                msgDiv.innerText = `闘技場に立てるのは ${COL_ARMY_CAP} 体まで！`;
+                setTimeout(() => { if (msgDiv.innerText.includes('闘技場')) msgDiv.innerText = ''; }, 1200);
+            }
+            return;
+        }
         if (tile === 1 || tile === 2 || tile === 6 || tile === 7 || tile === 8) {
             // 開通済み空間（空洞/空/あくま部屋）に隣接するマスしか掘れない＝繋がっていない場所は不可
             if (!isPassable(x - 1, y) && !isPassable(x + 1, y) && !isPassable(x, y - 1) && !isPassable(x, y + 1)) {
@@ -4128,7 +4442,10 @@
                         range: e.range, atkRange: e.atkRange, isHero: false,
                         color: MONSTER_COLORS[mt], mtype: mt
                     });
-                    m.fertile = (Math.random() < 0.10); m.isBaby = false; monsters.push(m);
+                    // コロシアムでは掘削で fertile を付けない。fertile は城に張り付いて指令に従わない
+                    // ので、繁殖に必要な2体は勇者の登場時（markFertile）だけが補充する。
+                    m.fertile = !isColosseum() && (Math.random() < 0.10);
+                    m.isBaby = false; monsters.push(m);
                     playSE('spawn');
                 }
             } else {
@@ -4172,24 +4489,230 @@
         }, 1000);
     }
 
-    function spawnHero() {
+    // ===== コロシアム：wave の進行 =====
+    // 勇者の総合力は wave 番号だけで決まる（プレイヤーの稼ぎに連動しない＝記録が比較可能）。
+    // 通常モードの累積式と同じ刻み（5の倍数で+5、10の倍数で+0、他は+1）を wave 1..w で積む。
+    function colHeroPowerAt(w) {
+        let p = 20; // 初期ステータス合計(5+5+10)
+        for (let L = 1; L <= w; L++) p += (L % 10 === 0) ? 0 : (L % 5 === 0 ? 5 : 1);
+        return p;
+    }
+    function colWaveHeroCount(w) { return Math.min(COL_HEROES_MAX, 1 + Math.floor((w - 1) / 3)); }
+    // wave が進むと同時に複数方向から来るようになる。ただし**開通している門の数で頭打ち**。
+    // 一方向しか掘っていなければ、いつまでもそこからしか来ない。
+    function colWaveGateCount(w) { return w <= 6 ? 1 : (w <= 15 ? 2 : 4); }
+
+    // 次waveの内容を決めて予告し、準備時間のカウントダウンを始める
+    function colStartPrep() {
+        if (colPrepTimerId) { clearInterval(colPrepTimerId); colPrepTimerId = null; }
+        if (!castlePos) return;                        // 城を置くまで wave は始まらない
+        const w = colWave + 1;
+        const gates = colOpenGates();                  // 城に繋がっている門だけが候補
+        if (!gates.length) return;                     // 置いた城は必ずどれかの門と繋がっている（保険）
+        for (let i = gates.length - 1; i > 0; i--) {   // シャッフルして先頭から必要数を取る
+            const j = Math.floor(Math.random() * (i + 1));
+            const t = gates[i]; gates[i] = gates[j]; gates[j] = t;
+        }
+        colNextGates = gates.slice(0, Math.min(colWaveGateCount(w), gates.length));
+        colNextInfo = { wave: w, n: colWaveHeroCount(w), boss: (w % 10 === 0) };
+        colPrepRemaining = isFastMode ? COL_PREP_SEC_FAST : COL_PREP_SEC;
+        updateColPrepUI();
+        updateColRepairBtn();
+        colPrepTimerId = setInterval(() => {
+            if (!isGameRunning) { clearInterval(colPrepTimerId); colPrepTimerId = null; return; }
+            if (isPaused) return;
+            colPrepRemaining--;
+            if (colPrepRemaining > 0) { updateColPrepUI(); updateColRepairBtn(); return; }
+            clearInterval(colPrepTimerId); colPrepTimerId = null;
+            colSpawnWave();
+        }, 1000);
+    }
+
+    // 準備時間をスキップして即開始（残り秒 × 5G のボーナス）
+    function colSkipPrep() {
+        if (!isColosseum() || !isGameRunning || !castlePos || colPrepRemaining <= 0) return;
+        const bonus = colPrepRemaining * 5;
+        gold += bonus; totalEarnedGold += bonus;
+        if (castlePos) spawnFloatingText(castlePos.x, castlePos.y - 2, `早出し +${bonus}G`, '#ffcc00', 14);
+        updateGoldUI();
+        if (colPrepTimerId) { clearInterval(colPrepTimerId); colPrepTimerId = null; }
+        colSpawnWave();
+    }
+
+    function colSpawnWave() {
+        if (!isGameRunning || !colNextInfo) return;
+        colWave = colNextInfo.wave;
+        const { n, boss } = colNextInfo;
+        const gates = colNextGates.length ? colNextGates : colOpenGates();
+        if (!gates.length) return;
+        for (let i = 0; i < n; i++) {
+            const g = gates[i % gates.length];
+            // 同じ門の複数体は初期通路に沿って内側へずらす（重なりを避ける・最大3マス）
+            const off = Math.min(3, Math.floor(i / gates.length));
+            let sx = g.x + g.dx * off, sy = g.y + g.dy * off;
+            if (!isPassable(sx, sy)) { sx = g.x; sy = g.y; }
+            spawnHero({ colosseum: true, wave: colWave, boss: boss && i === 0, spawn: { x: sx, y: sy } });
+        }
+        colPrepRemaining = 0;
+        colNextGates = [];
+        updateColWaveUI();
+        updateColPrepUI();
+        updateColRepairBtn();
+    }
+
+    // waveを凌いだ：城が少し回復し、次waveの準備に入る
+    function colOnWaveCleared() {
+        castleHp = Math.min(COL_CASTLE_HP, castleHp + COL_CASTLE_HEAL);
+        if (castlePos) spawnFloatingText(castlePos.x, castlePos.y - 1, `Wave ${colWave} 突破！ 🔧+${COL_CASTLE_HEAL}`, '#44cc66', 14);
+        playSE('levelup');
+        updateColWaveUI();
+        colStartPrep();
+    }
+
+    // あくま部屋の修復（wave の合間のみ）
+    function colRepairCastle() {
+        if (!isColosseum() || !isGameRunning || !castlePos) return;
+        if (heroes.some(h => h.hp > 0)) {
+            msgDiv.innerText = '勇者がいる間は修復できません（波の合間に）';
+            setTimeout(() => { if (msgDiv.innerText.includes('修復')) msgDiv.innerText = ''; }, 1500);
+            return;
+        }
+        if (castleHp >= COL_CASTLE_HP) {
+            msgDiv.innerText = 'あくま部屋は無傷です';
+            setTimeout(() => { if (msgDiv.innerText.includes('無傷')) msgDiv.innerText = ''; }, 1500);
+            return;
+        }
+        if (gold < COL_REPAIR_COST) {
+            msgDiv.innerText = `修復には ${COL_REPAIR_COST} G 必要です！`;
+            setTimeout(() => { if (msgDiv.innerText.includes('修復')) msgDiv.innerText = ''; }, 1500);
+            return;
+        }
+        gold -= COL_REPAIR_COST;
+        castleHp = COL_CASTLE_HP;
+        if (castlePos) spawnFloatingText(castlePos.x, castlePos.y - 1, '🔧 修復完了', '#44cc66', 14);
+        playSE('buy');
+        updateGoldUI();
+        updateColRepairBtn();
+    }
+
+    function updateColWaveUI() {
+        const el = document.getElementById('colWaveNum');
+        if (el) el.innerText = colWave;
+        const best = document.getElementById('colWaveBest');
+        if (best) {
+            const b = loadColBest();
+            best.innerText = b > 0 ? `　最高 ${b}` : '';
+        }
+    }
+    // 次waveの予告（門・体数・ボス有無・残り秒）。nextHeroUI を流用する
+    function updateColPrepUI() {
+        const el = document.getElementById('nextHeroUI');
+        if (!el) return;
+        if (colPrepRemaining <= 0 || !colNextInfo) { el.textContent = ''; el.classList.remove('rage-warn'); return; }
+        const gateNames = colNextGates.map(g => g.name).join('・');
+        el.classList.toggle('rage-warn', colNextInfo.boss);
+        el.textContent = (colNextInfo.boss ? '⚠ ' : '⏱ ')
+            + `Wave ${colNextInfo.wave} — ${gateNames}の門 ${colNextInfo.n}体`
+            + (colNextInfo.boss ? '（ボス）' : '') + ` …${colPrepRemaining}s`;
+    }
+    // ===== 指令の操作 =====
+    // 強化パネルの 🚩 で種別を選び、盤面をクリックして集合地点を決める。
+    // 同じ地点をもう一度クリック、または 🚩 をもう一度押すと解除（＝ランダムウォークに戻る）。
+    function colToggleRallyMode(mt) {
+        if (!isColosseum() || !isGameRunning) return;
+        colRallyMode = (colRallyMode === mt) ? null : mt;
+        isPlacingCastle = false;                       // 城配置モードとは排他
+        castleBtn.classList.remove('active');
+        if (colRallyMode) {
+            msgDiv.innerText = `🚩 ${MONSTER_NAMES[mt]} の集合地点を掘った通路からクリック（もう一度🚩で解除）`;
+        } else {
+            msgDiv.innerText = '';
+        }
+        updateLevelPanel();
+    }
+    // 盤面クリックの受け口。指令モード中なら true を返して掘削を抑止する
+    function colHandleRallyClick(e) {
+        if (!colRallyMode) return false;
+        const mt = colRallyMode;
+        const x = Math.floor(e.offsetX / TILE_SIZE);
+        const y = Math.floor(e.offsetY / TILE_SIZE);
+        if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return true;
+        if (!isPassable(x, y)) {
+            msgDiv.innerText = '掘った通路の上にしか置けません';
+            setTimeout(() => { if (msgDiv.innerText.includes('通路')) msgDiv.innerText = ''; }, 1500);
+            return true;
+        }
+        const cur = colRally[mt];
+        if (cur && cur.x === x && cur.y === y) {        // 同じ場所 → 解除
+            delete colRally[mt];
+            spawnFloatingText(x, y, `${MONSTER_ICONS[mt]} 指令解除`, '#aaaaaa', 12);
+        } else {
+            colRally[mt] = { x, y };
+            spawnFloatingText(x, y, `${MONSTER_ICONS[mt]} 集まれ！`, MONSTER_COLORS[mt], 13);
+            playSE('spawn');
+        }
+        colRallyMode = null;
+        msgDiv.innerText = '';
+        updateLevelPanel();
+        return true;
+    }
+
+    // 兵の枠を見せる（掘るかどうかの判断材料。掘削枠と繁殖枠は別なので両方出す）
+    function updateColArmyUI() {
+        const el = document.getElementById('colArmyNum');
+        if (!el) return;
+        const bred = monsters.reduce((n, m) => n + (m.fromBreed && m.hp > 0 ? 1 : 0), 0);
+        el.innerText = monsters.length;
+        el.style.color = monsters.length >= COL_ARMY_CAP ? '#ff6688' : '#8899cc';
+        document.getElementById('colArmyCap').innerText = COL_ARMY_CAP;
+        document.getElementById('colBredNum').innerText = bred;
+        document.getElementById('colBredCap').innerText = COL_BREED_POP;
+        // 開通した門＝これから増える攻め口。掘り広げる判断の直接の材料
+        const open = colOpenGates();
+        document.getElementById('colGateNum').innerText = open.length;
+        document.getElementById('colGateNames').innerText = open.length ? '（' + open.map(g => g.name).join('・') + '）' : '';
+    }
+    function updateColRepairBtn() {
+        if (!isColosseum()) return;
+        const btn = document.getElementById('colRepairBtn');
+        if (btn) {
+            const canRepair = colPrepRemaining > 0 && castleHp < COL_CASTLE_HP && gold >= COL_REPAIR_COST;
+            btn.style.opacity = canRepair ? '1' : '0.45';
+            btn.innerText = `🔧 修復(${COL_REPAIR_COST} G)`;
+        }
+        const skip = document.getElementById('colSkipBtn');
+        if (skip) {
+            skip.style.opacity = colPrepRemaining > 0 ? '1' : '0.45';
+            skip.innerText = colPrepRemaining > 0 ? `⚔ 早出し(+${colPrepRemaining * 5}G)` : '⚔ 早出し';
+        }
+    }
+
+    // 勇者1体の出現。opts を渡すとコロシアム用（Lv・怒り・湧き位置を外から指定）になる。
+    function spawnHero(opts = null) {
         if(!isGameRunning || !isWaveStarted) return;
 
-        heroLevel++;
+        if (opts && opts.colosseum) {
+            // コロシアム：強さは wave 番号だけで決まる（累積しない＝決定論カーブ）。
+            // 1waveの勇者は全員 Lv = wave で、体数だけが増える。
+            heroLevel = opts.wave;
+            heroPower = colHeroPowerAt(opts.wave);
+        } else {
+            heroLevel++;
+            // 総合力の増分
+            let powerGain;
+            if (heroLevel % 10 === 0) {
+                powerGain = 0;
+            } else if (heroLevel % 5 === 0) {
+                powerGain = 5;
+            } else {
+                powerGain = 1;
+            }
+            heroPower += powerGain;
+        }
         if (leverage.active) updateLevHUD();
 
-        // 総合力の増分
-        let powerGain;
-        if (heroLevel % 10 === 0) {
-            powerGain = 0;
-        } else if (heroLevel % 5 === 0) {
-            powerGain = 5;
-        } else {
-            powerGain = 1;
-        }
-        heroPower += powerGain;
-
-        const isEnraged = (heroLevel % 10 === 0);
+        // コロシアムでは「10の倍数waveの先頭1体だけ」がボス。それ以外は通常の10レベル刻み
+        const isEnraged = (opts && opts.colosseum) ? !!opts.boss : (heroLevel % 10 === 0);
         // 富スケールはハード限定。基準は現在ゴールド（開始資本S×Lを含むので勇者が最初から手強い）。standardは0＝気楽なまま
         const heroWealth = leverage.active ? Math.max(0, gold) : 0;
         const enragedBonus = isEnraged ? Math.floor(RAGE_GOLD_SCALE * Math.sqrt(heroWealth)) : 0;
@@ -4259,9 +4782,9 @@
             }
         }
 
-        // スポーン地点：勇者の家があればそこから、無ければデフォルトの空(0,1)
-        const spawnX = heroSpawn ? heroSpawn.x : 0;
-        const spawnY = heroSpawn ? heroSpawn.y : 1;
+        // スポーン地点：コロシアムは門（＋通路方向へのずらし）、通常は勇者の家 or デフォルトの空(0,1)
+        const spawnX = (opts && opts.spawn) ? opts.spawn.x : (heroSpawn ? heroSpawn.x : 0);
+        const spawnY = (opts && opts.spawn) ? opts.spawn.y : (heroSpawn ? heroSpawn.y : 1);
         // 勇者は HERO_HP_MULT ぶん硬くする（削る時間＝プレイヤーが介入できる時間を作る）
         const spawnHpEff = Math.max(1, Math.round(spawnHp * HERO_HP_MULT));
         heroes.push(makeEntity(spawnX, spawnY, {
@@ -4323,9 +4846,11 @@
         // 勇者登場ごとに繁殖可能にする
         // スライム・ゴブリンは確定で2体ずつ、加えてランダムで1種2体
         const markFertile = (mt) => {
+            const need = colFertileNeed(mt);          // コロシアムは「繁殖に必要な2体」まで
+            if (need <= 0) return;
             const group = monsters.filter(m => m.mtype === mt && !m.isBaby && !m.fertile && m.hp > 0);
-            if (group.length >= 2) {
-                group.sort(() => Math.random() - 0.5).slice(0, 2).forEach(m => { m.fertile = true; });
+            if (group.length >= need) {
+                group.sort(() => Math.random() - 0.5).slice(0, need).forEach(m => { m.fertile = true; });
             }
         };
         markFertile('slime');
@@ -4333,9 +4858,11 @@
         // 既存：ランダムで1種2体（ゴーレム・レイスが選ばれることもある）
         const shuffled = activeMtypes().slice().sort(() => Math.random() - 0.5);
         for (const mt of shuffled) {
+            const need = colFertileNeed(mt);
+            if (need <= 0) continue;
             const group = monsters.filter(m => m.mtype === mt && !m.isBaby && !m.fertile && m.hp > 0);
-            if (group.length >= 2) {
-                group.sort(() => Math.random() - 0.5).slice(0, 2).forEach(m => { m.fertile = true; });
+            if (group.length >= need) {
+                group.sort(() => Math.random() - 0.5).slice(0, need).forEach(m => { m.fertile = true; });
                 break;
             }
         }
@@ -4637,7 +5164,7 @@
 
             enemies.forEach(enemy => {
                 if (enemy.hp <= 0) return;
-                if (!entity.isHero && enemy.y < SKY_LAYERS) return;
+                if (!entity.isHero && enemy.y < skyLimit()) return;   // 空にいる勇者は狙わない（コロシアムは空が無いので0）
 
                 const dist = Math.abs(enemy.x - entity.x) + Math.abs(enemy.y - entity.y);
                 if (dist > entity.range) return;
@@ -4659,10 +5186,14 @@
 
                 // 勇者のHPを0にした際の処理
                 if (target.hp <= 0 && target.isHero) {
-                    const baseReward = gameMode === 'standard' ? 25 : 10 + Math.floor(heroLevel / 5);
+                    // コロシアム：報酬は wave に比例（15 + wave）。倍率補正は掛けない
+                    //   （Lv上げの総コストと釣り合う量に絞る＝ゴールドが余らないようにする）
+                    const baseReward = isColosseum() ? (15 + colWave)
+                                     : gameMode === 'standard' ? 25 : 10 + Math.floor(heroLevel / 5);
                     const rageBonus = (gameMode === 'standard' && target.isEnraged) ? heroGold : 0;
                     // ハード：討伐Gにレバレッジ倍率 L を乗せる
-                    const reward = Math.round((baseReward + rageBonus) * leverage.mult * KILL_REWARD_MULT);
+                    const reward = isColosseum() ? baseReward
+                                 : Math.round((baseReward + rageBonus) * leverage.mult * KILL_REWARD_MULT);
                     gold += reward;
                     totalEarnedGold += reward;
                     defeatedHeroesCount++;
@@ -4679,7 +5210,10 @@
 
                     // ダイヤモンドドロップ判定
                     let diamondChancePct;
-                    if (gameMode === 'standard') {
+                    if (isColosseum()) {
+                        // コロシアムのダイヤは「最高記録の更新」でのみ支給する（討伐では出ない）
+                        diamondChancePct = 0;
+                    } else if (gameMode === 'standard') {
                         diamondChancePct = Math.min(0.01 * heroLevel, 1);
                     } else {
                         // ハード：ダイヤ率にも L を乗せる（上限100%）
@@ -4700,7 +5234,8 @@
                     
                     let remainingHeroes = heroes.filter(h => h.hp > 0 && h !== target);
                     if (remainingHeroes.length === 0 && isWaveStarted) {
-                        startHeroCountdown(isFastMode ? HERO_SPAWN_SEC_FAST : HERO_SPAWN_SEC);
+                        if (isColosseum()) colOnWaveCleared();
+                        else startHeroCountdown(isFastMode ? HERO_SPAWN_SEC_FAST : HERO_SPAWN_SEC);
                     }
                 }
                 return;
@@ -4765,11 +5300,20 @@
                     const step = getNextStepTowards(entity, target.x, target.y, true);
                     if (step) { entity.x = step.x; entity.y = step.y; }
                 } else if (entity.fertile && castlePos) {
-                    // 繁殖可能 → あくま部屋の3×3範囲に入ったら待機
+                    // 繁殖可能 → あくま部屋の3×3範囲に入ったら待機（繁殖の条件がその範囲なので城が優先）
                     const dx = Math.abs(entity.x - castlePos.x);
                     const dy = Math.abs(entity.y - castlePos.y);
                     if (dx > 1 || dy > 1) {
                         const step = getNextStepTowardsCastle(entity);
+                        if (step) { entity.x = step.x; entity.y = step.y; }
+                    }
+                    // 3×3以内なら待機
+                } else if (colRallyOf(entity.mtype)) {
+                    // 指令あり → 指定地点の3×3範囲に入ったら待機。
+                    // 掘った迷路の要所に兵を張れるので、通路の途中で迎撃できる。
+                    const r = colRallyOf(entity.mtype);
+                    if (Math.abs(entity.x - r.x) > 1 || Math.abs(entity.y - r.y) > 1) {
+                        const step = getNextStepTowards(entity, r.x, r.y, false);
                         if (step) { entity.x = step.x; entity.y = step.y; }
                     }
                     // 3×3以内なら待機
@@ -4780,7 +5324,7 @@
                         let count = 0;
                         for (let i = 1; i <= 4; i++) {
                             const nx = entity.x + d.x * i, ny = entity.y + d.y * i;
-                            if (isPassable(nx, ny) && ny >= SKY_LAYERS) count++;
+                            if (isPassable(nx, ny) && ny >= skyLimit()) count++;
                             else break;
                         }
                         return count + 0.5; // 0マスでも最低0.5の重みを持つ
@@ -4810,7 +5354,6 @@
     let gameTime = 0;
     let isFastMode = false;
     let isPaused = false;
-    let gameMode = 'standard'; // 'standard' | 'hard'
 
     function toggleSpeed() {
         isFastMode = !isFastMode;
@@ -4895,10 +5438,18 @@
 
         // ===== 繁殖システム =====
         if (castlePos && isWaveStarted) {
-            const BREED_MAX = 8 + shopData.breedCap * 2 + treasureBreedCap; // ショップ＋宝具「繁殖上限」
+            const BREED_MAX = isColosseum()
+                ? COL_BREED_MAX + shopData.breedCap + treasureBreedCap   // コロシアムは繁殖が唯一の収入なので絞る
+                : 8 + shopData.breedCap * 2 + treasureBreedCap;          // ショップ＋宝具「繁殖上限」
+            // コロシアム：繁殖は「繁殖由来の生存数」で頭打ちにする（掘削の枠を食わない）。
+            // カウントは種別ループの中で更新する。外で1回だけ判定すると、1フレームに3種が
+            // 同時に繁殖して上限を飛び越えられる（実測で 12 の枠に 13 体入った）。
+            let bredAlive = isColosseum()
+                ? monsters.reduce((n, m) => n + (m.fromBreed && m.hp > 0 ? 1 : 0), 0) : 0;
             const mtypes = activeMtypes();
             for (const mt of mtypes) {
                 try {
+                if (isColosseum() && (bredAlive >= COL_BREED_POP || monsters.length >= COL_ARMY_CAP)) continue;
                 if (monsters.filter(m => m.mtype === mt && m.isBaby).length >= BREED_MAX) continue;
                 const fertile = monsters.filter(m =>
                     m.mtype === mt && !m.isBaby && m.fertile === true && m.hp > 0 &&
@@ -4919,9 +5470,11 @@
                     agi:   Math.max(1, Math.floor(e.agi / 2)),
                     range: e.range, atkRange: e.atkRange, isHero: false,
                     color: a.color, mtype: mt,
-                    isBaby: true, bornAt: gameTime, fertile: false
+                    isBaby: true, bornAt: gameTime, fertile: false,
+                    fromBreed: true                     // 繁殖由来の印（コロシアムの繁殖枠のカウント対象）
                 });
                 monsters.push(baby);
+                bredAlive++;
                 sessionBreeds++;
                 a.fertile = false;
                 b.fertile = false;
@@ -4943,7 +5496,8 @@
                 atk: e.atk, agi: e.agi,
                 range: e.range, atkRange: e.atkRange, isHero: false,
                 color: m.color, mtype: m.mtype,
-                isBaby: false, fertile: false
+                isBaby: false, fertile: false,
+                fromBreed: m.fromBreed                  // 成体になっても繁殖枠のカウント対象のまま
             });
             newborns.push(grown);
             spawnFloatingText(m.x, m.y, '成長！', '#ffcc00');
@@ -4983,8 +5537,46 @@
                 ctx.strokeStyle = '#4466cc'; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
                 ctx.fillStyle = '#cc0000'; ctx.fillRect(px, py - 6, TILE_SIZE, 4);
                 ctx.fillStyle = '#00cc44';
-                const hpRatio = Math.max(0, castleHp) / CASTLE_MAX_HP;
+                const hpRatio = Math.max(0, castleHp) / castleMaxHp();
                 ctx.fillRect(px, py - 6, TILE_SIZE * hpRatio, 4);
+            }
+        }
+
+        // コロシアム：指令（集合地点）の旗を描く。種別色の三角旗＋アイコン。
+        if (isColosseum()) {
+            for (const mt of ALL_MTYPES) {
+                const r = colRally[mt];
+                if (!r) continue;
+                const px = r.x * TILE_SIZE, py = r.y * TILE_SIZE;
+                ctx.fillStyle = 'rgba(0,0,0,0.35)';                 // 足元の影で通路から浮かせる
+                ctx.fillRect(px + 4, py + TILE_SIZE - 5, TILE_SIZE - 8, 3);
+                ctx.fillStyle = '#e8e8e8';                           // 旗竿
+                ctx.fillRect(px + 7, py + 5, 2, TILE_SIZE - 10);
+                ctx.fillStyle = MONSTER_COLORS[mt];                  // 旗（三角）
+                ctx.beginPath();
+                ctx.moveTo(px + 9, py + 6);
+                ctx.lineTo(px + 23, py + 11);
+                ctx.lineTo(px + 9, py + 16);
+                ctx.closePath(); ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.55)';            // 明部（ベタ塗り2階調・D-2/D-3準拠）
+                ctx.fillRect(px + 10, py + 7, 6, 2);
+            }
+        }
+
+        // コロシアム：次waveが来る門を矢印で予告する（準備時間の行動指針になる）
+        if (isColosseum() && colPrepRemaining > 0) {
+            const pulse = 0.45 + 0.35 * Math.abs(((gameTime / 500) % 2) - 1);   // 論理時刻で明滅
+            ctx.fillStyle = colNextInfo && colNextInfo.boss
+                ? `rgba(255,68,34,${pulse.toFixed(3)})`
+                : `rgba(255,204,68,${pulse.toFixed(3)})`;
+            for (const g of colNextGates) {
+                const cx = g.x * TILE_SIZE + TILE_SIZE / 2, cy = g.y * TILE_SIZE + TILE_SIZE / 2;
+                const L = TILE_SIZE * 0.42, W = TILE_SIZE * 0.30;
+                ctx.beginPath();                                    // 侵攻方向(dx,dy)を指す三角形
+                ctx.moveTo(cx + g.dx * L, cy + g.dy * L);
+                ctx.lineTo(cx - g.dx * L + g.dy * W, cy - g.dy * L + g.dx * W);
+                ctx.lineTo(cx - g.dx * L - g.dy * W, cy - g.dy * L - g.dx * W);
+                ctx.closePath(); ctx.fill();
             }
         }
 
@@ -5302,7 +5894,10 @@
 
         // ミニマップ（6フレームごとに再描画、位置は毎回追従）
         updateFollowCamera(false);       // 追尾カメラ（ON のときだけ働く・滑らかに寄せる）
-        if ((minimapTick = (minimapTick + 1) % 6) === 0) { positionMinimap(); drawMinimap(); }
+        if ((minimapTick = (minimapTick + 1) % 6) === 0) {
+            if (isColosseum()) updateColArmyUI();     // ミニマップの代わりに兵の枠を更新（同じ間引き）
+            else { positionMinimap(); drawMinimap(); }
+        }
 
         requestAnimationFrame(gameLoop);
     }

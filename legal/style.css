@@ -1,0 +1,79 @@
+/* 法務ページ共通スタイル。ゲーム本体（index.html の :root）と同系統の配色。
+   ビルドツールを使わない制約に合わせ、単純な静的 CSS 1枚で完結させる。 */
+:root {
+  color-scheme: dark;
+  --c-bg: #000018;
+  --c-panel: rgba(0, 8, 32, 0.92);
+  --c-frame: #4466cc;
+  --c-frame-faint: #1a2a60;
+  --c-text: #f0f0f0;
+  --c-text-sub: #8899cc;
+  --c-gold: #ffcc00;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 32px 16px 64px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  line-height: 1.9;
+  font-size: 15px;
+}
+main { max-width: 720px; margin: 0 auto; }
+h1 {
+  font-size: 1.35rem;
+  color: var(--c-gold);
+  border-bottom: 1px solid var(--c-frame);
+  padding-bottom: 10px;
+  margin: 0 0 8px;
+}
+h2 {
+  font-size: 1.05rem;
+  color: var(--c-frame);
+  margin: 32px 0 8px;
+  border-left: 3px solid var(--c-frame);
+  padding-left: 10px;
+}
+h3 { font-size: 0.95rem; color: var(--c-text); margin: 20px 0 4px; }
+p, li { color: var(--c-text); }
+.sub { color: var(--c-text-sub); font-size: 0.85rem; }
+a { color: var(--c-frame); }
+a:hover { color: var(--c-gold); }
+
+/* 表は横に長くなりがちなので、狭い画面では表だけ横スクロールさせる
+   （body 自体を横スクロールさせない） */
+.table-wrap { overflow-x: auto; margin: 12px 0; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th, td {
+  border: 1px solid var(--c-frame-faint);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.9rem;
+}
+th { background: var(--c-panel); color: var(--c-text-sub); white-space: nowrap; width: 12em; }
+
+.note {
+  background: var(--c-panel);
+  border-left: 3px solid var(--c-gold);
+  padding: 12px 16px;
+  margin: 20px 0;
+  font-size: 0.88rem;
+}
+footer {
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid var(--c-frame-faint);
+  font-size: 0.82rem;
+  color: var(--c-text-sub);
+}
+footer a { margin-right: 16px; }
+.todo {
+  background: #3a1a1a;
+  border: 1px dashed #ff4422;
+  color: #ffbbaa;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 0.85rem;
+}

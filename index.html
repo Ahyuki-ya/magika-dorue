@@ -373,43 +373,54 @@
         #gameOverScreen { background: #000018; }
         .result-container {
             display: flex; flex-direction: column; align-items: center;
-            width: 100%; max-width: 480px; padding: 40px 20px;
+            width: 100%; max-width: 480px;
+            padding: clamp(18px, 6vw, 40px) clamp(10px, 4vw, 20px);
         }
-        .result-header { text-align: center; margin-bottom: 36px; }
-        .result-icon { font-size: 3.5rem; margin-bottom: 10px; animation: floatIcon 2.5s ease-in-out infinite; }
+        .result-header { text-align: center; margin-bottom: clamp(18px, 5vw, 36px); }
+        .result-icon {
+            font-size: clamp(2.2rem, 9vw, 3.5rem); margin-bottom: 10px;
+            animation: floatIcon 2.5s ease-in-out infinite;
+        }
         @keyframes floatIcon {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-8px); }
         }
         .result-title {
-            font-size: 2.8rem; font-weight: bold; letter-spacing: 4px;
+            font-size: clamp(1.2rem, 7.5vw, 2.8rem); font-weight: bold;
+            letter-spacing: clamp(1px, 0.8vw, 4px);
             color: #ff4422;
             text-shadow: 3px 3px 0 #880000;
             margin: 0 0 10px;
+            white-space: nowrap;
         }
         .result-subtitle {
-            font-size: 0.95rem; color: #6688aa; margin: 0; letter-spacing: 1px;
+            font-size: clamp(0.7rem, 3vw, 0.95rem); color: #6688aa; margin: 0; letter-spacing: 1px;
         }
         .result-stats {
             width: 100%; background: rgba(0,8,32,0.8);
             border: 2px solid #2244aa;
-            border-radius: 2px; padding: 8px 0; margin-bottom: 36px;
+            border-radius: 2px; padding: 8px 0; margin-bottom: clamp(18px, 5vw, 36px);
+            max-height: min(300px, 36vh); overflow-y: auto;
         }
+        .result-stats::-webkit-scrollbar { width: 6px; }
+        .result-stats::-webkit-scrollbar-track { background: transparent; }
+        .result-stats::-webkit-scrollbar-thumb { background: #2244aa; border-radius: 3px; }
         .result-stat-item {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 16px 28px; gap: 12px;
+            padding: clamp(10px, 3.5vw, 16px) clamp(12px, 6vw, 28px); gap: 12px;
         }
-        .result-stat-sub { opacity: 0.7; padding: 12px 28px; }
+        .result-stat-sub { opacity: 0.7; padding: clamp(8px, 2.5vw, 12px) clamp(12px, 6vw, 28px); }
         .result-stat-divider { height: 1px; background: rgba(68,102,204,0.25); margin: 0 20px; }
-        .result-stat-label { font-size: 0.95rem; color: #8899cc; letter-spacing: 1px; flex: 1; }
+        .result-stat-label { font-size: clamp(0.75rem, 3vw, 0.95rem); color: #8899cc; letter-spacing: 1px; flex: 1; }
         .result-stat-value {
-            font-size: 2rem; font-weight: bold; color: #ffcc00;
+            font-size: clamp(1.3rem, 5.5vw, 2rem); font-weight: bold; color: #ffcc00;
             min-width: 60px; text-align: right;
         }
-        .result-stat-value-small { font-size: 1.3rem; color: #aabbdd; }
-        .result-stat-unit { font-size: 0.85rem; color: #446688; min-width: 16px; }
+        .result-stat-value-small { font-size: clamp(1rem, 4vw, 1.3rem); color: #aabbdd; }
+        .result-stat-unit { font-size: clamp(0.7rem, 2.5vw, 0.85rem); color: #446688; min-width: 16px; }
         .btn-result {
-            font-size: 1rem; padding: 14px 40px; letter-spacing: 2px;
+            font-size: clamp(0.85rem, 3.2vw, 1rem); padding: clamp(10px, 3vw, 14px) clamp(20px, 8vw, 40px);
+            letter-spacing: 2px;
             background: #0a2050; border: 3px solid #4466cc; color: #ffffff;
             transition: all 0.15s;
         }
@@ -417,10 +428,21 @@
             background: #1a3070; border-color: #6688ff;
             transform: translateY(-1px);
         }
+        .result-actions {
+            display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%;
+        }
+        .btn-result-sub {
+            font-size: 0.85rem; padding: 10px 30px;
+            background: transparent; border-color: #2a3a70; color: #8899cc;
+        }
+        .btn-result-sub:hover { background: rgba(68,102,204,0.12); border-color: #4466cc; color: #ffffff; }
         /* ===== メインメニュー ===== */
         .menu-heading {
             font-size: 0.75rem; letter-spacing: 6px; color: #4466cc;
             margin: 0 0 28px; text-transform: uppercase;
+        }
+        #startScreen .menu-heading {
+            font-size: 1.125rem; font-weight: 700;
         }
         .menu-list { display: flex; flex-direction: column; gap: 8px; width: 300px; }
         .btn-menu {
@@ -447,17 +469,19 @@
 
         /* ===== タイトル画面 モード選択 ===== */
         .mode-select {
-            display: flex; gap: 16px; margin-bottom: 20px; justify-content: center;
+            display: flex; gap: clamp(8px, 3vw, 16px); margin-bottom: 20px; justify-content: center;
+            width: 100%; max-width: 480px;
         }
         .btn-mode {
-            display: flex; flex-direction: column; align-items: center;
-            padding: 20px 28px; border-radius: 12px; cursor: pointer;
-            transition: all 0.2s; min-width: 150px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            flex: 1 1 0; min-width: 0;
+            padding: clamp(12px, 4.5vw, 20px) clamp(6px, 2.5vw, 28px);
+            border-radius: 12px; cursor: pointer;
+            transition: all 0.2s;
             font-family: 'Courier New', Courier, monospace;
         }
-        .btn-mode-icon { font-size: 2rem; margin-bottom: 8px; line-height: 1; }
-        .btn-mode-name { font-size: 1.2rem; font-weight: bold; color: #fff; margin-bottom: 4px; }
-        .btn-mode-desc { font-size: 0.75rem; color: rgba(255,255,255,0.65); }
+        .btn-mode-icon { font-size: clamp(1.5rem, 7vw, 2rem); margin-bottom: 8px; line-height: 1; }
+        .btn-mode-name { font-size: clamp(0.78rem, 3.6vw, 1.2rem); font-weight: bold; color: #fff; white-space: nowrap; }
         .btn-mode-standard {
             background: #0a2050;
             border: 3px solid #4466cc;
@@ -503,13 +527,6 @@
         @media (max-width: 640px) {
             .title { font-size: 2.2rem; letter-spacing: 2px; margin-bottom: 16px; }
             #carryOverUI { font-size: 0.9rem !important; padding: 8px 16px !important; margin-bottom: 12px !important; }
-            .mode-select { flex-direction: column; width: min(85vw, 300px); gap: 10px; }
-            .btn-mode {
-                flex-direction: row; min-width: unset; width: 100%;
-                padding: 14px 20px; gap: 14px; text-align: left; align-items: center;
-            }
-            .btn-mode-icon { font-size: 1.6rem; margin-bottom: 0; flex-shrink: 0; }
-            .btn-mode-name { font-size: 1rem; margin-bottom: 2px; }
             #gameScreen {
                 flex-direction: column; align-items: center;
                 overflow: hidden; padding-bottom: 0;
@@ -859,7 +876,7 @@
 <body>
 
     <!-- BGM（全モード共通・ループ） -->
-    <audio id="bgmAudio" src="bgm/magikadorue_bgm_01.mp3" loop preload="auto"></audio>
+    <audio id="bgmAudio" src="bgm/magikadorue_bgm_01.m4a" loop preload="auto"></audio>
 
     <!-- タイトル画面 -->
     <div id="titleScreen" class="screen">
@@ -880,8 +897,8 @@
             <button class="btn-menu" onclick="openSubScreen('shop')">
                 <span class="btn-menu-icon">🛒</span>
                 <div>
-                    <div class="btn-menu-name">お買い物</div>
-                    <div class="btn-menu-sub">ダイヤで恒久強化</div>
+                    <div class="btn-menu-name">ショップメニュー</div>
+                    <div class="btn-menu-sub">ダイヤ取引・宝具庫</div>
                 </div>
             </button>
             <button class="btn-menu" onclick="openSubScreen('settings')">
@@ -904,24 +921,15 @@
         <div class="mode-select">
             <button class="btn-mode btn-mode-standard" onclick="enterGameScreen('standard')">
                 <div class="btn-mode-icon">⚔</div>
-                <div>
-                    <div class="btn-mode-name">スタンダード</div>
-                    <div class="btn-mode-desc">安全に元手を稼ぐ</div>
-                </div>
+                <div class="btn-mode-name">スタンダード</div>
             </button>
             <button class="btn-mode btn-mode-hard" onclick="openHardConfig()">
                 <div class="btn-mode-icon">💀</div>
-                <div>
-                    <div class="btn-mode-name">ハード</div>
-                    <div class="btn-mode-desc">銀行を預入してレバレッジ</div>
-                </div>
+                <div class="btn-mode-name">ハード</div>
             </button>
             <button class="btn-mode btn-mode-colosseum" onclick="enterGameScreen('colosseum')">
                 <div class="btn-mode-icon">🏛</div>
-                <div>
-                    <div class="btn-mode-name">コロシアム</div>
-                    <div class="btn-mode-desc">固定盤面・何wave耐えられるか</div>
-                </div>
+                <div class="btn-mode-name">コロシアム</div>
             </button>
         </div>
         <div id="colBestNote" style="display:none; margin-top:8px; font-size:0.85rem; color:#ffcc44;">
@@ -946,15 +954,29 @@
             </div>
         </div>
 
-        <button class="btn-start" id="modeResetBtn" onclick="resetCarryOver()" style="font-size:0.95rem; padding:10px 28px; background:#555; border-color:#444;">🗑 データリセット</button>
         <button class="btn-back" id="modeBackBtn" onclick="showMainMenu()">← 戻る</button>
     </div>
 
-    <!-- ダイヤショップ画面 -->
+    <!-- ショップメニュー画面（ダイヤ取引／宝具庫） -->
     <div id="shopScreen" class="screen">
-        <p class="menu-heading">— Diamond Shop —</p>
-        <div class="shop-diamond-count">💎 <span id="shopDiamondAmount">0</span></div>
-        <div class="shop-list" id="shopList"></div>
+        <p class="menu-heading">— Shop Menu —</p>
+        <div class="ig-tabs" style="margin-bottom:16px;">
+            <button class="ig-tab" id="shopTabBtnDiamond" onclick="switchShopTab('diamond')">💎 ダイヤ取引</button>
+            <button class="ig-tab" id="shopTabBtnTreasury" onclick="switchShopTab('treasury')">🏆 宝具庫</button>
+        </div>
+        <div id="shopTabDiamondSection" style="width:100%; display:flex; flex-direction:column; align-items:center;">
+            <div class="shop-diamond-count">💎 <span id="shopDiamondAmount">0</span></div>
+            <div class="shop-list" id="shopList"></div>
+        </div>
+        <div id="shopTabTreasurySection" style="width:100%; display:none; flex-direction:column; align-items:center;">
+            <div style="font-size:0.85rem; color:#aab; margin-bottom:8px;">装備した宝具の効果が次のランに適用（<span id="tzEquipCount">0</span>/<span id="tzEquipMax">3</span> スロット）</div>
+            <div id="tzEquippedRow" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; min-height:52px;"></div>
+            <div style="width:min(560px,94vw); max-height:50vh; overflow-y:auto; padding:2px;">
+                <div id="tzInventoryList" class="tz-grid"></div>
+            </div>
+            <div style="font-size:0.72rem; color:var(--c-text-sub); margin-top:8px;">所持 <span id="tzInvCount">0</span>/<span id="tzInvMax">200</span></div>
+            <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.85rem; padding:8px 22px; margin-top:8px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">📥 コードを受け取る</button>
+        </div>
         <button class="btn-back" onclick="backFromSubScreen()">← 戻る</button>
     </div>
 
@@ -963,24 +985,10 @@
         <p class="menu-heading">— Records & Settings —</p>
         <div class="records-grid" id="recordsGrid"></div>
         <div class="ach-list" id="achList"></div>
-        <button class="btn-start" onclick="showTreasury()" style="font-size:0.95rem; padding:10px 28px; margin-top:16px; background:#3a2a5a; border-color:#9b59b6;">🏆 宝具庫</button>
-        <button class="btn-start" id="settingsMuteBtn" onclick="toggleMute()" style="font-size:0.9rem; padding:10px 28px; margin-top:10px;">🔊 サウンド: ON</button>
+        <button class="btn-start" id="settingsMuteBtn" onclick="toggleMute()" style="font-size:0.9rem; padding:10px 28px; margin-top:16px;">🔊 サウンド: ON</button>
         <!-- サポーター欄（renderLicenseUI が描画） -->
         <div id="licSection" style="margin-top:18px; padding-top:14px; border-top:1px solid var(--c-frame-faint); width:min(420px,92vw); text-align:center;"></div>
         <button class="btn-back" onclick="backFromSubScreen()">← 戻る</button>
-    </div>
-
-    <!-- 宝具庫（Treasury）画面 -->
-    <div id="treasuryScreen" class="screen">
-        <p class="menu-heading">— 宝具庫 —</p>
-        <div style="font-size:0.85rem; color:#aab; margin-bottom:8px;">装備した宝具の効果が次のランに適用（<span id="tzEquipCount">0</span>/<span id="tzEquipMax">3</span> スロット）</div>
-        <div id="tzEquippedRow" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; min-height:52px;"></div>
-        <div style="width:min(560px,94vw); max-height:50vh; overflow-y:auto; padding:2px;">
-            <div id="tzInventoryList" class="tz-grid"></div>
-        </div>
-        <div style="font-size:0.72rem; color:var(--c-text-sub); margin-top:8px;">所持 <span id="tzInvCount">0</span>/<span id="tzInvMax">200</span></div>
-        <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.85rem; padding:8px 22px; margin-top:8px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">📥 コードを受け取る</button>
-        <button class="btn-back" onclick="showSettings()" style="margin-top:14px;">← 戻る</button>
     </div>
 
     <!-- 宝具 詳細モーダル（グリッドのセルをタップで表示） -->
@@ -1322,7 +1330,11 @@
                 </div>
             </div>
 
-            <button class="btn-start btn-result" onclick="location.reload()">🏠 タイトルへ戻る</button>
+            <div class="result-actions">
+                <button class="btn-start btn-result" onclick="continuePlay()">▶ 続けて遊ぶ</button>
+                <button class="btn-start btn-result btn-result-sub" onclick="changeMode()">🔀 モードを変えて遊ぶ</button>
+                <button class="btn-start btn-result btn-result-sub" onclick="location.reload()">🏠 タイトルへ戻る</button>
+            </div>
         </div>
     </div>
 
@@ -1660,7 +1672,16 @@
 
     function showShop() {
         showScreenOnly('shopScreen');
-        renderShop();
+        switchShopTab('diamond');
+    }
+    // ショップメニュー画面内のタブ切り替え（ダイヤ取引／宝具庫）
+    function switchShopTab(which) {
+        document.getElementById('shopTabDiamondSection').style.display = (which === 'diamond') ? 'flex' : 'none';
+        document.getElementById('shopTabTreasurySection').style.display = (which === 'treasury') ? 'flex' : 'none';
+        document.getElementById('shopTabBtnDiamond').classList.toggle('active', which === 'diamond');
+        document.getElementById('shopTabBtnTreasury').classList.toggle('active', which === 'treasury');
+        if (which === 'diamond') renderShop();
+        else renderTreasuryInto(TZ_FULL);
     }
     // 全画面ショップ（メインメニュー経由・引継ぎダイヤを使用）
     function renderShop() {
@@ -2569,7 +2590,6 @@
     // 全画面版とゲーム内ドロワー版、2つのコンテナへ描画
     const TZ_FULL = { row:'tzEquippedRow', list:'tzInventoryList', count:'tzEquipCount', max:'tzEquipMax', invCount:'tzInvCount', invMax:'tzInvMax' };
     const TZ_IG   = { row:'igTzEquippedRow', list:'igTzInventoryList', count:'igTzEquipCount', max:'igTzEquipMax', invCount:'igTzInvCount', invMax:'igTzInvMax' };
-    function showTreasury() { showScreenOnly('treasuryScreen'); renderTreasuryInto(TZ_FULL); }
     // 宝具庫に変化があったら必ずここを通る（装備・解除・鍛錬・昇格・受領・削除）。
     // ラン中でも装備の効果を効かせるため、ここでアフィックスを再適用する。
     // ＝ 装備を変えたら「以降に湧く／繁殖する／成長する個体」から新しい効果になる。
@@ -3016,7 +3036,7 @@
     let wasPausedBeforeSub = false;
 
     // 指定した画面だけを表示し、他の全画面を確実に閉じる（横並び事故の防止）
-    const ALL_SCREENS = ['titleScreen','startScreen','modeSelectScreen','shopScreen','settingsScreen','treasuryScreen','gameScreen','gameOverScreen'];
+    const ALL_SCREENS = ['titleScreen','startScreen','modeSelectScreen','shopScreen','settingsScreen','gameScreen','gameOverScreen'];
     function showScreenOnly(id, displayMode) {
         for (const sid of ALL_SCREENS) {
             const el = document.getElementById(sid);
@@ -3973,14 +3993,6 @@
     function saveRunCount(count) {
         localStorage.setItem('magika_runcount', String(count));
     }
-    function resetCarryOver() {
-        localStorage.removeItem('magika_carryover');
-        localStorage.removeItem('magika_monsterlevels');
-        localStorage.removeItem('magika_monstercaps');
-        localStorage.removeItem('magika_runcount');
-        localStorage.removeItem('magika_diamond');
-        updateStartScreenCarryOver();
-    }
     function showMainMenu() {
         showScreenOnly('startScreen');
         startBGM();
@@ -4017,7 +4029,6 @@
         document.getElementById('hardConfig').style.display = 'block';
         // モード選択ボタン群を隠して設定に集中
         document.querySelector('#modeSelectScreen .mode-select').style.display = 'none';
-        document.getElementById('modeResetBtn').style.display = 'none';
         document.getElementById('modeBackBtn').style.display = 'none';
         // 預入スライダーの上限を銀行残高に合わせる（現在値も超過分をクランプ）
         const smax = levMaxStake();
@@ -4043,9 +4054,7 @@
         if (hc) hc.style.display = 'none';
         const ms = document.querySelector('#modeSelectScreen .mode-select');
         if (ms) ms.style.display = '';
-        const rb = document.getElementById('modeResetBtn');
         const bb = document.getElementById('modeBackBtn');
-        if (rb) rb.style.display = '';
         if (bb) bb.style.display = '';
     }
     function updateHardConfig() {
@@ -4360,6 +4369,20 @@
             { id:'resTreasures',     to: sessionTreasures },
             { id:'resEarnedDiamond', to: totalEarnedDiamond },
         ]);
+    }
+
+    // リザルト画面：同じモードで続けて遊ぶ（ハードは預入S・倍率Lを銀行残高に合わせて選び直す）
+    function continuePlay() {
+        if (gameMode === 'hard') {
+            showModeSelect();
+            openHardConfig();
+        } else {
+            enterGameScreen(gameMode);
+        }
+    }
+    // リザルト画面：モード選択に戻る
+    function changeMode() {
+        showModeSelect();
     }
 
     // P4-6/P4-10 このランで入手した宝具をレア度枠付きで並べる（高レア優先・上限 RESULT_DROP_MAX）

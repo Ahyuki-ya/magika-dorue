@@ -965,6 +965,8 @@
         <div class="ach-list" id="achList"></div>
         <button class="btn-start" onclick="showTreasury()" style="font-size:0.95rem; padding:10px 28px; margin-top:16px; background:#3a2a5a; border-color:#9b59b6;">🏆 宝具庫</button>
         <button class="btn-start" id="settingsMuteBtn" onclick="toggleMute()" style="font-size:0.9rem; padding:10px 28px; margin-top:10px;">🔊 サウンド: ON</button>
+        <!-- サポーター欄（renderLicenseUI が描画） -->
+        <div id="licSection" style="margin-top:18px; padding-top:14px; border-top:1px solid var(--c-frame-faint); width:min(420px,92vw); text-align:center;"></div>
         <button class="btn-back" onclick="backFromSubScreen()">← 戻る</button>
     </div>
 
@@ -1025,6 +1027,18 @@
             <div id="tradeImportMsg" style="font-size:0.7rem; min-height:2.4em; margin:6px 0; text-align:left;"></div>
             <button class="btn-start" onclick="tradeDoImport()" style="width:100%; font-size:0.85rem; padding:8px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">受け取る</button>
             <button class="btn-back" style="margin-top:10px;" onclick="tradeCloseImport()">閉じる</button>
+        </div>
+    </div>
+
+    <!-- サポーターコード入力モーダル（購入後に受け取ったコードを貼り付ける） -->
+    <div id="licInputModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.78); align-items:center; justify-content:center;" onclick="if(event.target===this)licCloseInput()">
+        <div style="width:min(380px,92vw); background:var(--c-panel); border:2px solid var(--c-gold); border-radius:12px; padding:18px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);">
+            <div style="color:var(--c-gold); font-weight:bold; margin-bottom:8px;">🎫 サポーターコード</div>
+            <textarea id="licInput" class="trade-code" placeholder="MD1.… で始まるコードを貼り付け" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+            <div id="licInputMsg" style="font-size:0.7rem; min-height:2.4em; margin:6px 0; text-align:left;"></div>
+            <button class="btn-start" onclick="licDoActivate()" style="width:100%; font-size:0.85rem; padding:8px; background:var(--c-btn-gold-bg); border-color:var(--c-gold);">有効化</button>
+            <button class="btn-back" id="licRemoveBtn" style="display:none; margin-top:10px;" onclick="licRemove()">このブラウザから削除</button>
+            <button class="btn-back" style="margin-top:10px;" onclick="licCloseInput()">閉じる</button>
         </div>
     </div>
 
@@ -2199,18 +2213,20 @@
         }
         return (h >>> 0).toString(16).padStart(8, '0');
     }
-    function b64urlEncode(str) {
-        const bytes = new TextEncoder().encode(str);
+    // base64url。取引コード(文字列)とライセンス(バイト列)の両方が使うので、バイト版を土台にする。
+    function b64urlEncodeBytes(bytes) {
         let bin = '';
         for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
         return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
-    function b64urlDecode(s) {
+    function b64urlDecodeBytes(s) {
         const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return new TextDecoder().decode(bytes);
+        return bytes;
     }
+    function b64urlEncode(str) { return b64urlEncodeBytes(new TextEncoder().encode(str)); }
+    function b64urlDecode(s) { return new TextDecoder().decode(b64urlDecodeBytes(s)); }
     function loadTradeSeen() { try { return JSON.parse(localStorage.getItem(TRADE_CONFIG.SEEN_KEY) || '[]'); } catch { return []; } }
     function saveTradeSeen(arr) {
         const a = arr.slice(-TRADE_CONFIG.SEEN_MAX);   // 古い順に間引き
@@ -2318,6 +2334,146 @@
         return res;
     }
 
+    // ===== ライセンス（サポーターパック / 広告オフ） =====
+    // 形式: MD1.<payload_b64url>.<signature_b64url> の111文字。
+    //   payload   = 15バイト固定 [ v(1) kid(1) flags(1) iat(4,BE) lid(8) ]
+    //   signature = ECDSA P-256 / SHA-256 の raw r‖s（64バイト）。署名対象は LIC_DOMAIN ‖ payload
+    //
+    // ★ 取引コード(MGKT1)との違い: あちらは破損検出だけの FNV チェックサム、こちらは公開鍵署名。
+    //    プレフィクスも検証方式も別なので、両者が混ざることはない。共有するのは base64url だけ。
+    // ★ 売れるのは cosmetic（見た目・音・クレジット掲載）だけで、ゲーム性能には一切影響させない。
+    //    したがって cosmetic の実体は元からクライアントに入っており、DevTools による解放は
+    //    原理的に防げない。ここは「壊れたコード」と「他人が作った偽コード」を弾く層であって、
+    //    本人の改造を防ぐ層ではない（仕様書 §1.4 の非目標）。この防御に工数を割かないこと。
+    const LICENSE_KEY = 'magika_license';
+    const LIC_PREFIX = 'MD1';
+    const LIC_DOMAIN = new TextEncoder().encode('magika-dorue/license/v1');
+    const LIC_PAYLOAD_LEN = 15;
+    const LIC_SIG_LEN = 64;
+    const LIC_FLAG = { AD_FREE: 0x01, COSMETICS: 0x02, CREDITS: 0x04 };
+
+    // 公開鍵テーブル（kid → JWK）。tools/keygen.mjs の出力をそのまま貼る。
+    // ★ テスト用の kid をここに載せてはいけない。載せた瞬間、Stripe のテストカードで
+    //    本物のライセンスが発行できるようになる。本番=1 / テスト=200 で分けること。
+    // ★ 鍵を更新するときは追記する。古い kid を消すのは、その鍵で出した分を
+    //    全部無効にすると決めたときだけ。
+    const LICENSE_PUBKEYS = {
+        // 1: { kty:'EC', crv:'P-256', x:'…', y:'…' },
+    };
+
+    // 失効した lid（16桁hex）。返金・大規模流出のときだけ使う。
+    // Checkout Session ID からの算出は tools/lid.mjs（LID_SALT が要る）。
+    // 受け取りページの末尾にも lid が出るので、利用者から聞き出すこともできる。
+    const REVOKED_LIDS = new Set([
+        // 'a1b2c3d4e5f6a7b8',
+    ]);
+
+    // ゲーム側はこの LIC.* だけを見る。トークンの構造をゲームロジックに漏らさないことで、
+    // 将来フォーマットを変えても影響がこの節に閉じる。
+    let LIC = { adFree: false, cosmetics: false, credits: false, iat: 0, lid: null };
+
+    // 検証。不正なら null、正当なら {flags, iat, lid, kid}。理由は返さない（UI で細分化しないため）。
+    async function verifyLicense(input) {
+        try {
+            // メールクライアントの自動改行でコードが割れることがあるので、空白は全部落とす。
+            const parts = String(input == null ? '' : input).replace(/\s+/g, '').split('.');
+            if (parts.length !== 3 || parts[0] !== LIC_PREFIX) return null;
+            // base64url は大文字小文字を区別する。ここで正規化してはいけない。
+            if (!/^[A-Za-z0-9_-]+$/.test(parts[1]) || !/^[A-Za-z0-9_-]+$/.test(parts[2])) return null;
+
+            const payload = b64urlDecodeBytes(parts[1]);
+            const sig     = b64urlDecodeBytes(parts[2]);
+            if (payload.length !== LIC_PAYLOAD_LEN || sig.length !== LIC_SIG_LEN) return null;
+
+            const v = payload[0], kid = payload[1], flags = payload[2];
+            if (v !== 1) return null;
+            const jwk = LICENSE_PUBKEYS[kid];
+            if (!jwk) return null;
+
+            const key = await crypto.subtle.importKey(
+                'jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']
+            );
+            const msg = new Uint8Array(LIC_DOMAIN.length + payload.length);
+            msg.set(LIC_DOMAIN, 0);
+            msg.set(payload, LIC_DOMAIN.length);
+            // 失効判定より先に署名を見る。未検証の payload を信用して分岐しないため。
+            const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, sig, msg);
+            if (!ok) return null;
+
+            const dv  = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+            const lid = Array.from(payload.slice(7)).map(b => b.toString(16).padStart(2, '0')).join('');
+            if (REVOKED_LIDS.has(lid)) return null;
+
+            return { flags, iat: dv.getUint32(3, false), lid, kid };
+        } catch (e) {
+            return null;                       // 壊れた base64 なども全部ここに落ちる
+        }
+    }
+
+    // サポーター専用テーマ。:root の CSS 変数を上書きするだけ。
+    // ★ canvas の描画色はリテラルなので、これで変わるのは UI（パネル・ボタン・文字）だけ。
+    //    盤面まで変えたい場合は描画側の色を変数化する別作業が要る。
+    const SUPPORTER_THEME = {
+        '--c-bg': '#12001e',          '--c-bg-game': '#0d0016',
+        '--c-panel': 'rgba(24,4,40,0.94)',
+        '--c-frame': '#a06cd5',       '--c-frame-dim': '#6b3fa0', '--c-frame-faint': '#3a1f5c',
+        '--c-text-sub': '#c3a6e8',    '--c-text-faint': '#9878c0',
+        '--c-gold': '#ffb347',        '--c-btn-gold-bg': '#3a2410',
+        '--c-input-bg': '#150626',    '--c-input-text': '#e8d5ff',
+    };
+    function applySupporterTheme(on) {
+        const s = document.documentElement.style;
+        for (const k in SUPPORTER_THEME) {
+            if (on) s.setProperty(k, SUPPORTER_THEME[k]); else s.removeProperty(k);
+        }
+    }
+
+    // 広告 SDK の読み込み判定。DOM で隠すのではなく、そもそも読み込まない。
+    // 広告の実装（実装順序の手順8）はこの関数を入口にする。
+    function shouldLoadAds() { return !LIC.adFree; }
+
+    function applyLicense(r) {
+        LIC.adFree    = !!(r && (r.flags & LIC_FLAG.AD_FREE));
+        LIC.cosmetics = !!(r && (r.flags & LIC_FLAG.COSMETICS));
+        LIC.credits   = !!(r && (r.flags & LIC_FLAG.CREDITS));
+        LIC.iat = r ? r.iat : 0;
+        LIC.lid = r ? r.lid : null;
+        applySupporterTheme(LIC.cosmetics);
+        renderLicenseUI();
+    }
+
+    // 起動時。保存済みトークンを検証して LIC に落とす。
+    // 失効・鍵ローテーションで無効になった場合はここで自動的に外れる。
+    async function loadLicense() {
+        let t = null;
+        try { t = localStorage.getItem(LICENSE_KEY); } catch (e) { return; }
+        if (!t) return;
+        const r = await verifyLicense(t);
+        if (!r) { try { localStorage.removeItem(LICENSE_KEY); } catch (e) {} applyLicense(null); return; }
+        applyLicense(r);
+    }
+
+    // コード入力からの有効化。{ok} / {ok:false, reason}
+    async function activateLicense(code) {
+        const r = await verifyLicense(code);
+        // 失敗理由は細分化しない。攻撃者に検証の当たり判定を教えないため、かつ
+        // 利用者にとっては「正しくない」以上の情報に意味がないため。
+        if (!r) return { ok: false, reason: 'コードが正しくありません' };
+        try { localStorage.setItem(LICENSE_KEY, String(code).replace(/\s+/g, '')); } catch (e) {}
+        applyLicense(r);
+        return { ok: true, result: r };
+    }
+    function clearLicense() {
+        try { localStorage.removeItem(LICENSE_KEY); } catch (e) {}
+        applyLicense(null);
+    }
+
+    // クレジット掲載名。Stripe のカスタムフィールドで集めた名義を手で追記する。
+    // Worker は名義を読まないし保存もしない（ステートレスを保つため）。掲載は人手の運用。
+    const SUPPORTERS = [
+        // '（お名前）',
+    ];
+
     const ACHIEVEMENTS = [
         { name: 'はじめての討伐', desc: '勇者を1人討伐する', test: r => r.kills >= 1 },
         { name: '魔王の風格',     desc: '勇者を累計50人討伐する', test: r => r.kills >= 50 },
@@ -2335,6 +2491,74 @@
     function showSettings() {
         showScreenOnly('settingsScreen');
         renderSettings();
+    }
+
+    // ===== ライセンス UI（記録画面のサポーター欄＋コード入力モーダル） =====
+    // 購入導線。Stripe Payment Link を設定するまでは空にしておく（空なら導線を出さない）。
+    const LIC_STORE_URL = '';
+    function renderLicenseUI() {
+        const el = document.getElementById('licSection');
+        if (!el) return;
+        const credits = SUPPORTERS.length
+            ? `<div style="margin-top:10px; font-size:0.72rem; color:var(--c-text-sub);">
+                 <div style="color:var(--c-gold); margin-bottom:4px;">— Supporters —</div>
+                 ${SUPPORTERS.map(n => `<span style="margin:0 6px;">${escapeHtml(n)}</span>`).join('')}
+               </div>` : '';
+        if (LIC.adFree || LIC.cosmetics || LIC.credits) {
+            const badges = [LIC.adFree && '広告オフ', LIC.cosmetics && '専用テーマ', LIC.credits && 'クレジット掲載']
+                .filter(Boolean).join(' ／ ');
+            el.innerHTML =
+                `<div style="color:var(--c-gold); font-weight:bold;">★ サポーター特典が有効です</div>
+                 <div style="font-size:0.72rem; color:var(--c-text-sub); margin-top:2px;">${badges}</div>
+                 <button class="btn-start" onclick="licOpenInput()" style="font-size:0.75rem; padding:6px 16px; margin-top:8px;">コードを管理</button>`
+                + credits;
+        } else {
+            el.innerHTML =
+                `<div style="font-size:0.78rem; color:var(--c-text-sub);">サポーターパックをお持ちの方はコードを入力してください。</div>`
+                + (LIC_STORE_URL ? `<a class="btn-start" href="${LIC_STORE_URL}" target="_blank" rel="noopener" style="display:inline-block; font-size:0.8rem; padding:8px 20px; margin-top:8px; text-decoration:none; background:var(--c-btn-gold-bg); border-color:var(--c-gold);">🎁 サポーターパック</a>` : '')
+                + `<button class="btn-start" onclick="licOpenInput()" style="font-size:0.8rem; padding:8px 20px; margin-top:8px;">🎫 コードを入力</button>`
+                + credits;
+        }
+    }
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+    function licOpenInput() {
+        const m = document.getElementById('licInputModal');
+        if (!m) return;
+        m.style.display = 'flex';
+        const msg = document.getElementById('licInputMsg'); if (msg) msg.innerHTML = '';
+        const ta = document.getElementById('licInput');
+        if (ta) { ta.value = ''; ta.focus(); }
+        // すでに有効なら解除ボタンを出す
+        const rm = document.getElementById('licRemoveBtn');
+        if (rm) rm.style.display = (LIC.adFree || LIC.cosmetics || LIC.credits) ? '' : 'none';
+    }
+    function licCloseInput() {
+        const m = document.getElementById('licInputModal');
+        if (m) m.style.display = 'none';
+    }
+    async function licDoActivate() {
+        const ta = document.getElementById('licInput');
+        const msg = document.getElementById('licInputMsg');
+        if (!ta || !msg) return;
+        msg.innerHTML = `<span style="color:var(--c-text-sub);">確認しています…</span>`;
+        const res = await activateLicense(ta.value);
+        if (res.ok) {
+            msg.innerHTML = `<span style="color:var(--c-ok);">ありがとうございます。特典が有効になりました。</span>`;
+            playSE('buy');
+            renderSettings();
+            setTimeout(licCloseInput, 1200);
+        } else {
+            msg.innerHTML = `<span style="color:var(--c-danger);">${escapeHtml(res.reason)}</span>`;
+            playSE('error');
+        }
+    }
+    function licRemove() {
+        if (!confirm('このブラウザからサポーターコードを削除しますか？\n（コードが手元にあれば、いつでも再入力できます）')) return;
+        clearLicense();
+        renderSettings();
+        licCloseInput();
     }
 
     // ===== 宝具庫（Treasury）UI（ソシャゲ風グリッド＋詳細モーダル） =====
@@ -2783,6 +3007,7 @@
             list.appendChild(row);
         }
         updateMuteButtons();
+        renderLicenseUI();       // サポーター欄（全画面版にだけ存在。無ければ何もしない）
     }
 
     // ===== ゲーム内からのサブ画面アクセス =====
@@ -3242,6 +3467,15 @@
     // 勇者もプレイヤーの富（累計獲得G）に比例して強化（√で圧縮＝爆発しない）。調整用
     const HERO_GOLD_SCALE = 1.5; // 非怒り勇者ボーナス = floor(A·√totalEarnedGold)
     const RAGE_GOLD_SCALE = 4;   // 怒り勇者ボーナス = floor(A·√totalEarnedGold)
+    // ===== L倍ボーナス（ハード限定・富スケールとは別枠） =====
+    // 討伐G・ダイヤが L 倍なら、必要な兵力も L 倍でないとレバレッジが「ただの増収」になる。
+    //   必要同時攻撃数 c* = √(HP_h·DPS_h /(HP_m·DPS_m))、予備込みの必要総数 N* = c*²/c
+    //   ⇒ ボーナスを体力に寄せると N* ∝ HP_h ∝ (ボーナス量) となり、L 比例で N* ∝ L に揃う。
+    // 攻撃に寄せると「一瞬で溶かされて手が出せない」になるので、8割超は体力に回す。
+    // 富スケール（√圧縮）と違い L 比例なのは、L がプレイヤーの選択＝リスク許容度そのものだから。
+    // heroPower に比例させるのは、Lv が上がっても相対的な手強さを保つため（定数加算だと late で薄まる）。
+    const LEV_HERO_SCALE = 0.15;    // L倍ボーナス = floor(LEV_HERO_SCALE·(L-1)·heroPower)。L=2で+15%相当、L=10で+135%相当
+    const LEV_HERO_HP_RATIO = 0.85; // ↑のうち体力に回す割合（残り15%を攻撃/敏捷に半々）
     let leverage = { active: false, stake: 0, mult: 1 };
 
     // 開始資本 S×L（＝損益分岐点＝最大損失）
@@ -3855,6 +4089,10 @@
     }
     // ページ読み込み時にスタート画面へ表示
     updateStartScreenCarryOver();
+    // 保存済みライセンスの検証（非同期。crypto.subtle は secure context でのみ動くため、
+    // http:// で開くと必ず失敗する＝ローカル確認は localhost を使うこと）。
+    // 失敗してもゲーム本体には一切影響させない。
+    loadLicense().catch(() => {});
 
     function adjustMobileScale() {
         const gc = document.getElementById('gameCenter');
@@ -4794,6 +5032,21 @@
                 else if (r < 6) spawnAgi++;
                 else spawnHp++;
             }
+        }
+
+        // L倍ボーナス（ハード限定・怒り/非怒り共通・富スケールとは別枠）。
+        // レバレッジ倍率 L に比例して勇者を「硬く」する＝必要兵力 N* を L 倍にして、
+        // L 倍の収入と釣り合わせる。8割超を体力に回すので殴り合いが長くなるだけで、
+        // 一撃で溶かされる（＝手が出せない）方向には行かない。heroBase には焼き込まない。
+        const levBonus = leverage.active
+            ? Math.floor(LEV_HERO_SCALE * (leverage.mult - 1) * heroPower)
+            : 0;
+        const LEV_ATK_EDGE = LEV_HERO_HP_RATIO + (1 - LEV_HERO_HP_RATIO) / 2;  // 体力の次は攻撃、残りが敏捷
+        for (let i = 0; i < levBonus; i++) {
+            const r = Math.random();
+            if      (r < LEV_HERO_HP_RATIO) spawnHp++;
+            else if (r < LEV_ATK_EDGE)      spawnAtk++;
+            else                            spawnAgi++;
         }
 
         // スポーン地点：コロシアムは門（＋通路方向へのずらし）、通常は勇者の家 or デフォルトの空(0,1)

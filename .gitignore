@@ -1,1 +1,14 @@
 .DS_Store
+
+# ライセンス署名鍵まわり（絶対にコミットしない）
+# .env* にすることで .env.local / .env.production などの派生も確実に拾う
+.env
+.env.*
+*.pem
+sk_pkcs8.b64
+worker/.dev.vars
+worker/.wrangler/
+node_modules/
+
+# テスト鍵を埋め込んだローカル確認用（tools/devhtml.mjs が生成）。出荷物ではない
+index.dev.html

@@ -1,0 +1,40 @@
+name = "magika-dorue-license"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# ─────────────────────────────────────────────────────────────
+# ★ テスト環境と本番環境は「別の署名鍵・別の kid」にすること。
+#   同じ鍵を使うと Stripe のテストカード(4242…)で本物のライセンスが発行できてしまう。
+#   テスト鍵の公開鍵は index.html に載せない（載せた時点で穴になる）。
+# ─────────────────────────────────────────────────────────────
+
+# 既定（＝テスト環境）: npx wrangler deploy
+[vars]
+KID = "200"
+# Stripe ダッシュボード右上に表示されている API バージョンをそのまま貼る。
+# 固定しないと将来の Stripe 側変更で line_items の形が変わって壊れる。
+STRIPE_API_VERSION = ""
+# 商品 → flags。0x01=広告オフ / 0x02=専用テーマ / 0x04=クレジット掲載
+# キーは product ID(prod_…) を推奨。price ID(price_…) でも判定できるが、
+# Stripe の価格は変更不可で、値上げすると新しい price ID が発番される。
+# price ID で判定していると、その瞬間に「課金されたのにコードが出ない」事故になる。
+# 以下はテストモードの商品（広告オフ / サポーター / サポーター任意金額）。
+PRICE_FLAGS = '{"prod_V2TR8sGOT0VcQe":1,"prod_V2TNKKK3qrjSqo":7,"prod_V2Td2t6hLRBDWY":7}'
+GAME_URL = "https://ahyuki-ya.github.io/magika-dorue/"
+CONTACT = "sutelaki182@gmail.com"
+
+# 本番: npx wrangler deploy --env production
+[env.production]
+name = "magika-dorue-license-prod"
+
+[env.production.vars]
+KID = "1"
+STRIPE_API_VERSION = ""
+PRICE_FLAGS = '{"price_LIVE_ADFREE":1,"price_LIVE_SUPPORTER":7,"price_LIVE_PWYW":7}'
+GAME_URL = "https://ahyuki-ya.github.io/magika-dorue/"
+CONTACT = "sutelaki182@gmail.com"
+
+# シークレットはここに書かない。以下で設定する（--env production は本番用）:
+#   npx wrangler secret put STRIPE_SECRET_KEY
+#   npx wrangler secret put SIGNING_KEY_PKCS8_B64
+#   npx wrangler secret put LID_SALT

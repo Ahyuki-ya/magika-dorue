@@ -35,11 +35,23 @@ const perfNow = () => clockMs;
 
 // ---- DOMスタブ（Proxyで何でも受ける makeEl）----
 function makeEl(tag) {
-  const style = new Proxy({}, { get: () => '', set: () => true });
+  // style: 従来どおり「読みは常に空文字・書きは黙って捨てる」。
+  // ただし setProperty/removeProperty だけは実際に記録する（CSS変数によるテーマ切替の検証用）。
+  // 通常のプロパティ読みは今までどおり '' を返すので、既存の path/sim の挙動は変わらない。
+  const styleProps = {};
+  const style = new Proxy({}, {
+    get: (t, p) => {
+      if (p === 'setProperty') return (k, v) => { styleProps[k] = String(v); };
+      if (p === 'removeProperty') return (k) => { delete styleProps[k]; };
+      if (p === 'getPropertyValue') return (k) => (k in styleProps ? styleProps[k] : '');
+      return '';
+    },
+    set: () => true,
+  });
   const classList = { add(){}, remove(){}, toggle(){return false;}, contains(){return false;} };
   const el = {
     tagName: (tag || 'div').toUpperCase(),
-    style, classList,
+    style, classList, __styleProps: styleProps,
     children: [], dataset: {},
     _text: '', _html: '',
     width: 600, height: 800,

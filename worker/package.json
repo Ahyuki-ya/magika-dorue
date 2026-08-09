@@ -1,0 +1,13 @@
+{
+  "name": "magika-dorue-license",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test/local.mjs",
+    "deploy": "wrangler deploy --env=\"\"",
+    "deploy:prod": "wrangler deploy --env production",
+    "secret": "wrangler secret put --env=\"\"",
+    "secret:prod": "wrangler secret put --env production",
+    "tail": "wrangler tail --env=\"\""
+  }
+}

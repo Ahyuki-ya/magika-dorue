@@ -142,6 +142,53 @@ Random bonuses (`randBonus`) and hero gold (`heroGold`) and rage bonus (`rageBon
 
 **成長:** 20秒後に現在レベル＋randBonus のフルステータス成体に置換。親の個別ステータスは引き継がない。
 
+### 異種交配（ハイブリッド）
+**mtype の形式:** 純血は `"slime" / "goblin" / "golem" / "wraith"`（`"+"` を含まない）。ハイブリッドは
+`"body+coat"`（例: `"goblin+golem"`）。`bodyOf(mt)` / `coatOf(mt)` で分解、`isHybrid(mt)` で判定、
+`hybridId(body, coat)` で組み立てる。body=フォルム（見た目の体つき・射程・攻撃モーション）、
+coat=素材（色・贈るステータス）という役割分担。4種×自分以外3種＝ `HYBRID_MTYPES` 12種、
+純血と合わせて `ALL_MTYPES` 16種。
+
+**ステータス合成規則（本改修の核）:** `rebuildHybridGrowth(deep)` が `MONSTER_GROWTH[body]` と
+`MONSTER_GROWTH[coat]` から合成する。素材（coat）が「贈る」ステータス（`MAT_GIFT[coat]`、深き継承後は
+`MAT_GIFT2[coat]` も追加）だけ両者の `base`/`slope` の **max** を取り、贈られないステータスと
+`range`（索敵距離）は **body（体）の値をそのまま**使う。例: 銅ゴブリン（`goblin+golem`）は
+ゴーレム（銅）が攻撃力とHPを贈るので、苔ゴブリン（`goblin`）より攻撃力・HPが高いが、
+**敏捷性と射程（10、ゴブリンの体の索敵距離）はゴブリンとどのレベルでも完全に同値**のまま
+（「敏捷性はそのまま」の仕様）。体と素材を入れ替えた `golem+goblin`（苔ゴーレム）は贈り物の組が
+異なるため別のステータス・別の射程（4、ゴーレムの体）になり、`goblin+golem` と非対称。
+
+**独自レベルと繁殖の制約:** ハイブリッドは `monsterLevels[mt]` を純血と別に持つ**独自レベル**。
+繁殖は**同じハイブリッド同士のみ**成立する（方向ノードは純血ペアにしか定義されておらず、
+ハイブリッド × 別種の交配は成立しない）。強化（Lv上げ）は場にいる個体へ即反映される
+（`refreshMonsterStats()`、HPは割合維持・ちびは成体の半分）という本作の確定方針は
+ハイブリッドにも同様に適用される。
+
+**交配の発生：「繁殖が成立した瞬間に振り替える」方式（未解放時は乱数を消費しない）:**
+異種交配は繁殖ループに新しい分岐を足すのではなく、**同種繁殖が成立する条件が揃った瞬間**に
+確率で結果をハイブリッドへ振り替える形で実装されている（`// ===== 繁殖システム =====`）。
+交配の解放ノード（`breedData.root`）が無ければ振り替えの判定コード自体に入らず、
+`Math.random()` を1回も呼ばない。これは**設計上の要**で、Phase 5 の再現性テスト
+（`test/p5/epilogue_path.js` / `epilogue_sim.js` の乱数消費回数によるハッシュ照合）が
+異種交配を実装する前後で壊れないことを保証する。解放済みの場合のみ、候補（もう一方の親が
+城の3×3にいる別種の fertile 成体）が揃った時に `Math.random() < crossRate()` を1回引き、
+成功すればハイブリッドの子（両親の fertile は両方 false に）、失敗すれば従来どおり同種の子が生まれる。
+
+**スキルツリー（`magika_breed` に永続化）:** ルート（🧬 異種交配の解放・累計繁殖50必要・💎30）＋
+方向ノード12（ハイブリッドごとに個別・親はルート・シャドウレイスが絡む組は `shopData.wraith` が前提）＋
+強化枝3（💞番いの導き＝交配成立確率 `CROSS_RATE_STEPS = [0.30, 0.45, 0.60]` を2段階で解放、
+🍼混血の繁栄＝ハイブリッドのちび上限、🧬深き継承＝ハイブリッド3種以上解放が前提で `MAT_GIFT2` を追加適用）。
+方向ノードの価格は `breedNodeCost(mt)` が贈り物の強さで決める（銅=素材golemは攻とHPの2つを贈るので高い、
+影=素材wraithはさらに高い、体がwraithだと索敵最長のため加算）。
+
+**fertile 供給の拡張:** `fertileNeedOf(mt)` は基本2体に、方向ノードを解放した親種への隠れ特典
+`crossFertileBonus(mt)`（+1）と、装備宝具の新アフィックス「繁殖の祝福」（`treasureFertile`）を上乗せする。
+`AFFIX_TYPES` に `fertile` キーが追加され、`TREASURE_KINDS.censer`（香・索敵/繁殖系統）などに重みがある。
+
+**検証:** `node test/p5/harness.js index.html hybrid`（`test/p5/epilogue_hybrid.js`）。
+名前とアイコン／ステータス合成規則／深き継承／即時反映／スキルツリー／交配の発生（🔴未解放時の
+乱数非消費が最重要）／fertile供給／旧セーブ互換／UI経路のスモークを検証する。
+
 ### Rendering
 Canvas draw order per frame: map tiles → monsters → heroes → particles → floating texts. Smooth movement via lerp (rx/ry updated toward grid target at 0.22 per frame). Fast mode: 60 FPS + lower action threshold.
 

@@ -410,6 +410,8 @@
         .lv-card-name.slime  { color: #bdc3c7; }
         .lv-card-name.goblin { color: var(--c-ok); }
         .lv-card-name.golem  { color: #e59866; }
+        /* ハイブリッドカードの副題（体＋素材の内訳）。.lv-cost-hint に準じた控えめな見た目 */
+        .lv-card-sub { font-size: 10px; color: var(--c-text-faint); margin: 2px 0 4px; }
         .lv-badge {
             font-size: 11px; font-weight: bold; color: var(--c-gold);
             background: rgba(255,204,0,0.12); border: 1px solid rgba(255,204,0,0.35);
@@ -787,6 +789,15 @@
         }
         .shop-buy-btn:hover:not(:disabled) { background: #065858; border-color: #00ccdd; }
         .shop-buy-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        /* ===== 異種交配スキルツリー（🧬 交配タブ）専用の追加クラス ===== */
+        .breed-item-sub { font-size: 0.7rem; color: var(--c-text-sub); margin-top: 2px; }
+        .breed-item-stats { font-size: 0.7rem; color: var(--c-ok); margin-top: 2px; letter-spacing: 1px; }
+        .breed-item.locked { opacity: 0.4; }
+        .breed-tree-header {
+            width: 100%; text-align: center; color: var(--c-text-sub); font-size: 0.8rem;
+            letter-spacing: 2px; margin: var(--s-4) 0 var(--s-2); border-top: 1px solid var(--c-frame-faint);
+            padding-top: var(--s-3);
+        }
         .ach-item {
             display: flex; align-items: center; gap: 10px;
             background: rgba(0,8,32,0.7); border: 2px solid var(--c-frame-faint);
@@ -1168,6 +1179,7 @@
             <div class="ig-tabs">
                 <button class="ig-tab" id="shopTabBtnDiamond" onclick="switchShopTab('diamond')">💎 ダイヤ取引</button>
                 <button class="ig-tab" id="shopTabBtnTreasury" onclick="switchShopTab('treasury')">🏆 宝具庫</button>
+                <button class="ig-tab" id="shopTabBtnBreed" onclick="switchShopTab('breed')">🧬 交配</button>
             </div>
         </div>
         <div class="screen-body">
@@ -1183,6 +1195,10 @@
                 </div>
                 <div style="font-size:0.72rem; color:var(--c-text-sub); margin-top:8px;">所持 <span id="tzInvCount">0</span>/<span id="tzInvMax">200</span></div>
                 <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.85rem; padding:8px 22px; margin-top:8px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">📥 コードを受け取る</button>
+            </div>
+            <div id="shopTabBreedSection" style="width:100%; display:none; flex-direction:column; align-items:center;">
+                <div class="shop-diamond-count">💎 <span id="breedDiamondAmount">0</span></div>
+                <div class="shop-list" id="breedList"></div>
             </div>
         </div>
         <div class="screen-foot">
@@ -1301,6 +1317,7 @@
                     <div class="ig-tabs">
                         <button class="ig-tab" id="igTabShop" onclick="switchInGameTab('shop')">🛒 お買い物</button>
                         <button class="ig-tab" id="igTabTreasury" onclick="switchInGameTab('treasury')">🏆 宝具庫</button>
+                        <button class="ig-tab" id="igTabBreed" onclick="switchInGameTab('breed')">🧬 交配</button>
                         <button class="ig-tab" id="igTabSettings" onclick="switchInGameTab('settings')">⚙ 記録</button>
                     </div>
                     <button class="ig-close" onclick="closeInGamePanel()" title="閉じる（プレイに戻る）">✕</button>
@@ -1317,6 +1334,11 @@
                         <div id="igTzInventoryList" class="tz-grid"></div>
                         <div style="font-size:0.72rem; color:var(--c-text-sub); margin-top:8px;">所持 <span id="igTzInvCount">0</span>/<span id="igTzInvMax">200</span></div>
                         <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.8rem; padding:7px 18px; margin-top:6px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">📥 コードを受け取る</button>
+                    </div>
+                    <div id="igBreedSection" style="width:100%; display:none; flex-direction:column; align-items:center;">
+                        <div class="ig-note">このランのダイヤで即時解放（戦闘は進行中）</div>
+                        <div class="shop-diamond-count">💎 <span id="igBreedDiamondAmount">0</span></div>
+                        <div class="shop-list" id="igBreedList"></div>
                     </div>
                     <div id="igSettingsSection" style="width:100%; display:none; flex-direction:column; align-items:center;">
                         <div class="records-grid" id="igRecordsGrid"></div>
@@ -1915,6 +1937,19 @@
     function saveShop() { localStorage.setItem('magika_shop', JSON.stringify(shopData)); }
     let shopData = loadShop();
 
+    // ===== 異種交配のスキルツリー（magika_breed） =====
+    // nodes: 解放済みハイブリッドの mtype をキーに 1 が入る。{ "goblin+golem": 1, ... }
+    const BREED_DEFAULTS = { root: 0, nodes: {}, rate: 0, cap: 0, deep: 0 };
+    function loadBreed() {
+        try {
+            const b = Object.assign({}, BREED_DEFAULTS, JSON.parse(localStorage.getItem('magika_breed') || '{}'));
+            b.nodes = Object.assign({}, b.nodes);   // 参照を共有しない
+            return b;
+        } catch { return Object.assign({}, BREED_DEFAULTS, { nodes: {} }); }
+    }
+    function saveBreed() { localStorage.setItem('magika_breed', JSON.stringify(breedData)); }
+    let breedData = loadBreed();
+
     const SHOP_ITEMS = [
         { key: 'startGold', icon: '💰', name: '初期ゴールド増加',
           desc: '開始時の所持ゴールド +15G／段階', max: 5, costs: [3, 5, 8, 13, 21] },
@@ -1927,6 +1962,51 @@
           requires: r => r.maxDepthEver >= 100, reqText: '条件: あくま部屋を深度100に設置' },
     ];
 
+    // ===== 異種交配のスキルツリー =====
+    // tier0=根 / tier1=方向ノード（key はハイブリッドの mtype そのもの） / tier2=強化枝。
+    // 方向ごとに別ノードなので「苔ゴーレム」と「銅ゴブリン」は別々に買う（ステータスもレベルも別物）。
+    const CROSS_RATE_STEPS = [0.30, 0.45, 0.60];   // 「番いの導き」の段階ごとの交配成立確率
+
+    // 方向ノードのダイヤ価格。贈るものが強い素材ほど高い。
+    function breedNodeCost(mt) {
+        const b = bodyOf(mt), c = coatOf(mt);
+        let cost = (c === 'golem') ? 20 : 15;   // 銅は攻とHPの2つを贈るので高い
+        if (c === 'wraith') cost = 30;          // 影の素材は最強の攻撃成長を贈る
+        if (b === 'wraith') cost += 10;         // レイスの体は最長射程を持つ
+        return cost;
+    }
+    // BREED_NODES の実体は tier1 の生成に HYBRID_MTYPES / bodyOf / coatOf / MONSTER_NAMES / MONSTER_ICONS
+    // （ハイブリッド定義ブロック、このファイルの後方）を必要とするため、関数宣言として先に置いておき、
+    // それらが揃った直後（ALL_MTYPES の定義付近）で1回だけ呼び出して BREED_NODES を確定させる。
+    // 関数宣言はホイスティングされるので定義位置はここで問題ない（呼び出しが後になるだけ）。
+    function buildBreedNodes() {
+        return [
+            { key:'root', tier:0, icon:'🧬', name:'異種交配の解放',
+              desc:'城の周りで、異なる種族どうしが交配するようになる。ここを開かないと先へ進めない。',
+              max:1, costs:[30],
+              requires: r => r.breeds >= 50, reqText:'条件: 累計繁殖 50' },
+            ...HYBRID_MTYPES.map(mt => {
+                const node = { key: mt, tier: 1, parent: 'root',
+                    icon: MONSTER_ICONS[mt], name: MONSTER_NAMES[mt],
+                    desc: `${MONSTER_NAMES[bodyOf(mt)]} と ${MONSTER_NAMES[coatOf(mt)]} の交配で生まれる。両親の繁殖力もわずかに高まる。`,
+                    max: 1, costs: [breedNodeCost(mt)] };
+                if (bodyOf(mt) === 'wraith' || coatOf(mt) === 'wraith') {
+                    node.requires = () => !!shopData.wraith;
+                    node.reqText = '条件: シャドウレイスを解禁';
+                }
+                return node;
+            }),
+            { key:'rate', tier:2, icon:'💞', name:'番いの導き',
+              desc:'交配が成立する確率 30% → 45% → 60%', max:2, costs:[15, 25], parent:'root' },
+            { key:'cap',  tier:2, icon:'🍼', name:'混血の繁栄',
+              desc:'ハイブリッドのちびの同時上限 +2／段階', max:2, costs:[13, 21], parent:'root' },
+            { key:'deep', tier:2, icon:'🧬', name:'深き継承',
+              desc:'素材が贈るステータスがもう1つ増える（例: 銅は敏捷も渡すようになる）', max:1, costs:[40], parent:'root',
+              requires: () => Object.keys(breedData.nodes).filter(k => breedData.nodes[k]).length >= 3,
+              reqText:'条件: ハイブリッドを3種以上解放' },
+        ];
+    }
+
     function showShop() {
         showScreenOnly('shopScreen');
         switchShopTab('diamond');
@@ -1935,9 +2015,12 @@
     function switchShopTab(which) {
         document.getElementById('shopTabDiamondSection').style.display = (which === 'diamond') ? 'flex' : 'none';
         document.getElementById('shopTabTreasurySection').style.display = (which === 'treasury') ? 'flex' : 'none';
+        document.getElementById('shopTabBreedSection').style.display = (which === 'breed') ? 'flex' : 'none';
         document.getElementById('shopTabBtnDiamond').classList.toggle('active', which === 'diamond');
         document.getElementById('shopTabBtnTreasury').classList.toggle('active', which === 'treasury');
+        document.getElementById('shopTabBtnBreed').classList.toggle('active', which === 'breed');
         if (which === 'diamond') renderShop();
+        else if (which === 'breed') renderBreed();
         else renderTreasuryInto(TZ_FULL);
     }
     // 全画面ショップ（メインメニュー経由・引継ぎダイヤを使用）
@@ -2021,6 +2104,86 @@
             list.appendChild(row);
         }
     }
+    // 全画面ショップ（メインメニュー経由・引継ぎダイヤを使用）
+    function renderBreed() {
+        renderBreedInto(document.getElementById('breedList'),
+                        document.getElementById('breedDiamondAmount'), false);
+    }
+    // ゲーム内ショップ（プレイ中・このランのライブなダイヤを使用）
+    function renderBreedLive() {
+        renderBreedInto(document.getElementById('igBreedList'),
+                        document.getElementById('igBreedDiamondAmount'), true);
+    }
+    // live=true のときは実行中の diamond、false のときは引継ぎダイヤを通貨源にする。
+    // tier0（根）→ 見出し → tier1（12方向）→ 見出し → tier2（3強化）の順で「ツリーらしさ」を段組みで出す。
+    function renderBreedInto(list, diamondEl, live) {
+        if (!list || !diamondEl) return;
+        const available = live ? diamond : loadCarryDiamond();
+        diamondEl.innerText = available;
+        const records = loadRecords();
+        list.innerHTML = '';
+
+        const renderNode = (node) => {
+            const rank = breedNodeRank(node.key);
+            const isMax = rank >= node.max;
+            const cost = isMax ? null : node.costs[rank];
+            const parentOK = !node.parent || breedNodeRank(node.parent) >= 1;
+            const reqLocked = node.requires && !node.requires(records);
+            const locked = !parentOK || reqLocked;
+            const showLockIcon = !parentOK;   // 根が無いうちは掘り下げても意味が無いので鍵表示にする
+
+            const row = document.createElement('div');
+            row.className = 'shop-item breed-item' + (locked ? ' locked' : '');
+            const rankText = node.max > 1
+                ? `Lv ${rank} / ${node.max}`
+                : (isMax ? '解禁済み' : '未解禁');
+            const reqLine = (reqLocked && !isMax && node.reqText)
+                ? `<div class="shop-item-desc" style="color:var(--c-danger);">${node.reqText}</div>` : '';
+
+            // tier1だけ：体+素材の副題と、解放済みならLv50時点のステータス
+            let subLine = '', statsLine = '';
+            if (node.tier === 1) {
+                subLine = `<div class="breed-item-sub">${MONSTER_ICONS[bodyOf(node.key)]}${FORM_NOUN[bodyOf(node.key)]}の体 ＋ ${MONSTER_ICONS[coatOf(node.key)]}${MAT_PREFIX[coatOf(node.key)]}の素材</div>`;
+                if (rank >= 1) {
+                    const s = mstatsAt(node.key, 50);
+                    statsLine = `<div class="breed-item-stats">Lv50: 攻${s.atk} 敏${s.agi} HP${s.hp} 索${s.range}</div>`;
+                }
+            }
+
+            row.innerHTML =
+                `<span class="shop-item-icon">${showLockIcon ? '🔒' : node.icon}</span>` +
+                `<div class="shop-item-body">` +
+                    `<div class="shop-item-name">${node.name}</div>` +
+                    `<div class="shop-item-desc">${node.desc}</div>` + subLine + statsLine + reqLine +
+                    `<div class="shop-item-rank">${rankText}</div>` +
+                `</div>`;
+            const btn = document.createElement('button');
+            btn.className = 'shop-buy-btn';
+            if (isMax) { btn.textContent = 'MAX'; btn.disabled = true; }
+            else if (showLockIcon) { btn.textContent = '🔒'; btn.disabled = true; }
+            else {
+                btn.textContent = `💎 ${cost}`;
+                btn.disabled = locked || available < cost;
+                btn.onclick = () => buyBreedNode(node.key, live);
+            }
+            row.appendChild(btn);
+            list.appendChild(row);
+        };
+
+        renderNode(BREED_NODES.find(n => n.tier === 0));
+
+        const header1 = document.createElement('div');
+        header1.className = 'breed-tree-header';
+        header1.textContent = '— ハイブリッドの解放 —';
+        list.appendChild(header1);
+        for (const node of BREED_NODES.filter(n => n.tier === 1)) renderNode(node);
+
+        const header2 = document.createElement('div');
+        header2.className = 'breed-tree-header';
+        header2.textContent = '— 交配の強化 —';
+        list.appendChild(header2);
+        for (const node of BREED_NODES.filter(n => n.tier === 2)) renderNode(node);
+    }
     function buyShopItem(key, live) {
         const item = SHOP_ITEMS.find(i => i.key === key);
         if (!item) return;
@@ -2053,12 +2216,57 @@
             renderShop();
         }
     }
+    function buyBreedNode(key, live) {
+        const node = BREED_NODES.find(n => n.key === key);
+        if (!node) return;
+        const rank = breedNodeRank(key);
+        if (rank >= node.max) return;
+        if (node.parent && breedNodeRank(node.parent) < 1) { playSE('error'); return; }
+        const records = loadRecords();
+        if (node.requires && !node.requires(records)) { playSE('error'); return; }
+        const cost = node.costs[rank];
+        const applyState = () => {
+            if (key === 'root') breedData.root = 1;
+            else if (node.tier === 2) breedData[key]++;
+            else breedData.nodes[key] = 1;
+        };
+
+        if (live) {
+            // このランのダイヤで購入。即時に永続化して中断コピーを防ぐ
+            if (diamond < cost) { playSE('error'); return; }
+            diamond -= cost;
+            applyState();
+            saveBreed();
+            saveCarryDiamond(diamond);
+            applyLiveBreedEffect(key);
+            updateGoldUI();
+            playSE('buy');
+            renderBreedLive();
+        } else {
+            const carryDia = loadCarryDiamond();
+            if (carryDia < cost) { playSE('error'); return; }
+            saveCarryDiamond(carryDia - cost);
+            applyState();
+            saveBreed();
+            playSE('buy');
+            renderBreed();
+        }
+    }
     // ゲーム内購入をそのランへ即時反映
     function applyLiveShopEffect(key) {
         if (key === 'startGold') { gold += 15; updateGoldUI(); }        // 初期ゴールド強化ぶんを即付与
         else if (key === 'growSpeed') { BABY_GROW_MS = [20000, 16000, 12000][shopData.growSpeed] || 20000; }
         // breedCap は BREED_MAX が毎フレーム shopData を参照するため自動反映
         // wraith 解禁は refreshInGameUnlocks で反映
+        refreshInGameUnlocks();
+    }
+    // ゲーム中の購入をそのランへ即時反映（既存 applyLiveShopEffect と同じ役割）
+    function applyLiveBreedEffect(key) {
+        if (key === 'deep') {
+            rebuildHybridGrowth(breedData.deep > 0);   // 成長テーブルを組み直す
+            if (isGameRunning) refreshMonsterStats();  // 強化は場にいる個体へ即時反映（本作の確定方針）
+        }
+        // rate / cap は毎フレーム breedData を参照するので反映コード不要
         refreshInGameUnlocks();
     }
 
@@ -2101,6 +2309,7 @@
         { key:'range',     base:[1,1],  fmt:v => `射程 +${v}` },
         { key:'sight',     base:[1,3],  fmt:v => `索敵 +${v}` },
         { key:'breedCap',  base:[1,1],  fmt:v => `繁殖上限 +${v}` },
+        { key:'fertile',   base:[1,1],  fmt:v => `繁殖の祝福 +${v}` },
     ];
     // アフィックス1個の値を算出（pctは小数%・0許容、その他は整数・最低1）
     function rollAffixValue(a, mult) {
@@ -2124,16 +2333,16 @@
         ward:    { label:'護', hint:'守り寄り',       weights:{ hp:3, mulHp:2, sight:1.5, startGold:1 } },
         belt:    { label:'装', hint:'敏捷寄り',       weights:{ agi:4, mulAgi:4, hp:1 } },
         stone:   { label:'石', hint:'頑丈寄り',       weights:{ hp:2.5, atk:2, mulHp:1.5 } },
-        relic:   { label:'遺', hint:'財宝寄り',       weights:{ startGold:4, breedCap:2.5 } },
+        relic:   { label:'遺', hint:'財宝寄り',       weights:{ startGold:4, breedCap:2.5, fertile:2 } },
         ring:    { label:'環', hint:'万能（倍率）',   weights:{ startGold:2.5, mulAtk:1.5, mulAgi:1.5, mulHp:1.5, breedCap:1.5 } },
         orb:     { label:'珠', hint:'索敵・射程',     weights:{ sight:4, range:3, mulAtk:1.5 } },
-        censer:  { label:'香', hint:'索敵・繁殖',     weights:{ sight:3, breedCap:3 } },
-        scepter: { label:'笏', hint:'攻撃倍率・繁殖', weights:{ mulAtk:3, breedCap:2.5, atk:2 } },
+        censer:  { label:'香', hint:'索敵・繁殖',     weights:{ sight:3, breedCap:3, fertile:3 } },
+        scepter: { label:'笏', hint:'攻撃倍率・繁殖', weights:{ mulAtk:3, breedCap:2.5, atk:2, fertile:2 } },
         crown:   { label:'冠', hint:'全体強化',       weights:{ mulAtk:2.5, mulAgi:2.5, mulHp:2.5, startGold:2 } },
         crystal: { label:'晶', hint:'倍率特化',       weights:{ mulAtk:3, mulHp:3, mulAgi:3, sight:1 } },
-        heart:   { label:'心', hint:'体力・繁殖',     weights:{ hp:4, mulHp:3, breedCap:1.5 } },
-        dew:     { label:'雫', hint:'敏捷・繁殖',     weights:{ agi:3, mulAgi:3, breedCap:2 } },
-        shard:   { label:'片', hint:'万能',           weights:{ startGold:2, atk:2, agi:2, hp:2, mulAtk:2, mulAgi:2, mulHp:2, range:2, sight:2, breedCap:2 } },
+        heart:   { label:'心', hint:'体力・繁殖',     weights:{ hp:4, mulHp:3, breedCap:1.5, fertile:1.5 } },
+        dew:     { label:'雫', hint:'敏捷・繁殖',     weights:{ agi:3, mulAgi:3, breedCap:2, fertile:2 } },
+        shard:   { label:'片', hint:'万能',           weights:{ startGold:2, atk:2, agi:2, hp:2, mulAtk:2, mulAgi:2, mulHp:2, range:2, sight:2, breedCap:2, fertile:2 } },
     };
     // 宝具カタログ：アイコンと名前を1対1のペアにし、系統(kind)を持たせる。
     // ※アイコンと名前が別々に抽選されて「🪨 錆びた剣」になる旧仕様は廃止。
@@ -3363,12 +3572,15 @@
         inGamePanelTab = which;
         document.getElementById('igShopSection').style.display = (which === 'shop') ? 'flex' : 'none';
         document.getElementById('igTreasurySection').style.display = (which === 'treasury') ? 'flex' : 'none';
+        document.getElementById('igBreedSection').style.display = (which === 'breed') ? 'flex' : 'none';
         document.getElementById('igSettingsSection').style.display = (which === 'settings') ? 'flex' : 'none';
         document.getElementById('igTabShop').classList.toggle('active', which === 'shop');
         document.getElementById('igTabTreasury').classList.toggle('active', which === 'treasury');
+        document.getElementById('igTabBreed').classList.toggle('active', which === 'breed');
         document.getElementById('igTabSettings').classList.toggle('active', which === 'settings');
         if (which === 'shop') renderShopLive();
         else if (which === 'treasury') renderTreasuryInto(TZ_IG);
+        else if (which === 'breed') renderBreedLive();
         else renderSettingsLive();
     }
     function closeInGamePanel() {
@@ -3393,6 +3605,7 @@
     function refreshInGameUnlocks() {
         const wraithCard = document.getElementById('wraith-card');
         if (wraithCard) wraithCard.style.display = shopData.wraith ? '' : 'none';
+        syncHybridLevelCards();   // updateLevelPanel() より前に：解放済みハイブリッドのカードを揃える
         updateLevelPanel();
         updateMuteButtons();
     }
@@ -3463,7 +3676,7 @@
             hp:  mul(s.hp  + rb.hp,  equipMul.hp),
             range: s.range + equipSight,     // 探知距離（entity.range）＝索敵は全モンスター共通
             // 攻撃距離：全モンスターは一律1（近接）。射程アフィックスの恩恵はシャドウレイスのみ。
-            atkRange: mt === 'wraith' ? 1 + equipRange : 1,
+            atkRange: bodyOf(mt) === 'wraith' ? 1 + equipRange : 1,
         };
     }
     // ===== 装備宝具のアフィックスを反映 =====
@@ -3480,6 +3693,7 @@
         equipRange = tz.range || 0;          // 射程（攻撃距離）
         equipSight = tz.sight || 0;          // 索敵（探知距離）
         treasureBreedCap = tz.breedCap || 0; // 繁殖上限
+        treasureFertile = tz.fertile || 0;
         if (isGameRunning) refreshMonsterStats();   // 今いる兵にも効かせる（装備の実感を出す）
         return tz;
     }
@@ -3509,14 +3723,78 @@
         return lv < early.length ? early[lv] : Math.round(21 + (lv - 4) * 8);
     }
 
+    // ===== 異種交配（ハイブリッド） =====
+    // mtype を "body+coat" 形式にする。body=フォルム（体つき・射程）、coat=素材（色・贈るステータス）。
+    // 例: "goblin+golem" = 銅ゴブリン（ゴブリンの体に銅の素材）。純血の mtype は "+" を含まない。
+    const PURE_MTYPES = ['slime', 'goblin', 'golem', 'wraith'];
+    const MAT_PREFIX  = { slime:'石',       goblin:'苔',       golem:'銅',       wraith:'シャドウ' };
+    const FORM_NOUN   = { slime:'スライム', goblin:'ゴブリン', golem:'ゴーレム', wraith:'レイス' };
+    // 素材が「贈る」ステータス。名前に矛盾しない範囲だけを渡す（銅＝重く硬い金属なので攻とHP）。
+    const MAT_GIFT    = { slime:['hp'],     goblin:['agi'],    golem:['atk','hp'], wraith:['atk'] };
+    // 「深き継承」（スキルツリーのtier2）を解放したときに追加で贈るステータス。フェーズAでは未使用。
+    const MAT_GIFT2   = { slime:['atk'],    goblin:['atk'],    golem:['agi'],      wraith:['agi'] };
+
+    function hybridId(body, coat) { return `${body}+${coat}`; }
+    function bodyOf(mt) { const i = mt.indexOf('+'); return i < 0 ? mt : mt.slice(0, i); }
+    function coatOf(mt) { const i = mt.indexOf('+'); return i < 0 ? mt : mt.slice(i + 1); }
+    function isHybrid(mt) { return mt.indexOf('+') >= 0; }
+
+    // 全12種（4フォルム × 自分以外の3素材）
+    const HYBRID_MTYPES = [];
+    for (const b of PURE_MTYPES) for (const c of PURE_MTYPES) if (b !== c) HYBRID_MTYPES.push(hybridId(b, c));
+
+    // ハイブリッドの成長テーブルを生成して MONSTER_GROWTH に流し込む。
+    // 「深き継承」の解放で贈るステータスが増えるため、解放時にも呼び直せるようにしてある。
+    function rebuildHybridGrowth(deep) {
+        for (const mt of HYBRID_MTYPES) {
+            const B = MONSTER_GROWTH[bodyOf(mt)], C = MONSTER_GROWTH[coatOf(mt)];
+            const gift = MAT_GIFT[coatOf(mt)].concat(deep ? MAT_GIFT2[coatOf(mt)] : []);
+            const base = {}, slope = {};
+            for (const k of ['atk', 'agi', 'hp']) {
+                const g = gift.includes(k);
+                base[k]  = g ? Math.max(B.base[k],  C.base[k])  : B.base[k];
+                slope[k] = g ? Math.max(B.slope[k], C.slope[k]) : B.slope[k];
+            }
+            MONSTER_GROWTH[mt] = { base, slope, range: B.range };
+        }
+    }
+    rebuildHybridGrowth(false);
+
     const MONSTER_NAMES  = { slime: '石スライム', goblin: '苔ゴブリン', golem: '銅ゴーレム', wraith: 'シャドウレイス' };
     const MONSTER_ICONS  = { slime: '🪨', goblin: '🌿', golem: '🟤', wraith: '👻' };
     const MONSTER_COLORS = { slime: '#95a5a6', goblin: '#2ecc71', golem: '#d35400', wraith: '#b39ddb' };
-    const ALL_MTYPES = ['slime', 'goblin', 'golem', 'wraith'];
+    // ハイブリッドの名前・アイコン・色を流し込む（名前=素材+フォルム、アイコン=素材アイコン+フォルムアイコン、色=素材色）
+    for (const mt of HYBRID_MTYPES) {
+        MONSTER_NAMES[mt]  = MAT_PREFIX[coatOf(mt)] + FORM_NOUN[bodyOf(mt)];
+        MONSTER_ICONS[mt]  = MONSTER_ICONS[coatOf(mt)] + MONSTER_ICONS[bodyOf(mt)];
+        MONSTER_COLORS[mt] = MONSTER_COLORS[coatOf(mt)];
+    }
+    const ALL_MTYPES = PURE_MTYPES.concat(HYBRID_MTYPES);
+    // BREED_NODES の実体化：tier1 の生成に HYBRID_MTYPES / bodyOf / coatOf / MONSTER_NAMES / MONSTER_ICONS が
+    // 揃っている必要があるため、それらが定義済みのここで buildBreedNodes()（1932行付近で関数宣言）を呼ぶ。
+    const BREED_NODES = buildBreedNodes();
+    // 解放済みハイブリッドの mtype 配列。順序は HYBRID_MTYPES に従える（Object.keys の順に依存しない）。
+    function unlockedHybrids() {
+        if (!breedData.root) return [];
+        return HYBRID_MTYPES.filter(mt => breedData.nodes[mt] &&
+            (shopData.wraith || (bodyOf(mt) !== 'wraith' && coatOf(mt) !== 'wraith')));
+    }
+    function breedNodeRank(key) {
+        if (key === 'root') return breedData.root ? 1 : 0;
+        if (key === 'rate' || key === 'cap' || key === 'deep') return breedData[key] || 0;
+        return breedData.nodes[key] ? 1 : 0;
+    }
+    // 交配が成立する確率（「番いの導き」で上がる）
+    function crossRate() { return CROSS_RATE_STEPS[Math.min(breedData.rate, CROSS_RATE_STEPS.length - 1)]; }
     // シャドウレイス解禁状態に応じたアクティブ種族リスト
-    function activeMtypes() { return shopData.wraith ? ALL_MTYPES : ['slime', 'goblin', 'golem']; }
+    function activeMtypes() {
+        const pure = shopData.wraith ? PURE_MTYPES : ['slime', 'goblin', 'golem'];
+        const hy = unlockedHybrids();
+        return hy.length ? pure.concat(hy) : pure;
+    }
 
-    const monsterLevels = { slime: 1, goblin: 1, golem: 1, wraith: 1 };
+    const monsterLevels = {};
+    for (const mt of ALL_MTYPES) monsterLevels[mt] = 1;
     // レベル上限（キャップ）。初期5・ダイヤ1個で+1（最大MAX_LEVEL・恒久）。ゲーム内ゴールドの
     // レベルアップはこの上限までしか上げられない。ダイヤ=上限解放 / ゴールド=実レベル。
     // ===== モンスターのレベル上限 =====
@@ -3526,10 +3804,12 @@
     // 20 なら累計1,322G（約19分ぶん）を注げ、破綻の目安が波100まで伸びる。
     const MONSTER_CAP_INIT = 20;
     const DIAMOND_CAP_STEP = 5;      // 1💎 で解放されるレベル数（20→100 に16💎）
-    const monsterCap = { slime: MONSTER_CAP_INIT, goblin: MONSTER_CAP_INIT, golem: MONSTER_CAP_INIT, wraith: MONSTER_CAP_INIT };
+    const monsterCap = {};
+    for (const mt of ALL_MTYPES) monsterCap[mt] = MONSTER_CAP_INIT;
     // 装備宝具アフィックス（全モンスター 攻/敏/HP）の反映用ボーナス。ラン開始時に装備から確定。
     // （旧「ランダム強化」も同じ器を使っていたが、ランダム強化は廃止し装備専用に。）
-    const randBonus = { slime: {atk:0,agi:0,hp:0}, goblin: {atk:0,agi:0,hp:0}, golem: {atk:0,agi:0,hp:0}, wraith: {atk:0,agi:0,hp:0} };
+    const randBonus = {};
+    for (const mt of ALL_MTYPES) randBonus[mt] = { atk:0, agi:0, hp:0 };
     // 装備宝具の倍率系・射程・索敵（全モンスター共通・ラン開始時に確定）
     let equipMul = { atk: 0, agi: 0, hp: 0 };   // %（攻撃/敏捷/体力倍率）
     let equipRange = 0;                          // 射程（攻撃距離）加算
@@ -3604,6 +3884,18 @@
         const already = monsters.reduce((n, m) =>
             n + (m.mtype === mt && !m.isBaby && m.fertile && m.hp > 0 ? 1 : 0), 0);
         return Math.max(0, 2 - already);
+    }
+    // 交配の方向ノードを解放すると、その親になる種族の繁殖力がわずかに高まる（ノードの隠れ特典）。
+    // 異種交配は fertile を2種から1体ずつ食うので、これが無いと同種繁殖が痩せてしまう。
+    function crossFertileBonus(mt) {
+        if (!breedData.root) return 0;
+        return unlockedHybrids().some(hm => bodyOf(hm) === mt || coatOf(hm) === mt) ? 1 : 0;
+    }
+    // 勇者登場ごとに fertile にする体数。基本2体（繁殖に必要な数）＋ノード特典＋宝具「繁殖の祝福」。
+    function fertileNeedOf(mt) {
+        const base = colFertileNeed(mt);
+        if (base <= 0) return 0;
+        return base + crossFertileBonus(mt) + treasureFertile;
     }
     // gameMode は下の分岐（報酬・盤面・AI）から広く参照されるのでここで宣言する
     let gameMode = 'standard'; // 'standard' | 'hard' | 'colosseum'
@@ -3833,6 +4125,7 @@
     let sessionTreasures = 0;           // このランで得た宝具数（記録用）
     let sessionTreasureList = [];        // このランで得た宝具（リザルトのレア度枠表示用・{icon,rarity}のみ）
     let treasureBreedCap = 0;           // 装備宝具による繁殖上限ボーナス（ラン開始時に確定）
+    let treasureFertile = 0;  // 装備宝具「繁殖の祝福」による fertile 付与ボーナス
     let BABY_GROW_MS = 20000;           // ちび成長時間（ショップで短縮）
     const DIG_RANGE_BELOW_CASTLE = 10;
     const ENTRANCE_X = Math.floor(COLS / 2);
@@ -4030,6 +4323,7 @@
         if (isColosseum()) updateColRepairBtn();
         // ゲーム内ショップ表示中はライブなダイヤ残高・購入可否を追従
         if (isInGamePanelOpen && inGamePanelTab === 'shop') renderShopLive();
+        else if (isInGamePanelOpen && inGamePanelTab === 'breed') renderBreedLive();
     }
     
     function updateHeroStatsUI(isEnraged, heroType) {
@@ -4069,14 +4363,108 @@
         }
     }
 
+    // 解放済みハイブリッドのカードを #levelPanel に用意する。
+    // 純血4種のカードは HTML に手書きしてあるが、ハイブリッドは12種あるので生成にする。
+    // id の命名を手書きカードと揃えてあるので、updateLevelPanel() は無改造でそのまま動く。
+    function syncHybridLevelCards() {
+        const panel = document.getElementById('levelPanel');
+        if (!panel) return;
+        const unlocked = new Set(unlockedHybrids());
+        for (const mt of HYBRID_MTYPES) {
+            const existing = document.getElementById(`${mt}-card`);
+            // 未解放なら、既に生成済みでも隠す（ラン中に条件が変わりうるため毎回揃え直す）
+            if (!unlocked.has(mt)) {
+                if (existing) existing.style.display = 'none';
+                continue;
+            }
+            if (existing) { existing.style.display = ''; continue; }   // 冪等：既に在るなら作り直さない
+
+            const body = bodyOf(mt), coat = coatOf(mt);
+
+            const card = document.createElement('div');
+            card.className = 'lv-card';
+            card.id = `${mt}-card`;
+
+            const header = document.createElement('div');
+            header.className = 'lv-card-header';
+
+            const nameEl = document.createElement('span');
+            nameEl.className = 'lv-card-name';
+            nameEl.textContent = `${MONSTER_ICONS[mt]} ${MONSTER_NAMES[mt]}`;
+            nameEl.style.color = MONSTER_COLORS[mt];   // ハイブリッドは生成値の色。トークン直書きには当たらない
+
+            const badge = document.createElement('span');
+            badge.className = 'lv-badge';
+            badge.id = `${mt}-lv-badge`;
+            badge.textContent = 'Lv.1';
+
+            const rallyBtn = document.createElement('button');
+            rallyBtn.className = 'lv-rally-btn';
+            rallyBtn.id = `${mt}-rally`;
+            rallyBtn.title = '集合地点を指令する';
+            rallyBtn.style.display = 'none';
+            rallyBtn.textContent = '🚩';
+            rallyBtn.onclick = () => colToggleRallyMode(mt);   // mt に '+' を含むため属性文字列は使わない
+
+            header.appendChild(nameEl);
+            header.appendChild(badge);
+            header.appendChild(rallyBtn);
+
+            const sub = document.createElement('div');
+            sub.className = 'lv-card-sub';
+            sub.textContent = `${MONSTER_ICONS[body]}${FORM_NOUN[body]}の体 ＋ ${MONSTER_ICONS[coat]}${MAT_PREFIX[coat]}の素材`;
+
+            const controls = document.createElement('div');
+            controls.className = 'lv-controls';
+
+            const btnDown = document.createElement('button');
+            btnDown.className = `lv-pm-btn lv-minus ${body}`;   // ハイブリッド専用の色クラスは無いので体の系統を流用
+            btnDown.id = `${mt}-btn-down`;
+            btnDown.textContent = '－';
+            btnDown.onclick = () => levelDown(mt);
+
+            const bar = document.createElement('div');
+            bar.className = 'lv-bar-track';
+            bar.id = `${mt}-bar`;
+
+            const btnUp = document.createElement('button');
+            btnUp.className = `lv-pm-btn lv-plus ${body}`;
+            btnUp.id = `${mt}-btn`;
+            btnUp.textContent = '＋';
+            btnUp.onclick = () => levelUp(mt);
+
+            controls.appendChild(btnDown);
+            controls.appendChild(bar);
+            controls.appendChild(btnUp);
+
+            const costEl = document.createElement('div');
+            costEl.className = 'lv-cost-hint';
+            costEl.id = `${mt}-cost`;
+
+            const statsEl = document.createElement('div');
+            statsEl.className = 'lv-stats-grid';
+            statsEl.id = `${mt}-stats`;
+
+            card.appendChild(header);
+            card.appendChild(sub);
+            card.appendChild(controls);
+            card.appendChild(costEl);
+            card.appendChild(statsEl);
+
+            panel.appendChild(card);
+        }
+    }
+
     // レベルパネルUI更新
     function updateLevelPanel() {
         activeMtypes().forEach(mt => {
             const lv = monsterLevels[mt];
             const stats = mstatsAt(mt, lv);
 
-            // バッジ
-            document.getElementById(`${mt}-lv-badge`).innerText = `Lv.${lv}`;
+            // バッジ（カードがまだ無い種はスキップ＝生成前に呼ばれても落ちないように）
+            const badgeEl = document.getElementById(`${mt}-lv-badge`);
+            if (!badgeEl) return;
+            badgeEl.innerText = `Lv.${lv}`;
 
             // 指令ボタン（コロシアム限定）。設定済みなら座標を出す
             const rallyBtn = document.getElementById(`${mt}-rally`);
@@ -4220,7 +4608,8 @@
         localStorage.setItem('magika_diamond', String(amount));
     }
     function loadMonsterLevels() {
-        const defaults = { slime: 1, goblin: 1, golem: 1, wraith: 1 };
+        const defaults = {};
+        for (const mt of ALL_MTYPES) defaults[mt] = 1;
         const saved = localStorage.getItem('magika_monsterlevels');
         if (!saved) return defaults;
         try { return Object.assign(defaults, JSON.parse(saved)); } catch { return defaults; }
@@ -4232,7 +4621,8 @@
     // 旧セーブ救済: 保存済みの上限が初期値より低くても MONSTER_CAP_INIT まで引き上げる
     // （上限5時代のセーブでも、今の初期値ぶんは無条件で使えるようにする）。
     function loadMonsterCaps() {
-        const caps = { slime: MONSTER_CAP_INIT, goblin: MONSTER_CAP_INIT, golem: MONSTER_CAP_INIT, wraith: MONSTER_CAP_INIT };
+        const caps = {};
+        for (const mt of ALL_MTYPES) caps[mt] = MONSTER_CAP_INIT;
         try {
             const saved = JSON.parse(localStorage.getItem('magika_monstercaps'));
             if (saved) Object.assign(caps, saved);
@@ -4551,6 +4941,8 @@
             monsterCap[mt] = savedCaps[mt];
             monsterLevels[mt] = isColosseum() ? 1 : Math.min(savedLevels[mt] || 1, monsterCap[mt]);
         }
+        // 交配スキルツリー「深き継承」の解放状態をハイブリッド成長テーブルへ反映
+        rebuildHybridGrowth(breedData.deep > 0);
         // 装備宝具のアフィックスを反映（ラン中の装備変更でも同じ関数が呼ばれる）
         applyEquippedAffixes();
         rageBonus = { atk: 0, agi: 0, hp: 0 };
@@ -4558,8 +4950,9 @@
         
         updateGoldUI();
         updateHeroStatsUI(false, null);
+        syncHybridLevelCards();   // updateLevelPanel() より前に：解放済みハイブリッドのカードを揃える
         updateLevelPanel();
-        
+
         isGameRunning = true;
         gameLoop();
 
@@ -5466,7 +5859,7 @@
         // 勇者登場ごとに繁殖可能にする
         // スライム・ゴブリンは確定で2体ずつ、加えてランダムで1種2体
         const markFertile = (mt) => {
-            const need = colFertileNeed(mt);          // コロシアムは「繁殖に必要な2体」まで
+            const need = fertileNeedOf(mt);          // コロシアムは「繁殖に必要な2体」まで（＋ノード特典・宝具）
             if (need <= 0) return;
             const group = monsters.filter(m => m.mtype === mt && !m.isBaby && !m.fertile && m.hp > 0);
             if (group.length >= need) {
@@ -5478,7 +5871,7 @@
         // 既存：ランダムで1種2体（ゴーレム・レイスが選ばれることもある）
         const shuffled = activeMtypes().slice().sort(() => Math.random() - 0.5);
         for (const mt of shuffled) {
-            const need = colFertileNeed(mt);
+            const need = fertileNeedOf(mt);
             if (need <= 0) continue;
             const group = monsters.filter(m => m.mtype === mt && !m.isBaby && !m.fertile && m.hp > 0);
             if (group.length >= need) {
@@ -5865,7 +6258,7 @@
                 // モンスターを倒した時の勇者ゴールド加算
                 if (target.hp <= 0 && entity.isHero && target.mtype) {
                     const heroGoldGain = {slime: 2, goblin: 1, golem: 5, wraith: 3};
-                    heroGold += heroGoldGain[target.mtype] || 0;
+                    heroGold += heroGoldGain[bodyOf(target.mtype)] || 0;
                 }
 
                 // 勇者のHPを0にした際の処理
@@ -6129,6 +6522,8 @@
             const BREED_MAX = isColosseum()
                 ? COL_BREED_MAX + shopData.breedCap + treasureBreedCap   // コロシアムは繁殖が唯一の収入なので絞る
                 : 8 + shopData.breedCap * 2 + treasureBreedCap;          // ショップ＋宝具「繁殖上限」
+            // ハイブリッドのちびは専用の上限（スキルツリー「混血の繁栄」で +2／段階）
+            const hybridBreedMax = BREED_MAX + breedData.cap * 2;
             // コロシアム：繁殖は「繁殖由来の生存数」で頭打ちにする（掘削の枠を食わない）。
             // カウントは種別ループの中で更新する。外で1回だけ判定すると、1フレームに3種が
             // 同時に繁殖して上限を飛び越えられる（実測で 12 の枠に 13 体入った）。
@@ -6138,14 +6533,40 @@
             for (const mt of mtypes) {
                 try {
                 if (isColosseum() && (bredAlive >= COL_BREED_POP || monsters.length >= COL_ARMY_CAP)) continue;
-                if (monsters.filter(m => m.mtype === mt && m.isBaby).length >= BREED_MAX) continue;
                 const fertile = monsters.filter(m =>
                     m.mtype === mt && !m.isBaby && m.fertile === true && m.hp > 0 &&
                     Math.abs(m.x - castlePos.x) <= 1 && Math.abs(m.y - castlePos.y) <= 1
                 );
-                if (fertile.length < 2) continue;
-                const a = fertile[0], b = fertile[1];
-                const e = effStat(mt);
+                if (fertile.length < 1) continue;
+
+                // ---- 異種交配：この繁殖イベントを、確率でハイブリッドの誕生に振り替える ----
+                // 「繁殖が成立した瞬間」に1回だけ振る（毎フレームではない）。解放していなければ候補が
+                // 空になり、Math.random() を1度も消費しない＝既存の再現性テストを壊さない。
+                let crossMt = null, crossMate = null;
+                if (breedData.root && !isHybrid(mt)) {
+                    const cands = [];
+                    for (const hm of unlockedHybrids()) {
+                        // このハイブリッドの親のうち、mt でない方の種族
+                        const other = bodyOf(hm) === mt ? coatOf(hm) : (coatOf(hm) === mt ? bodyOf(hm) : null);
+                        if (!other) continue;
+                        if (monsters.filter(m => m.mtype === hm && m.isBaby).length >= hybridBreedMax) continue;
+                        const mate = monsters.find(m => m.mtype === other && !m.isBaby && m.fertile === true && m.hp > 0 &&
+                            Math.abs(m.x - castlePos.x) <= 1 && Math.abs(m.y - castlePos.y) <= 1);
+                        if (mate) cands.push({ hm, mate });
+                    }
+                    if (cands.length && Math.random() < crossRate()) {
+                        // 候補が1つのときは余計な乱数を引かない（テストの決定性のため）
+                        const pick = cands.length === 1 ? cands[0] : cands[Math.floor(Math.random() * cands.length)];
+                        crossMt = pick.hm; crossMate = pick.mate;
+                    }
+                }
+                if (!crossMt) {
+                    if (monsters.filter(m => m.mtype === mt && m.isBaby).length >= (isHybrid(mt) ? hybridBreedMax : BREED_MAX)) continue;
+                    if (fertile.length < 2) continue;
+                }
+                const a = fertile[0], b = crossMate || fertile[1];
+                const bornMt = crossMt || mt;
+                const e = effStat(bornMt);
                 let sx = a.x, sy = a.y;
                 for (const d of [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}]) {
                     const nx = castlePos.x + d.x, ny = castlePos.y + d.y;
@@ -6157,7 +6578,7 @@
                     atk:   Math.max(1, Math.floor(e.atk / 2)),
                     agi:   Math.max(1, Math.floor(e.agi / 2)),
                     range: e.range, atkRange: e.atkRange, isHero: false,
-                    color: a.color, mtype: mt,
+                    color: MONSTER_COLORS[bornMt], mtype: bornMt,
                     isBaby: true, bornAt: gameTime, fertile: false,
                     fromBreed: true                     // 繁殖由来の印（コロシアムの繁殖枠のカウント対象）
                 });
@@ -6166,7 +6587,7 @@
                 sessionBreeds++;
                 a.fertile = false;
                 b.fertile = false;
-                spawnFloatingText(sx, sy, `ちび${MONSTER_NAMES[mt]}誕生！`, '#e91e96');
+                spawnFloatingText(sx, sy, `ちび${MONSTER_NAMES[bornMt]}誕生！`, '#e91e96');
                 playSE('breed');
                 } catch(e) {}
             }
@@ -6281,6 +6702,67 @@
             ctx.fillRect(px + 12, py + 19, 6, 9);
         }
 
+        // ハイブリッドの体の輪郭だけをパスにする（fillはしない）。既存の各体描画から輪郭値だけを写す。
+        function traceFormSilhouette(form, cx, cy) {
+            if (form === 'slime') {
+                const r = 5;
+                ctx.beginPath(); ctx.ellipse(cx, cy, r * 1.1, r * 0.9, 0, 0, Math.PI * 2);
+            } else if (form === 'goblin') {
+                const r = 4.5;
+                ctx.beginPath(); ctx.ellipse(cx, cy + 1, r * 0.75, r, 0, 0, Math.PI * 2);
+            } else if (form === 'golem') {
+                const s = 5.5;
+                ctx.beginPath(); ctx.roundRect(cx - s, cy - s, s * 2, s * 2, 2);
+            } else if (form === 'wraith') {
+                const r = 5;
+                ctx.beginPath(); ctx.ellipse(cx, cy - 0.5, r * 0.9, r * 0.95, 0, 0, Math.PI * 2);
+            }
+        }
+
+        // ハイブリッドの素材（coat）を体の上に重ねる。
+        // 体の輪郭をひと塗りして色を寄せ、素材ごとのアクセントを置く。
+        // ctx.shadowBlur と毎フレームのグラデーション生成は使わない（描画性能予算・magi_CLAUDE.md）。
+        function drawCoat(mt, form, cx, cy) {
+            const coat = coatOf(mt);
+            // 体の輪郭に合わせた基準サイズ（traceFormSilhouetteの値と揃える）
+            const rad = form === 'golem' ? 5.5 : (form === 'goblin' ? 4.5 : 5);
+
+            // 1) 素材色でひと塗り
+            ctx.globalAlpha = 0.38;
+            ctx.fillStyle = MONSTER_COLORS[mt];
+            traceFormSilhouette(form, cx, cy); ctx.fill();
+            ctx.globalAlpha = 1;
+
+            // 2) 素材色の輪郭線（体つきの形をはっきりさせる）
+            ctx.strokeStyle = MONSTER_COLORS[mt]; ctx.lineWidth = 0.9;
+            traceFormSilhouette(form, cx, cy); ctx.stroke();
+
+            // 3) 素材ごとのアクセント（coatOf(mt) で分岐。素材が何かを言い当てられる形にする）
+            if (coat === 'slime') {
+                // 石：灰色がかった角ばった粒を3つ
+                ctx.fillStyle = 'rgba(149,165,166,0.85)';
+                [[-rad*0.4, -rad*0.3, 1], [rad*0.35, rad*0.1, 0.9], [-rad*0.1, rad*0.45, 0.8]].forEach(([dx, dy, s]) => {
+                    ctx.fillRect(cx + dx - s/2, cy + dy - s/2, s, s);
+                });
+            } else if (coat === 'goblin') {
+                // 苔：緑の丸い斑点を3つ（既存の苔ゴブリンの斑点表現と同じ色）
+                ctx.fillStyle = 'rgba(130,224,170,0.55)';
+                [[-rad*0.35, -rad*0.2, 1.1], [rad*0.3, rad*0.15, 0.9], [-rad*0.05, rad*0.45, 0.8]].forEach(([dx, dy, s]) => {
+                    ctx.beginPath(); ctx.arc(cx + dx, cy + dy, s, 0, Math.PI * 2); ctx.fill();
+                });
+            } else if (coat === 'golem') {
+                // 銅：金色のボルトを四隅に4つ（既存の銅ゴーレムのボルトと同じ色）
+                ctx.fillStyle = '#ffcc00';
+                [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([dx, dy]) => {
+                    ctx.beginPath(); ctx.arc(cx + dx*(rad-1.5), cy + dy*(rad-1.5), 1, 0, Math.PI * 2); ctx.fill();
+                });
+            } else if (coat === 'wraith') {
+                // 影：半透明の紫のもやを体より一回り大きく（既存のレイスの外側オーラと同じ色）
+                ctx.fillStyle = 'rgba(125,91,181,0.18)';
+                ctx.beginPath(); ctx.ellipse(cx, cy, rad * 1.35, rad * 1.4, 0, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+
         function drawEntity(entity) {
             // スムーズな補間移動 (lerp)。目標はマス中心＋サブセルの席オフセット。
             const targetX = entity.x * TILE_SIZE + TILE_SIZE / 2 + (entity.ox || 0);
@@ -6303,6 +6785,9 @@
                 ctx.scale(0.55, 0.55);
                 ctx.translate(-cx, -cy);
             }
+
+            // ハイブリッドは体つき(body)の描画を流用し、素材(coat)を上から重ねる
+            const form = entity.mtype ? bodyOf(entity.mtype) : null;
 
             if (entity.isHero) {
                 const r = 8;
@@ -6366,7 +6851,7 @@
                     ctx.globalAlpha = 1.0;
                 }
 
-            } else if (entity.mtype === 'slime') {
+            } else if (form === 'slime') {
                 // ---- 石スライム：丸くて石っぽい模様 ----
                 const r = 5;
                 ctx.beginPath();
@@ -6405,7 +6890,7 @@
                 ctx.fillStyle = '#27ae60';
                 ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
 
-            } else if (entity.mtype === 'goblin') {
+            } else if (form === 'goblin') {
                 // ---- 苔ゴブリン：三角頭＋緑まだら ----
                 const r = 4.5;
                 // 影
@@ -6451,7 +6936,7 @@
                 ctx.fillStyle = '#27ae60';
                 ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
 
-            } else if (entity.mtype === 'golem') {
+            } else if (form === 'golem') {
                 // ---- 銅ゴーレム：四角くゴツい ----
                 const s = 5.5;
                 // 影
@@ -6494,7 +6979,7 @@
                 ctx.fillStyle = '#27ae60';
                 ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
 
-            } else if (entity.mtype === 'wraith') {
+            } else if (form === 'wraith') {
                 // ---- シャドウレイス：半透明の幽体・揺らめく裾 ----
                 // shadowBlurは重いため未使用。半透明レイヤー重ねで発光風に
                 const r = 5;
@@ -6534,6 +7019,9 @@
                 ctx.fillStyle = '#27ae60';
                 ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
             }
+
+            // ハイブリッドは体の上に素材の色を薄く重ね、素材のアクセントを置く（体つきと素材の両方を読ませる）
+            if (form && isHybrid(entity.mtype)) drawCoat(entity.mtype, form, cx, cy);
 
             ctx.restore();
 

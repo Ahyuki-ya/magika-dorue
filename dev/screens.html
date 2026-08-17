@@ -80,6 +80,13 @@ const SCREENS = [
       for (let i = 0; i < 7; i++) w.addTreasure(w.rollTreasure(300 + i * 220));
       w.showShop(); w.switchShopTab('treasury');
   } },
+  { id: 'shopBreed',        label: 'ショップ／🧬交配',  fn: w => {
+      // ルート・方向12・強化枝3は未解放でも常にフルで並ぶ（鍵アイコン付き）ので、
+      // 宝具庫と違って空にはならない。buyBreedNode は累計繁殖数・ダイヤの実残高を読んで
+      // 判定するため（Storage.setItem を止めていて書き込みが効かない＝実セーブは変わらない）、
+      // ここから解放済みの見た目を偽装することはできない。素のツリーをそのまま見る。
+      w.showShop(); w.switchShopTab('breed');
+  } },
   { id: 'settingsScreen',   label: 'その他設定',      fn: w => w.showSettings() },
   { id: 'gameScreen',       label: 'プレイ中',        fn: w => {
       w.enterGameScreen('standard');

@@ -39,16 +39,28 @@ function makeEl(tag) {
   // ただし setProperty/removeProperty だけは実際に記録する（CSS変数によるテーマ切替の検証用）。
   // 通常のプロパティ読みは今までどおり '' を返すので、既存の path/sim の挙動は変わらない。
   const styleProps = {};
+  // style は代入した値を覚える（以前は捨てていたため、el.style.display = 'grid' のような
+  // 「表示の出し分け」をテストから確認できず、画面が出ないバグを取り逃がした）。
   const style = new Proxy({}, {
     get: (t, p) => {
       if (p === 'setProperty') return (k, v) => { styleProps[k] = String(v); };
       if (p === 'removeProperty') return (k) => { delete styleProps[k]; };
       if (p === 'getPropertyValue') return (k) => (k in styleProps ? styleProps[k] : '');
-      return '';
+      return p in t ? t[p] : '';
     },
-    set: () => true,
+    set: (t, p, v) => { t[p] = String(v); return true; },
   });
-  const classList = { add(){}, remove(){}, toggle(){return false;}, contains(){return false;} };
+  // classList は実際に持っているクラスを覚える。
+  // 以前は contains() が常に false だったため「クラスを見て分岐するコード」を
+  // テストできず、画面の display 切り替えの取り違えを取り逃がした。
+  const _cls = new Set();
+  const classList = {
+    add(...n){ n.forEach(c => _cls.add(c)); },
+    remove(...n){ n.forEach(c => _cls.delete(c)); },
+    toggle(c, on){ const v = on === undefined ? !_cls.has(c) : !!on; v ? _cls.add(c) : _cls.delete(c); return v; },
+    contains(c){ return _cls.has(c); },
+    get value(){ return [..._cls].join(' '); },
+  };
   const el = {
     tagName: (tag || 'div').toUpperCase(),
     style, classList, __styleProps: styleProps,
@@ -89,9 +101,31 @@ function makeCtx() {
   });
 }
 
+// 実HTMLの id → class を拾っておき、スタブ要素に同じクラスを持たせる。
+// これで「クラスを見て分岐するコード」（例: 画面ごとの display の出し分け）を
+// テストから実際に動かせる。
+const ID_CLASSES = (() => {
+  const map = {};
+  for (const m of html.matchAll(/<[a-zA-Z][^>]*>/g)) {
+    const tag = m[0];
+    const id = (tag.match(/\sid="([^"]+)"/) || [])[1];
+    if (!id) continue;
+    const cls = (tag.match(/\sclass="([^"]*)"/) || [])[1];
+    if (cls) map[id] = cls.trim().split(/\s+/);
+  }
+  return map;
+})();
+
 const elCache = {};
 const documentStub = {
-  getElementById(id){ return elCache[id] || (elCache[id] = makeEl('div')); },
+  getElementById(id){
+    if (!elCache[id]) {
+      const e = makeEl('div');
+      (ID_CLASSES[id] || []).forEach(c => e.classList.add(c));
+      elCache[id] = e;
+    }
+    return elCache[id];
+  },
   querySelector(){ return makeEl('div'); },
   querySelectorAll(){ return []; },
   createElement(tag){ return makeEl(tag); },
@@ -144,6 +178,10 @@ try { global.navigator = windowStub.navigator; } catch (e) { try { Object.define
 global.alert = windowStub.alert;
 global.confirm = windowStub.confirm;
 global.prompt = windowStub.prompt;
+// MutationObserver: 電光掲示板（#message の変化を拾って流し直す）が使う。
+// スタブは監視するだけで発火しない＝掲示板の見た目はテスト対象外、という割り切り。
+global.MutationObserver = class { constructor(cb){ this.cb = cb; } observe(){} disconnect(){} takeRecords(){ return []; } };
+windowStub.MutationObserver = global.MutationObserver;
 global.AudioContext = undefined;
 global.webkitAudioContext = undefined;
 const __realNow = require('perf_hooks').performance.now.bind(require('perf_hooks').performance);

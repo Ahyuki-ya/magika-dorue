@@ -221,7 +221,7 @@
       '1個あたり純コストG': p > 0 ? Math.round(tiles - 14) : '∞',
       '10個(Lv MAX)の純コストG': p > 0 ? Math.round((tiles - 14) * 10) : '∞',
       '20個(昇格1段)の純コストG': p > 0 ? Math.round((tiles - 14) * 20) : '∞',
-      '20個ぶんの所要時間(分・G/分=' + r1(60 * gPerSecStd) + ')': p > 0 ? r1((tiles - 14) * 20 / gPerSecStd / 60) : '∞',
+      ['20個ぶんの所要時間(分・G/分=' + r1(60 * gPerSecStd) + ')']: p > 0 ? r1((tiles - 14) * 20 / gPerSecStd / 60) : '∞',
     });
   }
   // レア度分布（standard・L=1）と「同ランク10個」に必要な総ドロップ数

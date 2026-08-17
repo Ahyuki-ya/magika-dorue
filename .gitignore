@@ -12,3 +12,7 @@ node_modules/
 
 # テスト鍵を埋め込んだローカル確認用（tools/devhtml.mjs が生成）。出荷物ではない
 index.dev.html
+
+# ガードレールのうち、このMacのフォルダ構成に依存する部分。
+# 履歴書や私的フォルダの名前が入るので公開リポジトリには載せない
+.claude/settings.local.json

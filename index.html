@@ -24,10 +24,16 @@
             --r-epic: #9b59b6;   --r-legendary: #ffcc00; --r-god: #ff44dd;
             /* 形・動き */
             --radius: 2px;           --dur-fast: 90ms;       --dur-mid: 150ms;
+            /* 間隔（4px 刻み・半段の 2px 刻みまで）。余白はこの中から選ぶこと。
+               既存コードは実質この目盛りに乗っている（6/10/14/18 は半段）。
+               新しく書くときに 7px や 13px のような目盛り外の値を持ち込まない。 */
+            --s-1: 4px;   --s-2: 8px;   --s-3: 12px;  --s-4: 16px;
+            --s-5: 20px;  --s-6: 24px;  --s-8: 32px;  --s-10: 40px;
+            --s-h2: 6px;  --s-h3: 10px; --s-h4: 14px; --s-h5: 18px;
         }
         body {
             font-family: 'Courier New', Courier, monospace;
-            background-color: #000018; color: #f0f0f0;
+            background-color: var(--c-bg); color: var(--c-text);
             margin: 0; padding: 0;
             display: flex; justify-content: center; align-items: center;
             height: 100vh; overflow: hidden; position: relative;
@@ -38,35 +44,87 @@
             width: 100%; height: 100%;
             position: absolute; inset: 0; z-index: 1;
         }
-        #titleScreen  { display: flex; background: #000018; }
-        #startScreen  { background: #000018; }
+
+        /* ===== 画面の配置契約（全画面共通・ここだけで縦の並びが決まる） =====
+           見出し / 中身 / 操作ボタン の3段に固定する。中身の段だけが伸び縮みして
+           内側でスクロールするので、何を足しても画面からはみ出さない。
+           ＝「収まらなかったら後から縮める」補正が要らなくなる。
+           新しい要素は必ず .screen-head / .screen-body / .screen-foot のどれかに入れること。 */
+        .screen-layout {
+            /* display はここで指定しない。
+               .screen の display:none と同じ強さなので、後から書くと「常に表示」になってしまう。
+               実際に出す時の display は showScreenOnly が入れる（この画面には grid を入れる）。 */
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            grid-template-areas: "head" "body" "foot";
+            /* .screen が align-items:center / justify-content:center を持っている（flex用）。
+               grid のまま引き継ぐと、各段が「行いっぱいに広がらず content の高さで縦中央に置かれる」ため、
+               中身が行より高いと上下の段へはみ出して重なる。ここで打ち消しておく。 */
+            align-items: stretch; align-content: stretch;
+            justify-items: center; justify-content: stretch;
+            width: 100%; height: 100%;
+            padding: var(--s-4) var(--s-3); box-sizing: border-box; gap: var(--s-3);
+        }
+        .screen-head { grid-area: head; display: flex; flex-direction: column; align-items: center; gap: var(--s-3); }
+        .screen-body {
+            grid-area: body; min-height: 0; width: 100%;
+            display: flex; flex-direction: column; align-items: center;
+            /* 縦だけスクロールさせる。overflow-x を開けたままだと、縦バーに取られた幅の分だけ
+               中身があふれて「横スクロールバーが1本出る」ので塞ぐ。 */
+            overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+        }
+        .screen-foot { grid-area: foot; display: flex; flex-direction: column; align-items: center; gap: var(--s-2); }
+        .screen-body::-webkit-scrollbar { width: 6px; }
+        .screen-body::-webkit-scrollbar-track { background: transparent; }
+        .screen-body::-webkit-scrollbar-thumb { background: var(--c-frame-dim); border-radius: 3px; }
+        #titleScreen  { display: flex; background: var(--c-bg); }
+        #startScreen  { background: var(--c-bg); }
         #modeSelectScreen { background: #000020; }
         #gameScreen {
             flex-direction: row; justify-content: center; align-items: flex-start;
             padding: 12px; gap: 14px;
-            background-color: #000010;
+            background-color: var(--c-bg-game);
             position: absolute; inset: 0; z-index: 2;
             height: 100%; box-sizing: border-box;
             overflow: auto;
         }
+        /* ===== プレイ画面の配置契約（レイアウトはここだけで決まる） =====
+           HUD は position:absolute を使わず、必ずこのグリッドのセルに入れる。
+           セルが分かれている＝重なりようがない、という構造で担保する。
+           新しい HUD を足すときは「grid-template-areas に行を足す」以外の方法を取らないこと。 */
         #gameCenter {
-            display: flex; flex-direction: column; align-items: center;
-            flex-shrink: 0; position: relative;
-            padding-top: 40px;
+            display: grid;
+            /* 1列だけ。幅は盤面（stage）が決める。
+               HUD行と掲示板は width:0 + min-width:100% で「列幅を広げないが列幅いっぱいに広がる」
+               ＝ 3段の左右の位置が必ずそろう。 */
+            grid-template-columns: max-content;
+            grid-template-areas: "hud" "ticker" "stage";
+            justify-items: stretch; align-items: start;
+            row-gap: 8px;
+            flex-shrink: 0; max-width: 100%;
         }
+        #gameHud {
+            grid-area: hud; width: 0; min-width: 100%;
+            display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-2);
+        }
+        #gameActionsWrap { position: relative; flex-shrink: 0; }
+        #hudTopCenter    { flex: 1 1 auto; min-width: 0; }
+        #currencyUI      { flex-shrink: 0; }
+        #tickerBar       { grid-area: ticker; width: 0; min-width: 100%; }
+        #canvasContainer { grid-area: stage; }
 
         /* 左サイドパネル（デスクトップ用メニュー導線） */
         #sidePanelLeft {
             width: 150px; flex-shrink: 0; align-self: flex-start;
             margin-top: 40px;
             display: flex; flex-direction: column; gap: 8px;
-            background: rgba(0,8,32,0.92); border: 2px solid #2244aa;
+            background: var(--c-panel); border: 2px solid var(--c-frame-dim);
             border-radius: 2px; padding: 10px 8px;
         }
         .side-panel-title {
             display: flex; align-items: center; justify-content: space-between;
             font-size: 11px; color: #6688cc;
-            letter-spacing: 3px; border-bottom: 1px solid #1a2a60;
+            letter-spacing: 3px; border-bottom: 1px solid var(--c-frame-faint);
             padding-bottom: 6px; margin-bottom: 2px;
         }
         #sidePanelCollapseBtn {
@@ -81,21 +139,21 @@
             display: none; align-items: center; justify-content: center;
             align-self: flex-start; margin-top: 40px;
             width: 34px; height: 34px; flex-shrink: 0;
-            background: rgba(0,8,32,0.92); border: 2px solid #2244aa;
+            background: var(--c-panel); border: 2px solid var(--c-frame-dim);
             border-radius: 2px; color: #6688cc; cursor: pointer;
             font-size: 1.1rem; padding: 0;
         }
-        #sidePanelOpenHandle:hover { border-color: #4466cc; color: #aaccff; }
+        #sidePanelOpenHandle:hover { border-color: var(--c-frame); color: #aaccff; }
         #sidePanelOpenHandle.show { display: flex; }
         .side-btn {
             display: flex; align-items: center; gap: 8px;
             width: 100%; padding: 10px 10px; margin: 0;
-            background: rgba(68,102,204,0.08); border: 1px solid #1a2a60;
+            background: rgba(68,102,204,0.08); border: 1px solid var(--c-frame-faint);
             border-radius: 2px; cursor: pointer; text-align: left;
             color: #aaccff; transition: all 0.12s;
             font-family: 'Courier New', Courier, monospace;
         }
-        .side-btn:hover { background: rgba(20,50,140,0.8); border-color: #4466cc; color: #ffffff; }
+        .side-btn:hover { background: rgba(20,50,140,0.8); border-color: var(--c-frame); color: #ffffff; }
         .side-btn-icon { font-size: 1.2rem; flex-shrink: 0; }
         .side-btn-label { font-size: 0.8rem; font-weight: bold; }
         .side-btn-quit { color: #cc8888; border-color: #3a1a1a; }
@@ -106,7 +164,7 @@
             display: none; align-items: center; justify-content: center;
             position: fixed; bottom: 16px; left: 16px;
             width: 56px; height: 56px; border-radius: 50%;
-            background: #0a2050; border: 2px solid #4466cc;
+            background: #0a2050; border: 2px solid var(--c-frame);
             box-shadow: 0 4px 16px rgba(0,0,0,0.6);
             font-size: 1.4rem; z-index: 300; cursor: pointer; color: #aaccff;
         }
@@ -114,7 +172,7 @@
         #menuPopover {
             display: none; position: fixed; bottom: 80px; left: 16px;
             flex-direction: column; gap: 6px; z-index: 320;
-            background: rgba(0,8,32,0.97); border: 2px solid #4466cc;
+            background: rgba(0,8,32,0.97); border: 2px solid var(--c-frame);
             border-radius: 8px; padding: 8px;
         }
         #menuPopover.open { display: flex; }
@@ -126,7 +184,7 @@
             text-shadow: 3px 3px 0 #000066, 6px 6px 0 #000044, 0 0 18px rgba(68,102,204,0.55);
             position: relative; z-index: 1;
         }
-        .gameover-title { font-size: 4rem; color: #ff4422; margin-bottom: 20px; }
+        .gameover-title { font-size: 4rem; color: var(--c-danger); margin-bottom: 20px; }
 
         /* ===== P4-7 タイトルの空気感：星屑（CSSのみ・JS追加なし） =====
            radial-gradient の多重背景をゆっくり流す。要素は1枚・GPU合成のみ。 */
@@ -163,11 +221,12 @@
         .screen.fade-in { animation: screenFade var(--dur-mid) ease-out; }
         @keyframes screenFade { from { opacity: 0; } to { opacity: 1; } }
 
-        #dashboard { margin-bottom: 10px; text-align: center; z-index: 10; flex-shrink: 0; }
-        .btn-group { margin-bottom: 8px; }
+        /* あくま部屋操作群（強化パネルの下・右カラム） */
+        #dashboard { width: 100%; box-sizing: border-box; }
+        .btn-group { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
         button {
             padding: 8px 16px; font-size: 14px; cursor: pointer;
-            color: #f0f0f0; border: none; border-radius: 2px; font-weight: bold;
+            color: var(--c-text); border: none; border-radius: 2px; font-weight: bold;
             margin: 0 4px; transition: 0.15s;
         }
         /* ===== P4-8 ボタン状態の統一（全ボタン共通・トークン参照） =====
@@ -179,20 +238,33 @@
         }
         button:disabled { cursor: not-allowed; filter: saturate(0.4); opacity: 0.45; }
         .btn-start {
-            background: #0a2050; font-size: 1.5rem; padding: 15px 40px;
-            border: 3px solid #4466cc; color: #ffffff; letter-spacing: 3px;
+            background: #0a2050; font-size: 1.5rem; padding: 16px 40px;
+            border: 3px solid var(--c-frame); color: #ffffff; letter-spacing: 3px;
         }
         .btn-start:hover { background: #1a3070; border-color: #6688ff; }
-        .btn-castle { background: #0a1840; padding: 10px 20px; font-size: 16px; border: 2px solid #2244aa; color: #aaccff; }
-        .btn-castle:hover { background: #1a2860; border-color: #4466cc; }
+        .btn-castle {
+            background: #0a1840; padding: 10px; font-size: 13px; border: 2px solid var(--c-frame-dim); color: #aaccff;
+            width: 100%; box-sizing: border-box; white-space: normal; line-height: 1.3; margin: 0;
+        }
+        .btn-castle:hover { background: #1a2860; border-color: var(--c-frame); }
         .btn-castle.active { background: #6a1010; border-color: #cc2200; color: #ffaaaa; box-shadow: 0 0 8px rgba(200,0,0,0.4); }
+        /* あくま部屋作成は正方形の専用ボタンに */
+        .btn-castle-square {
+            width: 84px; height: 84px; padding: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 2px; flex-shrink: 0;
+        }
+        .btn-castle-square .castle-btn-icon { font-size: 26px; line-height: 1; }
+        .btn-castle-square .castle-btn-label { font-size: 11px; }
+        .btn-castle-square .castle-btn-cost { font-size: 11px; color: var(--c-gold); font-weight: bold; }
         
         #canvasContainer {
-            width: 600px;
-            height: min(600px, calc(100vh - 210px));
+            /* 幅は canvas の実寸（COLS × TILE_SIZE）に従わせる＝盤面が左右対称に収まる */
+            width: max-content;
+            height: min(920px, calc(100vh - 190px));
             overflow-y: auto; overflow-x: hidden;
-            border: 4px solid #4466cc;
-            box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px #4466cc;
+            border: 4px solid var(--c-frame);
+            box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px var(--c-frame);
             position: relative; background-color: #ecf0f1;
         }
         /* スクロールバーは出さない（縦移動はミニマップ・ホイール・タッチで行う） */
@@ -200,81 +272,134 @@
         #canvasContainer::-webkit-scrollbar { width: 0; height: 0; display: none; }
         #minimap {
             position: fixed; left: 12px; top: 12px; z-index: 150;
-            border: 2px solid #4466cc; background: rgba(0,8,32,0.9);
+            border: 2px solid var(--c-frame); background: rgba(0,8,32,0.9);
             cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.6);
         }
         /* 追尾カメラ ON の見た目 */
         #followBtn.on {
-            background: #1d5a3a !important; border-color: #2ecc71 !important; color: #bfffd8 !important;
+            background: #1d5a3a !important; border-color: var(--c-ok) !important; color: #bfffd8 !important;
             box-shadow: 0 0 8px rgba(46,204,113,0.5);
         }
 
         canvas { display: block; cursor: crosshair; }
 
-        .legend {
-            margin-top: 5px; display: flex; gap: 15px; font-size: 13px;
-            justify-content: center; flex-wrap: wrap; max-width: 600px;
+        /* ===== 電光掲示板：お知らせは必ずここを右から左へ流れる ===== */
+        #tickerBar {
+            /* 枠線を幅に含める。含めないと 100%＋枠4px になり、盤面より4px広くなる */
+            width: 100%; max-width: 100%; box-sizing: border-box;
+            height: 26px; overflow: hidden;
+            display: flex; align-items: center;
+            background: #050a18; border: 2px solid #223a6a; border-radius: 2px;
+            box-shadow: inset 0 0 12px rgba(0,80,255,0.18);
+            /* LED の粒感（背景だけ・文字には掛けない） */
+            background-image: repeating-linear-gradient(90deg, rgba(60,90,160,0.10) 0 1px, transparent 1px 3px);
         }
-        .color-box {
-            display: inline-block; width: 12px; height: 12px;
-            vertical-align: middle; margin-right: 4px; border-radius: 2px;
+        #message {
+            display: inline-block; white-space: nowrap; flex-shrink: 0;
+            padding-left: 100%;                 /* 右端の外から入ってくる */
+            font-size: 12px; font-weight: bold; letter-spacing: 1px;
+            color: #ffb455; text-shadow: 0 0 6px rgba(255,150,40,0.75);
+            animation: tickerScroll var(--ticker-dur, 12s) linear infinite;
         }
-        .dot-box { border-radius: 50%; }
-        #message { height: 20px; color: #ff6644; font-weight: bold; margin-bottom: 5px; }
+        #message.is-empty { animation: none; visibility: hidden; }
+        @keyframes tickerScroll {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-100%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            /* 流れると読めない人向け：スクロールを止めて左寄せの静止表示にする */
+            #message { animation: none; padding-left: 10px; }
+        }
+
+        /* ===== プレイ画面左上：速度・ポーズ・音・追尾・撤退（ハンバーガーに格納） ===== */
+        #gameActionsBtn {
+            font-size: 1.1rem; line-height: 1; padding: 6px 12px;
+            background: #2c3e50; border: 1px solid #7f8c8d; border-radius: 4px;
+            color: white; cursor: pointer; margin: 0;
+        }
+        #gameActionsBtn:hover { background: #34495e; }
+        #gameActionsBtn.open { background: #34495e; border-color: #aabbcc; }
+        /* メニュー本体だけは意図的な重ね（ポップオーバー）。開いている間しか出ない。 */
+        #gameActionsMenu {
+            display: none; flex-direction: column; gap: 4px;
+            position: absolute; top: calc(100% + 4px); left: 0; z-index: 101;
+            min-width: 110px; background: rgba(20,30,45,0.97);
+            border: 1px solid #7f8c8d; border-radius: 4px; padding: 6px;
+        }
+        #gameActionsMenu.open { display: flex; }
+        #gameActionsMenu button {
+            width: 100%; text-align: left; margin: 0;
+            font-size: 0.75rem; padding: 6px 10px;
+            background: #2c3e50; border: 1px solid #7f8c8d; border-radius: 4px;
+            color: white; cursor: pointer;
+        }
+        #gameActionsMenu button:hover { background: #34495e; }
+        #retreatBtn { background: #aa2244; border-color: #ff4466; }
+        #retreatBtn:hover { background: #c22a50; }
+
+        /* ===== 右カラム：強化パネル＋あくま部屋操作を縦に並べる ===== */
+        #rightColumn {
+            display: flex; flex-direction: column; gap: 10px;
+            align-self: flex-start; flex-shrink: 0;
+        }
 
         #currencyUI {
-            position: absolute; top: 0; right: 0;
-            display: flex; gap: 4px; z-index: 100;
+            display: flex; gap: 4px;
         }
         #diamondUI {
-            font-size: 18px; font-weight: bold; color: #00ffee;
-            background: rgba(0,8,32,0.92); padding: 6px 12px;
+            font-size: 18px; font-weight: bold; color: var(--c-dia);
+            background: var(--c-panel); padding: 6px 12px;
             border-radius: 2px; border: 2px solid #0088aa;
         }
         #goldUI {
-            font-size: 18px; font-weight: bold; color: #ffcc00;
-            background: rgba(0,8,32,0.92); padding: 6px 12px;
+            font-size: 18px; font-weight: bold; color: var(--c-gold);
+            background: var(--c-panel); padding: 6px 12px;
             border-radius: 2px; border: 2px solid #aa8800;
         }
+        /* 勇者ステータス／予告／ボスHP を中央セルに縦積み（横長・薄く） */
+        #hudTopCenter {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            max-width: min(94vw, 560px);
+        }
         #heroStatsUI {
-            position: absolute; top: 0; left: 0;
-            font-size: 12px; font-weight: bold; color: #f0f0f0;
-            background: rgba(0,8,32,0.92); padding: 8px 12px;
-            border-radius: 2px; border: 2px solid #4466cc; z-index: 100;
-            text-align: left; min-width: 130px;
+            display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+            font-size: 12px; font-weight: bold; color: var(--c-text);
+            background: var(--c-panel); padding: 6px 14px;
+            border-radius: 2px; border: 2px solid var(--c-frame);
+            text-align: left; justify-content: center;
         }
         #heroStatsUI .hero-lv-label {
-            font-size: 10px; color: #8899cc; letter-spacing: 1px; margin-bottom: 3px;
+            font-size: 10px; color: var(--c-text-sub); letter-spacing: 1px;
         }
         #heroStatsUI .hero-lv-value {
-            font-size: 18px; color: #ffcc00; font-weight: bold;
+            font-size: 16px; color: var(--c-gold); font-weight: bold;
         }
         #heroStatsUI .hero-stat-row {
-            display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
+            display: flex; gap: 6px; flex-wrap: wrap;
         }
         #heroStatsUI .hero-stat-chip {
             background: rgba(68,102,204,0.18); border-radius: 2px;
-            padding: 1px 5px; font-size: 11px; color: #aabbdd;
+            padding: 2px 6px; font-size: 11px; color: #aabbdd;
         }
         #heroStatsUI .hero-stat-chip span { color: #ff6644; font-weight: bold; }
 
         /* ===== レベルアップパネル ===== */
         #levelPanel {
             width: 180px; flex-shrink: 0;
-            background: rgba(0,8,32,0.92); border: 2px solid #2244aa;
+            background: var(--c-panel); border: 2px solid var(--c-frame-dim);
             border-radius: 2px; padding: 10px 8px;
             display: flex; flex-direction: column; gap: 10px;
             align-self: flex-start; margin-top: 0;
             max-height: 90vh; overflow-y: auto;
         }
         #levelPanel::-webkit-scrollbar { width: 4px; }
-        #levelPanel::-webkit-scrollbar-thumb { background: #2244aa; border-radius: 0; }
+        #levelPanel::-webkit-scrollbar-thumb { background: var(--c-frame-dim); border-radius: 0; }
         .lv-panel-title {
             text-align: center; font-size: 11px; color: #6688cc;
-            letter-spacing: 2px; border-bottom: 1px solid #1a2a60; padding-bottom: 6px;
+            letter-spacing: 2px; border-bottom: 1px solid var(--c-frame-faint); padding-bottom: 6px;
         }
         .lv-card {
-            background: rgba(68,102,204,0.08); border: 1px solid #1a2a60;
+            background: rgba(68,102,204,0.08); border: 1px solid var(--c-frame-faint);
             border-radius: 2px; padding: 8px 8px 6px;
         }
         .lv-card-header {
@@ -283,23 +408,23 @@
         }
         .lv-card-name { font-size: 12px; font-weight: bold; }
         .lv-card-name.slime  { color: #bdc3c7; }
-        .lv-card-name.goblin { color: #2ecc71; }
+        .lv-card-name.goblin { color: var(--c-ok); }
         .lv-card-name.golem  { color: #e59866; }
         .lv-badge {
-            font-size: 11px; font-weight: bold; color: #ffcc00;
+            font-size: 11px; font-weight: bold; color: var(--c-gold);
             background: rgba(255,204,0,0.12); border: 1px solid rgba(255,204,0,0.35);
             border-radius: 2px; padding: 1px 6px;
         }
-        .lv-bar-track { display: flex; gap: 3px; flex: 1; }
+        .lv-bar-track { display: flex; gap: 4px; flex: 1; }
         .lv-pip {
             flex: 1; height: 10px; border-radius: 0;
             background: #001040; border: 1px solid #112266; transition: background 0.25s;
         }
         .lv-pip.filled.slime  { background: #95a5a6; border-color: #bdc3c7; box-shadow: 0 0 3px rgba(189,195,199,0.4); }
-        .lv-pip.filled.goblin { background: #27ae60; border-color: #2ecc71; box-shadow: 0 0 3px rgba(46,204,113,0.4); }
+        .lv-pip.filled.goblin { background: #27ae60; border-color: var(--c-ok); box-shadow: 0 0 3px rgba(46,204,113,0.4); }
         .lv-pip.filled.golem  { background: #ca6f1e; border-color: #e59866; box-shadow: 0 0 3px rgba(229,152,102,0.4); }
         .lv-controls {
-            display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+            display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
         }
         .lv-pm-btn {
             width: 26px; height: 26px; flex-shrink: 0;
@@ -317,12 +442,12 @@
         .lv-minus.golem:hover:not(:disabled)  { background: #784212; }
         .lv-plus.slime  { background: #566573; border-color: #95a5a6; }
         .lv-plus.slime:hover:not(:disabled)  { background: #717d7e; }
-        .lv-plus.goblin { background: #1e8449; border-color: #2ecc71; }
+        .lv-plus.goblin { background: #1e8449; border-color: var(--c-ok); }
         .lv-plus.goblin:hover:not(:disabled) { background: #27ae60; }
         .lv-plus.golem  { background: #784212; border-color: #e59866; }
         .lv-plus.golem:hover:not(:disabled)  { background: #a04000; }
         .lv-cost-hint {
-            font-size: 10px; color: #6688aa; text-align: center;
+            font-size: 10px; color: var(--c-text-faint); text-align: center;
             margin-bottom: 4px; min-height: 13px;
         }
         .lv-stats-grid {
@@ -330,18 +455,18 @@
         }
         .lv-stats-grid .hero-stat-chip {
             background: rgba(68,102,204,0.14); border-radius: 2px;
-            padding: 1px 5px; font-size: 10px; color: #aabbdd;
+            padding: 2px 6px; font-size: 10px; color: #aabbdd;
         }
         .lv-stats-grid .hero-stat-chip span { color: #ff6644; font-weight: bold; }
         .lv-rand-btn {
-            width: 100%; padding: 4px 0; font-size: 10px; margin-top: 5px;
+            width: 100%; padding: 4px 0; font-size: 10px; margin-top: 6px;
             border-radius: 4px; cursor: pointer; border: 1px dashed;
             font-weight: bold; transition: 0.15s; color: white; background: transparent;
         }
         .lv-rand-btn:disabled { opacity: 0.3; cursor: not-allowed; }
         .lv-rand-btn.slime  { border-color: #717d7e; color: #bdc3c7; }
         .lv-rand-btn.slime:hover:not(:disabled)  { background: rgba(149,165,166,0.15); }
-        .lv-rand-btn.goblin { border-color: #27ae60; color: #2ecc71; }
+        .lv-rand-btn.goblin { border-color: #27ae60; color: var(--c-ok); }
         .lv-rand-btn.goblin:hover:not(:disabled) { background: rgba(46,204,113,0.15); }
         .lv-rand-btn.golem  { border-color: #ca6f1e; color: #e59866; }
         .lv-rand-btn.golem:hover:not(:disabled)  { background: rgba(229,152,102,0.15); }
@@ -354,7 +479,7 @@
         .mode-btn {
             display: flex; align-items: center; justify-content: center;
             position: fixed; width: 40px; height: 40px; border-radius: 2px;
-            background: rgba(0,8,32,0.92); border: 2px solid #2244aa;
+            background: var(--c-panel); border: 2px solid var(--c-frame-dim);
             color: #6688cc; font-size: 1.1rem; cursor: pointer;
             z-index: 300; transition: 0.15s;
         }
@@ -370,15 +495,16 @@
         }
 
         /* ===== リザルト画面 ===== */
-        #gameOverScreen { background: #000018; }
-        .result-container {
-            display: flex; flex-direction: column; align-items: center;
-            width: 100%; max-width: 480px;
-            padding: clamp(18px, 6vw, 40px) clamp(10px, 4vw, 20px);
-        }
-        .result-header { text-align: center; margin-bottom: clamp(18px, 5vw, 36px); }
+        /* 箱の横幅は1つの値に揃える。バラバラだと段ごとに縁がズレて読みにくい。 */
+        #gameOverScreen { background: var(--c-bg); --result-w: min(480px, 92vw); }
+        .result-container { max-width: var(--result-w); gap: var(--s-3); }
+        /* 枠線を幅に含めないと width:100% が「100%＋枠4px」になって横にはみ出す */
+        .result-container > * { width: 100%; box-sizing: border-box; }
+        /* 見出しは主役ではない。ここを詰めたぶんだけ内訳（本題）が見える。
+           head と foot は auto 高なので、この3つの大きさがそのまま内訳の高さを決める。 */
+        .result-header { text-align: center; gap: var(--s-1); }
         .result-icon {
-            font-size: clamp(2.2rem, 9vw, 3.5rem); margin-bottom: 10px;
+            font-size: clamp(1.6rem, 5vw, 2.2rem); line-height: 1;
             animation: floatIcon 2.5s ease-in-out infinite;
         }
         @keyframes floatIcon {
@@ -386,60 +512,69 @@
             50% { transform: translateY(-8px); }
         }
         .result-title {
-            font-size: clamp(1.2rem, 7.5vw, 2.8rem); font-weight: bold;
-            letter-spacing: clamp(1px, 0.8vw, 4px);
-            color: #ff4422;
-            text-shadow: 3px 3px 0 #880000;
-            margin: 0 0 10px;
+            /* 横幅いっぱいまで使わない（両端に余白を残すと詰まって見えない）。
+               nowrap なので、収まる大きさを vw 側で抑えるのが効く。 */
+            font-size: clamp(1rem, 5.6vw, 2rem); font-weight: bold;
+            letter-spacing: clamp(1px, 0.5vw, 3px);
+            color: var(--c-danger);
+            text-shadow: 2px 2px 0 #880000;
+            margin: 0;
             white-space: nowrap;
         }
         .result-subtitle {
-            font-size: clamp(0.7rem, 3vw, 0.95rem); color: #6688aa; margin: 0; letter-spacing: 1px;
+            font-size: clamp(0.66rem, 2.4vw, 0.82rem); color: var(--c-text-faint); margin: 0; letter-spacing: 1px;
         }
+        /* 内訳の縦スクロールは .screen-body が受け持つ（ここでは持たない） */
         .result-stats {
             width: 100%; background: rgba(0,8,32,0.8);
-            border: 2px solid #2244aa;
-            border-radius: 2px; padding: 8px 0; margin-bottom: clamp(18px, 5vw, 36px);
-            max-height: min(300px, 36vh); overflow-y: auto;
+            border: 2px solid var(--c-frame-dim);
+            border-radius: 2px; padding: 8px 0;
         }
         .result-stats::-webkit-scrollbar { width: 6px; }
         .result-stats::-webkit-scrollbar-track { background: transparent; }
-        .result-stats::-webkit-scrollbar-thumb { background: #2244aa; border-radius: 3px; }
+        .result-stats::-webkit-scrollbar-thumb { background: var(--c-frame-dim); border-radius: 3px; }
         .result-stat-item {
             display: flex; align-items: center; justify-content: space-between;
             padding: clamp(10px, 3.5vw, 16px) clamp(12px, 6vw, 28px); gap: 12px;
         }
         .result-stat-sub { opacity: 0.7; padding: clamp(8px, 2.5vw, 12px) clamp(12px, 6vw, 28px); }
         .result-stat-divider { height: 1px; background: rgba(68,102,204,0.25); margin: 0 20px; }
-        .result-stat-label { font-size: clamp(0.75rem, 3vw, 0.95rem); color: #8899cc; letter-spacing: 1px; flex: 1; }
+        .result-stat-label { font-size: clamp(0.75rem, 3vw, 0.95rem); color: var(--c-text-sub); letter-spacing: 1px; flex: 1; }
         .result-stat-value {
-            font-size: clamp(1.3rem, 5.5vw, 2rem); font-weight: bold; color: #ffcc00;
+            font-size: clamp(1.3rem, 5.5vw, 2rem); font-weight: bold; color: var(--c-gold);
             min-width: 60px; text-align: right;
         }
         .result-stat-value-small { font-size: clamp(1rem, 4vw, 1.3rem); color: #aabbdd; }
         .result-stat-unit { font-size: clamp(0.7rem, 2.5vw, 0.85rem); color: #446688; min-width: 16px; }
         .btn-result {
-            font-size: clamp(0.85rem, 3.2vw, 1rem); padding: clamp(10px, 3vw, 14px) clamp(20px, 8vw, 40px);
+            font-size: clamp(0.82rem, 2.8vw, 0.95rem); padding: var(--s-3) var(--s-6);
             letter-spacing: 2px;
-            background: #0a2050; border: 3px solid #4466cc; color: #ffffff;
-            transition: all 0.15s;
+            background: #0a2050; border: 3px solid var(--c-frame); color: #ffffff;
+            transition: all 0.15s; margin: 0;
         }
         .btn-result:hover {
             background: #1a3070; border-color: #6688ff;
             transform: translateY(-1px);
         }
+        /* 主ボタンは1段、控えめな2つは横に並べる（縦に3つ積むと足元が高くなりすぎる） */
         .result-actions {
-            display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%;
+            display: flex; flex-direction: column; align-items: center; gap: var(--s-2);
+            width: 100%; max-width: var(--result-w);
+        }
+        .result-actions-sub {
+            display: flex; gap: var(--s-2); width: 100%; justify-content: center;
         }
         .btn-result-sub {
-            font-size: 0.85rem; padding: 10px 30px;
-            background: transparent; border-color: #2a3a70; color: #8899cc;
+            font-size: clamp(0.7rem, 2.4vw, 0.8rem); padding: var(--s-2) var(--s-3);
+            background: transparent; border-width: 2px; border-color: #2a3a70; color: var(--c-text-sub);
+            flex: 1 1 0; min-width: 0; letter-spacing: 1px;
         }
-        .btn-result-sub:hover { background: rgba(68,102,204,0.12); border-color: #4466cc; color: #ffffff; }
+        .btn-result-sub:hover { background: rgba(68,102,204,0.12); border-color: var(--c-frame); color: #ffffff; }
         /* ===== メインメニュー ===== */
+        /* 見出しの下の余白は .screen-layout の gap が持つ（ここでは持たない） */
         .menu-heading {
-            font-size: 0.75rem; letter-spacing: 6px; color: #4466cc;
-            margin: 0 0 28px; text-transform: uppercase;
+            font-size: 0.75rem; letter-spacing: 6px; color: var(--c-frame);
+            margin: 0; text-transform: uppercase;
         }
         #startScreen .menu-heading {
             font-size: 1.125rem; font-weight: 700;
@@ -449,11 +584,11 @@
             display: flex; align-items: center; gap: 16px;
             width: 100%; padding: 14px 20px; border-radius: 2px;
             font-family: 'Courier New', Courier, monospace;
-            background: rgba(0,8,32,0.7); border: 2px solid #1a2a60;
-            cursor: pointer; transition: all 0.12s; text-align: left; color: #f0f0f0;
+            background: rgba(0,8,32,0.7); border: 2px solid var(--c-frame-faint);
+            cursor: pointer; transition: all 0.12s; text-align: left; color: var(--c-text);
         }
         .btn-menu:hover:not(:disabled) {
-            background: rgba(20,50,140,0.8); border-color: #4466cc; color: #ffffff;
+            background: rgba(20,50,140,0.8); border-color: var(--c-frame); color: #ffffff;
         }
         .btn-menu:disabled { opacity: 0.28; cursor: not-allowed; }
         .btn-menu-icon { font-size: 1.5rem; flex-shrink: 0; }
@@ -461,11 +596,11 @@
         .btn-menu-sub { font-size: 0.7rem; color: #4466aa; margin-top: 2px; letter-spacing: 1px; }
         .btn-back {
             margin-top: 18px; font-size: 0.85rem; padding: 8px 22px;
-            background: transparent; border: 2px solid #1a2a60; color: #6688aa;
+            background: transparent; border: 2px solid var(--c-frame-faint); color: var(--c-text-faint);
             border-radius: 2px; cursor: pointer; transition: 0.15s;
             font-family: 'Courier New', Courier, monospace; letter-spacing: 1px;
         }
-        .btn-back:hover { border-color: #4466cc; color: #aabbdd; }
+        .btn-back:hover { border-color: var(--c-frame); color: #aabbdd; }
 
         /* ===== タイトル画面 モード選択 ===== */
         .mode-select {
@@ -484,7 +619,7 @@
         .btn-mode-name { font-size: clamp(0.78rem, 3.6vw, 1.2rem); font-weight: bold; color: #fff; white-space: nowrap; }
         .btn-mode-standard {
             background: #0a2050;
-            border: 3px solid #4466cc;
+            border: 3px solid var(--c-frame);
             box-shadow: none;
         }
         .btn-mode-standard:hover { transform: translateY(-2px); border-color: #6688ff; background: #1a3070; }
@@ -493,7 +628,7 @@
             border: 3px solid #aa2200;
             box-shadow: none;
         }
-        .btn-mode-hard:hover { transform: translateY(-2px); border-color: #ff4422; background: #5a1010; }
+        .btn-mode-hard:hover { transform: translateY(-2px); border-color: var(--c-danger); background: #5a1010; }
         .btn-mode-colosseum {
             background: #3a2a08;
             border: 3px solid #cc9922;
@@ -504,7 +639,7 @@
         /* 指令ボタン（コロシアム限定・種別ごとの集合地点） */
         .lv-rally-btn {
             background: #223; border: 1px solid #556; border-radius: 4px; color: #ccd;
-            font-size: 12px; line-height: 1; padding: 3px 5px; margin-left: 6px; cursor: pointer;
+            font-size: 12px; line-height: 1; padding: 4px 6px; margin-left: 6px; cursor: pointer;
             font-family: 'Courier New', Courier, monospace; transition: 0.15s;
         }
         .lv-rally-btn:hover { border-color: #ffcc44; color: #fff; }
@@ -523,6 +658,39 @@
         #levelPanelBackdrop.open { display: block; }
         #levelPanelFAB { display: none; }
         #levelPanelToggleBtn { display: none; }
+
+        /* ===== 横3列が入らなくなったら縦に積む =====
+           3列（メニュー150 + 盤面578 + 強化200 + 隙間）で約1000px要る。
+           それ未満で横に並べたままだと端が切れるので、切れる前に縦積みへ切り替える。
+           積んだときは全部の箱を盤面と同じ幅にそろえる＝左右の位置が3つとも一致する。 */
+        @media (max-width: 1000px) {
+            #gameScreen {
+                flex-direction: column; align-items: center;
+                overflow-x: hidden; overflow-y: auto;
+            }
+            /* 幅は盤面にそろえる（100%で頭打ちにしない）。
+               画面より広くなる場合は adjustMobileScale が全部の箱に同じ倍率をかけて縮める。
+               ここで 100% に切り詰めると、縮んだ盤面と他の箱の幅がズレて位置がそろわない。 */
+            #gameScreen > #sidePanelLeft,
+            #gameScreen > #gameCenter,
+            #gameScreen > #rightColumn,
+            #dashboard {
+                width: var(--stage-w, 578px);
+                /* 箱を 100% に切り詰めると、中身（盤面）だけがはみ出して中央からズレる。
+                   箱ごと盤面幅を保ち、縮めるのは transform に任せる。 */
+                max-width: none;
+                box-sizing: border-box;
+                /* 横並び用の align-self:flex-start が残っていると左に寄って位置がそろわない */
+                align-self: center;
+            }
+            #sidePanelLeft { flex-direction: row; flex-wrap: wrap; margin-top: 0; }
+            #sidePanelLeft .side-btn { width: auto; flex: 1 1 auto; }
+            .side-panel-title { width: 100%; }
+            #sidePanelOpenHandle { margin-top: 0; }
+            #levelPanel { width: 100%; max-height: none; }
+            #rightColumn { width: min(100%, var(--stage-w, 578px)); }
+            #minimap { display: none !important; }   /* 縦積みでは左に置き場が無い */
+        }
 
         @media (max-width: 640px) {
             .title { font-size: 2.2rem; letter-spacing: 2px; margin-bottom: 16px; }
@@ -549,27 +717,49 @@
                 font-size: 1.2rem; cursor: pointer; padding: 0; margin: 0;
             }
             #levelPanelFAB {
-                display: flex; align-items: center; justify-content: center;
+                align-items: center; justify-content: center;
                 position: fixed; bottom: 16px; right: 16px;
                 width: 56px; height: 56px; border-radius: 50%;
-                background: #0a2050; border: 2px solid #4466cc;
+                background: #0a2050; border: 2px solid var(--c-frame);
                 box-shadow: 0 4px 16px rgba(0,0,0,0.6);
                 font-size: 1.4rem; z-index: 300; cursor: pointer; color: #aaccff;
             }
             #levelPanelToggleBtn { display: none; }
-            #digModeBtn  { display: flex; bottom: 88px;  right: 24px; }
-            #exploreModeBtn { display: flex; bottom: 136px; right: 24px; }
+            /* 強化パネルはモバイルで下からのシートに変わるため、右カラムの入れ子は解いて個別に配置 */
+            #rightColumn { display: contents; }
+            /* 幅・中央そろえは上の縦積みルール（盤面と同じ）に任せる。
+               margin:auto を残すと、はみ出す幅のとき auto が 0 に潰れて左寄せになりズレる。 */
+            #dashboard { margin: 10px 0 0; }
+            #digModeBtn  { bottom: 88px;  right: 24px; }
+            #exploreModeBtn { bottom: 136px; right: 24px; }
             #sidePanelLeft { display: none; }
             #sidePanelOpenHandle { display: none !important; }
-            #menuFAB { display: flex; }
             #canvasContainer { height: 600px; }
-            #minimap { display: none; }   /* モバイルは左下メニューFABと干渉するため非表示 */
+            /* モバイルは左下メニューFABと干渉するため非表示 */
+            body.screen-game #minimap { display: none !important; }
+            /* プレイ中だけ出す浮きボタン（下の「プレイ中以外では出さない」と対で効く） */
+            body.screen-game #menuFAB,
+            body.screen-game #levelPanelFAB,
+            body.screen-game #digModeBtn,
+            body.screen-game #exploreModeBtn { display: flex; }
         }
 
+        /* ===== プレイ中以外では、盤面用の浮きUIを出さない =====
+           これらは position:fixed で .screen の外に居るため、showScreenOnly では消えない。
+           放っておくとリザルトやメニューの上に浮いたまま重なる。 */
+        body:not(.screen-game) #minimap,
+        body:not(.screen-game) #menuFAB,
+        body:not(.screen-game) #menuPopover,
+        body:not(.screen-game) #levelPanelFAB,
+        body:not(.screen-game) #levelPanelBackdrop,
+        body:not(.screen-game) #digModeBtn,
+        body:not(.screen-game) #exploreModeBtn { display: none !important; }
+
         /* ===== ダイヤショップ / その他設定 ===== */
-        #shopScreen, #settingsScreen { background: #000020; overflow-y: auto; padding: 20px 0; box-sizing: border-box; justify-content: flex-start; }
+        /* 縦スクロールは .screen-body が受け持つので、画面そのものはスクロールさせない */
+        #shopScreen, #settingsScreen { background: #000020; }
         .shop-diamond-count {
-            font-size: 1.2rem; color: #00ffee; margin-bottom: 20px;
+            font-size: 1.2rem; color: var(--c-dia); margin-bottom: 20px;
             background: rgba(0,8,32,0.85); padding: 8px 24px;
             border: 2px solid #0088aa; border-radius: 2px;
         }
@@ -578,20 +768,20 @@
             width: min(92vw, 420px); max-height: 55vh; overflow-y: auto;
         }
         .shop-list::-webkit-scrollbar, .ach-list::-webkit-scrollbar { width: 6px; }
-        .shop-list::-webkit-scrollbar-thumb, .ach-list::-webkit-scrollbar-thumb { background: #2244aa; }
+        .shop-list::-webkit-scrollbar-thumb, .ach-list::-webkit-scrollbar-thumb { background: var(--c-frame-dim); }
         .shop-item {
             display: flex; align-items: center; gap: 12px;
-            background: rgba(0,8,32,0.7); border: 2px solid #1a2a60;
+            background: rgba(0,8,32,0.7); border: 2px solid var(--c-frame-faint);
             border-radius: 2px; padding: 10px 14px;
         }
         .shop-item-icon { font-size: 1.5rem; flex-shrink: 0; }
         .shop-item-body { flex: 1; text-align: left; }
-        .shop-item-name { font-size: 0.9rem; font-weight: bold; color: #f0f0f0; }
-        .shop-item-desc { font-size: 0.7rem; color: #6688aa; margin-top: 2px; }
-        .shop-item-rank { font-size: 0.7rem; color: #00ffee; margin-top: 2px; }
+        .shop-item-name { font-size: 0.9rem; font-weight: bold; color: var(--c-text); }
+        .shop-item-desc { font-size: 0.7rem; color: var(--c-text-faint); margin-top: 2px; }
+        .shop-item-rank { font-size: 0.7rem; color: var(--c-dia); margin-top: 2px; }
         .shop-buy-btn {
             flex-shrink: 0; padding: 8px 12px; font-size: 0.8rem;
-            background: #043838; border: 2px solid #0088aa; color: #00ffee;
+            background: #043838; border: 2px solid #0088aa; color: var(--c-dia);
             border-radius: 2px; cursor: pointer;
             font-family: 'Courier New', Courier, monospace; font-weight: bold;
         }
@@ -599,29 +789,29 @@
         .shop-buy-btn:disabled { opacity: 0.35; cursor: not-allowed; }
         .ach-item {
             display: flex; align-items: center; gap: 10px;
-            background: rgba(0,8,32,0.7); border: 2px solid #1a2a60;
+            background: rgba(0,8,32,0.7); border: 2px solid var(--c-frame-faint);
             border-radius: 2px; padding: 8px 14px; text-align: left;
         }
         .ach-item.done { border-color: #aa8800; }
-        .ach-item.done .ach-name { color: #ffcc00; }
+        .ach-item.done .ach-name { color: var(--c-gold); }
         .ach-icon { font-size: 1.2rem; flex-shrink: 0; }
         .ach-name { font-size: 0.85rem; font-weight: bold; color: #556688; }
-        .ach-desc { font-size: 0.68rem; color: #6688aa; margin-top: 2px; }
+        .ach-desc { font-size: 0.68rem; color: var(--c-text-faint); margin-top: 2px; }
         .records-grid {
             display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
             width: min(92vw, 420px); margin-bottom: 16px;
         }
         .record-chip {
-            background: rgba(0,8,32,0.85); border: 2px solid #2244aa;
+            background: rgba(0,8,32,0.85); border: 2px solid var(--c-frame-dim);
             border-radius: 2px; padding: 6px 12px; font-size: 0.72rem; color: #aabbdd;
         }
-        .record-chip b { color: #ffcc00; font-size: 0.9rem; }
+        .record-chip b { color: var(--c-gold); font-size: 0.9rem; }
 
         /* ===== ボス演出 ===== */
         #bossWarning {
             display: none; position: fixed; top: 18%; left: 50%;
             transform: translateX(-50%);
-            background: rgba(60,0,0,0.92); border: 3px solid #ff4422;
+            background: rgba(60,0,0,0.92); border: 3px solid var(--c-danger);
             color: #ffdddd; font-size: 1.3rem; font-weight: bold;
             letter-spacing: 4px; padding: 14px 36px; z-index: 500;
             text-align: center; white-space: nowrap;
@@ -629,26 +819,25 @@
             box-shadow: 0 0 30px rgba(255,40,20,0.6);
         }
         @keyframes bossBlink {
-            0%, 100% { border-color: #ff4422; color: #ffdddd; }
-            50% { border-color: #ffcc00; color: #ffffff; }
+            0%, 100% { border-color: var(--c-danger); color: #ffdddd; }
+            50% { border-color: var(--c-gold); color: #ffffff; }
         }
         #canvasContainer.boss-flash { animation: bossFlash 0.4s ease-out 3; }
         @keyframes bossFlash {
-            0% { box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px #4466cc; }
-            50% { box-shadow: 0 0 0 1px #800000, 0 0 0 5px #aa0000, 0 0 0 6px #ff4422, 0 0 40px rgba(255,40,20,0.8); }
-            100% { box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px #4466cc; }
+            0% { box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px var(--c-frame); }
+            50% { box-shadow: 0 0 0 1px #800000, 0 0 0 5px #aa0000, 0 0 0 6px var(--c-danger), 0 0 40px rgba(255,40,20,0.8); }
+            100% { box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px var(--c-frame); }
         }
         /* ボスHP：文字にも縁取りを入れて背景と干渉しても読めるように（P4-9） */
         #bossHpUI {
-            display: none; position: absolute; top: 4px; left: 50%;
-            transform: translateX(-50%); width: 260px; z-index: 110;
+            display: none; width: 260px;
             background: rgba(30,0,0,0.92); border: 2px solid #aa2200;
-            border-radius: var(--radius); padding: 5px 10px 7px;
+            border-radius: var(--radius); padding: 6px 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.55);
         }
         #bossHpUI .boss-label {
             font-size: 10px; color: #ff8866; letter-spacing: 2px;
-            text-align: center; margin-bottom: 3px; font-weight: bold;
+            text-align: center; margin-bottom: 4px; font-weight: bold;
             text-shadow: 0 1px 0 #000, 0 0 4px rgba(0,0,0,0.9);
         }
         #bossHpUI .boss-bar-track {
@@ -659,10 +848,14 @@
             height: 100%; width: 100%; background: linear-gradient(90deg, var(--c-danger), #ffaa00);
             transition: width 0.15s linear;
         }
-        /* 次の勇者 予告 */
+        /* 次の勇者 予告（勇者ウィンドウの外の独立行） */
         #nextHeroUI {
-            font-size: 10px; color: var(--c-text-sub); margin-top: 4px; min-height: 12px;
-            text-shadow: 0 1px 0 #000;
+            font-size: 11px; color: var(--c-text-sub); min-height: 14px;
+            text-shadow: 0 1px 0 #000; text-align: center;
+        }
+        #nextHeroUI:not(:empty) {
+            background: rgba(0,8,32,0.85); border: 1px solid #2a3a6a;
+            border-radius: 2px; padding: 2px 10px;
         }
         #nextHeroUI.rage-warn { color: #ff6644; font-weight: bold; animation: bossBlink 0.6s step-end infinite; }
 
@@ -683,7 +876,7 @@
         .ig-drawer {
             position: absolute; top: 0; left: 0; height: 100%;
             width: min(400px, 92vw); box-sizing: border-box;
-            background: #000020; border-right: 3px solid #4466cc;
+            background: #000020; border-right: 3px solid var(--c-frame);
             box-shadow: 4px 0 24px rgba(0,0,0,0.6);
             display: flex; flex-direction: column;
             animation: igSlideIn 0.22s ease-out;
@@ -691,7 +884,7 @@
         @keyframes igSlideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
         .ig-drawer-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 12px; border-bottom: 1px solid #1a2a60;
+            padding: 10px 12px; border-bottom: 1px solid var(--c-frame-faint);
             background: rgba(0,8,32,0.9); flex-shrink: 0;
         }
         /* 宝具庫：ソシャゲ風グリッド */
@@ -704,7 +897,7 @@
         }
         .tz-cell:hover { filter: brightness(1.18); transform: translateY(-1px); }
         .tz-cell .tz-ic { font-size: 1.9rem; line-height: 1; }
-        .tz-cell .tz-nm { font-size: 0.56rem; color: #cde; margin-top: 3px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 3px; }
+        .tz-cell .tz-nm { font-size: 0.56rem; color: #cde; margin-top: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
         .tz-cell .tz-eq { position: absolute; top: 1px; right: 3px; font-size: 0.7rem; }
         .tz-cell .tz-rank { position: absolute; top: 0; left: 0; font-size: 0.5rem; padding: 1px 4px; border-bottom-right-radius: 6px; color: #111; font-weight: bold; }
         /* ===== P4-10 レア度の視覚言語（宝具庫・リザルト・演出で共有） =====
@@ -800,7 +993,7 @@
         .forge-note { font-size: 0.7rem; color: var(--c-text-sub); margin-top: 6px; text-align: center; }
         .forge-auto { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 6px; }
         .forge-mini {
-            font-size: 0.68rem; padding: 5px 10px; margin: 0;
+            font-size: 0.68rem; padding: 6px 10px; margin: 0;
             background: rgba(68,102,204,0.12); border: 1px solid var(--c-frame-faint); color: var(--c-text-sub);
         }
         .forge-mini:hover { border-color: var(--c-frame); color: var(--c-text); }
@@ -814,7 +1007,7 @@
             position: absolute; bottom: 1px; left: 0; right: 0; font-size: 0.48rem;
             color: var(--c-gold); background: rgba(0,0,0,0.55);
         }
-        .mat-cell .tz-nm { margin-bottom: 7px; }   /* 下端の獲得exp表示と重ねない */
+        .mat-cell .tz-nm { margin-bottom: 8px; }   /* 下端の獲得exp表示と重ねない */
         /* グリッドの Lv バッジ（MAX は金色で目立たせる） */
         .tz-cell .tz-lv {
             position: absolute; bottom: 1px; left: 3px; font-size: 0.48rem; color: var(--c-text-sub);
@@ -851,26 +1044,26 @@
         .ig-tabs { display: flex; gap: 6px; }
         .ig-tab {
             padding: 8px 14px; font-size: 0.8rem; font-weight: bold;
-            background: rgba(68,102,204,0.08); border: 1px solid #1a2a60;
-            color: #8899cc; border-radius: 2px; cursor: pointer;
+            background: rgba(68,102,204,0.08); border: 1px solid var(--c-frame-faint);
+            color: var(--c-text-sub); border-radius: 2px; cursor: pointer;
             font-family: 'Courier New', Courier, monospace;
         }
-        .ig-tab:hover { border-color: #4466cc; color: #ffffff; }
-        .ig-tab.active { background: rgba(20,50,140,0.85); border-color: #4466cc; color: #ffffff; }
+        .ig-tab:hover { border-color: var(--c-frame); color: #ffffff; }
+        .ig-tab.active { background: rgba(20,50,140,0.85); border-color: var(--c-frame); color: #ffffff; }
         .ig-close {
             width: 32px; height: 32px; background: none; border: 1px solid #2a3a6a;
-            color: #8899cc; border-radius: 2px; cursor: pointer; font-size: 1rem; flex-shrink: 0;
+            color: var(--c-text-sub); border-radius: 2px; cursor: pointer; font-size: 1rem; flex-shrink: 0;
         }
-        .ig-close:hover { border-color: #4466cc; color: #ffffff; }
+        .ig-close:hover { border-color: var(--c-frame); color: #ffffff; }
         .ig-drawer-body {
             flex: 1; overflow-y: auto; padding: 16px 14px;
             display: flex; flex-direction: column; align-items: center;
         }
         .ig-drawer-body::-webkit-scrollbar { width: 6px; }
-        .ig-drawer-body::-webkit-scrollbar-thumb { background: #2244aa; }
+        .ig-drawer-body::-webkit-scrollbar-thumb { background: var(--c-frame-dim); }
         .ig-drawer .shop-list, .ig-drawer .ach-list { max-height: none; width: 100%; }
         .ig-drawer .records-grid { width: 100%; }
-        .ig-note { font-size: 0.68rem; color: #6688aa; margin-bottom: 12px; text-align: center; letter-spacing: 1px; }
+        .ig-note { font-size: 0.68rem; color: var(--c-text-faint); margin-bottom: 12px; text-align: center; letter-spacing: 1px; }
     </style>
 </head>
 <body>
@@ -885,8 +1078,11 @@
     </div>
 
     <!-- メインメニュー画面 -->
-    <div id="startScreen" class="screen">
-        <p class="menu-heading">— Main Menu —</p>
+    <div id="startScreen" class="screen screen-layout">
+        <div class="screen-head">
+            <p class="menu-heading">— Main Menu —</p>
+        </div>
+        <div class="screen-body">
         <div class="menu-list">
             <button class="btn-menu" onclick="showModeSelect()">
                 <span class="btn-menu-icon">⚔</span>
@@ -909,15 +1105,20 @@
                 </div>
             </button>
         </div>
+        </div>
+        <div class="screen-foot"></div>
     </div>
 
     <!-- モード選択画面 -->
-    <div id="modeSelectScreen" class="screen">
-        <p class="menu-heading">— Mode Select —</p>
-        <div id="carryOverUI" style="margin-bottom:18px; font-size:1.1rem; color:#ffcc00; background:rgba(0,8,32,0.85); padding:10px 28px; border-radius:2px; border:2px solid #2244aa; display:none;">
-            🏦 銀行残高: <span id="carryOverAmount">0</span> G<br>
-            <span style="font-size:0.82rem; color:#99aacc;">💎 <span id="startDiamondAmount">0</span> ／ ⚗ <span id="startLevAmount">-</span> ／ 🔄 <span id="runCountAmount">0</span> 回</span>
+    <div id="modeSelectScreen" class="screen screen-layout">
+        <div class="screen-head">
+            <p class="menu-heading">— Mode Select —</p>
+            <div id="carryOverUI" style="font-size:1.1rem; color:var(--c-gold); background:rgba(0,8,32,0.85); padding:10px 28px; border-radius:2px; border:2px solid var(--c-frame-dim); display:none; text-align:center;">
+                🏦 銀行残高: <span id="carryOverAmount">0</span> G<br>
+                <span style="font-size:0.82rem; color:#99aacc;">💎 <span id="startDiamondAmount">0</span> ／ ⚗ <span id="startLevAmount">-</span> ／ 🔄 <span id="runCountAmount">0</span> 回</span>
+            </div>
         </div>
+        <div class="screen-body">
         <div class="mode-select">
             <button class="btn-mode btn-mode-standard" onclick="enterGameScreen('standard')">
                 <div class="btn-mode-icon">⚔</div>
@@ -940,55 +1141,70 @@
         </div>
 
         <!-- ハード：レバレッジ設定 -->
-        <div id="hardConfig" style="display:none; margin-top:6px; width:min(440px,92vw); background:rgba(0,8,32,0.9); border:2px solid #ff4466; border-radius:2px; padding:16px 20px; text-align:left; color:#f0f0f0;">
+        <div id="hardConfig" style="display:none; margin-top:6px; width:min(440px,92vw); background:rgba(0,8,32,0.9); border:2px solid #ff4466; border-radius:2px; padding:16px 20px; text-align:left; color:var(--c-text);">
             <div style="text-align:center; color:#ff6688; font-weight:bold; letter-spacing:2px; margin-bottom:12px;">— レバレッジ設定 —</div>
             <div style="font-size:0.9rem; margin-bottom:6px;">💰 預入 S（自分の金を賭ける）</div>
             <input type="range" id="stakeSlider" min="100" max="3000" step="100" value="500" oninput="updateHardConfig()" style="width:100%;">
-            <div style="font-size:1.1rem; color:#ffcc00; margin:4px 0 10px;">S = <span id="stakeVal">500</span> G</div>
+            <div style="font-size:1.1rem; color:var(--c-gold); margin:4px 0 10px;">S = <span id="stakeVal">500</span> G</div>
             <div style="font-size:0.9rem; margin-bottom:6px;">⚡ レバレッジ倍率 L</div>
             <div id="levTierBtns" style="display:flex; gap:8px; margin-bottom:12px;"></div>
-            <div style="font-size:0.9rem; border-top:1px solid #334; padding-top:10px;">🏦 開始ゴールド: <span id="startGoldVal" style="color:#ffcc00;">?</span> G</div>
+            <div style="font-size:0.9rem; border-top:1px solid #334; padding-top:10px;">🏦 開始ゴールド: <span id="startGoldVal" style="color:var(--c-gold);">?</span> G</div>
             <div style="display:flex; gap:10px; margin-top:14px;">
                 <button class="btn-start" onclick="startHardRun()" style="flex:1; background:#aa2244; border-color:#ff4466;">▶ ハード開始</button>
                 <button class="btn-start" onclick="closeHardConfig()" style="background:#555; border-color:#444; padding:10px 18px;">← 戻る</button>
             </div>
         </div>
+        </div>
 
-        <button class="btn-back" id="modeBackBtn" onclick="showMainMenu()">← 戻る</button>
+        <div class="screen-foot">
+            <button class="btn-back" id="modeBackBtn" onclick="showMainMenu()">← 戻る</button>
+        </div>
     </div>
 
     <!-- ショップメニュー画面（ダイヤ取引／宝具庫） -->
-    <div id="shopScreen" class="screen">
-        <p class="menu-heading">— Shop Menu —</p>
-        <div class="ig-tabs" style="margin-bottom:16px;">
-            <button class="ig-tab" id="shopTabBtnDiamond" onclick="switchShopTab('diamond')">💎 ダイヤ取引</button>
-            <button class="ig-tab" id="shopTabBtnTreasury" onclick="switchShopTab('treasury')">🏆 宝具庫</button>
-        </div>
-        <div id="shopTabDiamondSection" style="width:100%; display:flex; flex-direction:column; align-items:center;">
-            <div class="shop-diamond-count">💎 <span id="shopDiamondAmount">0</span></div>
-            <div class="shop-list" id="shopList"></div>
-        </div>
-        <div id="shopTabTreasurySection" style="width:100%; display:none; flex-direction:column; align-items:center;">
-            <div style="font-size:0.85rem; color:#aab; margin-bottom:8px;">装備した宝具の効果が次のランに適用（<span id="tzEquipCount">0</span>/<span id="tzEquipMax">3</span> スロット）</div>
-            <div id="tzEquippedRow" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; min-height:52px;"></div>
-            <div style="width:min(560px,94vw); max-height:50vh; overflow-y:auto; padding:2px;">
-                <div id="tzInventoryList" class="tz-grid"></div>
+    <div id="shopScreen" class="screen screen-layout">
+        <div class="screen-head">
+            <p class="menu-heading">— Shop Menu —</p>
+            <div class="ig-tabs">
+                <button class="ig-tab" id="shopTabBtnDiamond" onclick="switchShopTab('diamond')">💎 ダイヤ取引</button>
+                <button class="ig-tab" id="shopTabBtnTreasury" onclick="switchShopTab('treasury')">🏆 宝具庫</button>
             </div>
-            <div style="font-size:0.72rem; color:var(--c-text-sub); margin-top:8px;">所持 <span id="tzInvCount">0</span>/<span id="tzInvMax">200</span></div>
-            <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.85rem; padding:8px 22px; margin-top:8px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">📥 コードを受け取る</button>
         </div>
-        <button class="btn-back" onclick="backFromSubScreen()">← 戻る</button>
+        <div class="screen-body">
+            <div id="shopTabDiamondSection" style="width:100%; display:flex; flex-direction:column; align-items:center;">
+                <div class="shop-diamond-count">💎 <span id="shopDiamondAmount">0</span></div>
+                <div class="shop-list" id="shopList"></div>
+            </div>
+            <div id="shopTabTreasurySection" style="width:100%; display:none; flex-direction:column; align-items:center;">
+                <div style="font-size:0.85rem; color:#aab; margin-bottom:8px;">装備した宝具の効果が次のランに適用（<span id="tzEquipCount">0</span>/<span id="tzEquipMax">3</span> スロット）</div>
+                <div id="tzEquippedRow" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; min-height:52px;"></div>
+                <div style="width:min(560px,100%); box-sizing:border-box; padding:2px;">
+                    <div id="tzInventoryList" class="tz-grid"></div>
+                </div>
+                <div style="font-size:0.72rem; color:var(--c-text-sub); margin-top:8px;">所持 <span id="tzInvCount">0</span>/<span id="tzInvMax">200</span></div>
+                <button class="btn-start" onclick="tradeOpenImport()" style="font-size:0.85rem; padding:8px 22px; margin-top:8px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">📥 コードを受け取る</button>
+            </div>
+        </div>
+        <div class="screen-foot">
+            <button class="btn-back" onclick="backFromSubScreen()">← 戻る</button>
+        </div>
     </div>
 
     <!-- その他設定（実績・記録・サウンド）画面 -->
-    <div id="settingsScreen" class="screen">
-        <p class="menu-heading">— Records & Settings —</p>
-        <div class="records-grid" id="recordsGrid"></div>
-        <div class="ach-list" id="achList"></div>
-        <button class="btn-start" id="settingsMuteBtn" onclick="toggleMute()" style="font-size:0.9rem; padding:10px 28px; margin-top:16px;">🔊 サウンド: ON</button>
-        <!-- サポーター欄（renderLicenseUI が描画） -->
-        <div id="licSection" style="margin-top:18px; padding-top:14px; border-top:1px solid var(--c-frame-faint); width:min(420px,92vw); text-align:center;"></div>
-        <button class="btn-back" onclick="backFromSubScreen()">← 戻る</button>
+    <div id="settingsScreen" class="screen screen-layout">
+        <div class="screen-head">
+            <p class="menu-heading">— Records & Settings —</p>
+        </div>
+        <div class="screen-body">
+            <div class="records-grid" id="recordsGrid"></div>
+            <div class="ach-list" id="achList"></div>
+            <button class="btn-start" id="settingsMuteBtn" onclick="toggleMute()" style="font-size:0.9rem; padding:10px 28px; margin-top:16px;">🔊 サウンド: ON</button>
+            <!-- サポーター欄（renderLicenseUI が描画） -->
+            <div id="licSection" style="margin-top:18px; padding-top:14px; border-top:1px solid var(--c-frame-faint); width:min(420px,92vw); text-align:center;"></div>
+        </div>
+        <div class="screen-foot">
+            <button class="btn-back" onclick="backFromSubScreen()">← 戻る</button>
+        </div>
     </div>
 
     <!-- 宝具 詳細モーダル（グリッドのセルをタップで表示） -->
@@ -1111,56 +1327,54 @@
             </div>
         </div>
 
+        <!-- ===== プレイ画面の配置は #gameCenter のグリッド（hud-left / hud-center / hud-right / ticker / stage）で決まる。
+                  新しい HUD を足すときは必ずどれかのセルへ入れること。position:absolute で浮かせない。 ===== -->
         <div id="gameCenter">
-            <div id="heroStatsUI">
-                <div class="hero-lv-label">⚔ 勇者</div>
-                <div>Lv. <span class="hero-lv-value" id="hLv">1</span> <span id="hType" style="font-size:10px; color:#aaa; letter-spacing:1px;"></span></div>
-                <div class="hero-stat-row">
-                    <div class="hero-stat-chip">攻 <span id="hAtk">-</span></div>
-                    <div class="hero-stat-chip">敏 <span id="hAgi">-</span></div>
-                    <div class="hero-stat-chip">HP <span id="hHp">-</span></div>
+          <!-- HUD行：左＝メニュー / 中央＝勇者 / 右＝所持金。
+               掲示板・盤面と同じ幅の中で左右に振り分けるので、横位置が3段そろう。 -->
+          <div id="gameHud">
+            <!-- 速度・ポーズ・音・追尾・撤退はハンバーガーにまとめる（左上） -->
+            <div id="gameActionsWrap">
+                <button id="gameActionsBtn" onclick="toggleGameActionsMenu()" title="メニュー">☰</button>
+                <div id="gameActionsMenu">
+                    <button id="speedBtn" onclick="toggleSpeed()">▶▶ 早送り</button>
+                    <button id="pauseBtn" onclick="togglePause()">⏸ ポーズ</button>
+                    <button id="muteBtn" onclick="toggleMute()">🔊 音</button>
+                    <button id="followBtn" onclick="toggleFollow()" title="最前線の勇者をカメラで追う">🎯 追尾</button>
+                    <button id="retreatBtn" onclick="retreatCashOut()" style="display:none;">🏳 撤退</button>
                 </div>
-                <div id="depthRow" style="font-size:10px; color:#8899cc; margin-top:4px;">🕳 深度 <span id="depthUI">0</span> m</div>
-                <div id="colWaveUI" style="display:none; font-size:12px; color:#ffcc44; margin-top:4px; font-weight:bold;">🏛 Wave <span id="colWaveNum">0</span><span id="colWaveBest" style="color:#8899cc; font-weight:normal; font-size:10px;"></span></div>
-                <div id="colArmyUI" style="display:none; font-size:10px; color:#8899cc; margin-top:2px;">⚔ 兵 <span id="colArmyNum">0</span>/<span id="colArmyCap">100</span>　🥚 繁殖 <span id="colBredNum">0</span>/<span id="colBredCap">12</span><br>🚪 開通した門 <span id="colGateNum">0</span>/4 <span id="colGateNames" style="color:#ffcc44;"></span></div>
+            </div>
+
+            <!-- 勇者ステータス＋予告＋ボスHP（中央セル・縦積み） -->
+            <div id="hudTopCenter">
+                <div id="heroStatsUI">
+                    <div class="hero-lv-label">⚔ 勇者</div>
+                    <div>Lv. <span class="hero-lv-value" id="hLv">1</span> <span id="hType" style="font-size:10px; color:#aaa; letter-spacing:1px;"></span></div>
+                    <div class="hero-stat-row">
+                        <div class="hero-stat-chip">攻 <span id="hAtk">-</span></div>
+                        <div class="hero-stat-chip">敏 <span id="hAgi">-</span></div>
+                        <div class="hero-stat-chip">HP <span id="hHp">-</span></div>
+                    </div>
+                    <div id="depthRow" style="font-size:10px; color:var(--c-text-sub);">🕳 深度 <span id="depthUI">0</span> m</div>
+                    <div id="colWaveUI" style="display:none; font-size:12px; color:#ffcc44; font-weight:bold;">🏛 Wave <span id="colWaveNum">0</span><span id="colWaveBest" style="color:var(--c-text-sub); font-weight:normal; font-size:10px;"></span></div>
+                    <div id="colArmyUI" style="display:none; font-size:10px; color:var(--c-text-sub);">⚔ 兵 <span id="colArmyNum">0</span>/<span id="colArmyCap">100</span>　🥚 繁殖 <span id="colBredNum">0</span>/<span id="colBredCap">12</span>　🚪 開通した門 <span id="colGateNum">0</span>/4 <span id="colGateNames" style="color:#ffcc44;"></span></div>
+                </div>
+                <!-- 勇者の予告は勇者ウィンドウの外（独立した行）。重なりようがない。 -->
                 <div id="nextHeroUI"></div>
+                <div id="bossHpUI">
+                    <div class="boss-label">⚠ 怒りの勇者</div>
+                    <div class="boss-bar-track"><div class="boss-bar-fill" id="bossHpFill"></div></div>
+                </div>
             </div>
-            <div id="bossHpUI">
-                <div class="boss-label">⚠ 怒りの勇者</div>
-                <div class="boss-bar-track"><div class="boss-bar-fill" id="bossHpFill"></div></div>
-            </div>
+
             <div id="currencyUI">
                 <div id="diamondUI">💎 <span id="diamondAmount">0</span></div>
                 <div id="goldUI">💰 <span id="goldAmount">50</span> G</div>
             </div>
-            <button id="speedBtn" onclick="toggleSpeed()" style="position:absolute; top:36px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">▶▶ 早送り</button>
-            <button id="pauseBtn" onclick="togglePause()" style="position:absolute; top:62px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">⏸ ポーズ</button>
-            <button id="muteBtn" onclick="toggleMute()" style="position:absolute; top:88px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">🔊 音</button>
-            <button id="followBtn" onclick="toggleFollow()" title="最前線の勇者をカメラで追う" style="position:absolute; top:114px; right:0; font-size:0.75rem; padding:4px 10px; background:#2c3e50; border:1px solid #7f8c8d; border-radius:4px; color:white; cursor:pointer; z-index:100;">🎯 追尾</button>
-            <button id="retreatBtn" onclick="retreatCashOut()" style="display:none; position:absolute; top:140px; right:0; font-size:0.75rem; padding:4px 10px; background:#aa2244; border:1px solid #ff4466; border-radius:4px; color:white; cursor:pointer; z-index:100;">🏳 撤退</button>
+          </div>
 
-            <div id="dashboard">
-                <div class="btn-group">
-                    <button class="btn-castle" id="castleBtn" onclick="toggleCastleMode()">🏰 あくま部屋作成(0 Gold)</button>
-                    <button class="btn-castle" id="colSkipBtn" onclick="colSkipPrep()" style="display:none; font-size:14px; padding:10px 14px;">⚔ 早出し</button>
-                    <button class="btn-castle" id="colRepairBtn" onclick="colRepairCastle()" style="display:none; font-size:14px; padding:10px 14px;">🔧 修復(100 G)</button>
-                    <button class="btn-castle" id="levelPanelToggleBtn" onclick="toggleLevelPanel()" style="font-size:14px; padding:10px 14px;">⚗ 強化 ▲</button>
-                </div>
-                <div id="message"></div>
-                <div class="legend">
-                    <span><div class="color-box dot-box" style="background:#3498db;"></div>勇者</span>
-                    <span><div class="color-box dot-box" style="background:#95a5a6;"></div>石スライム</span>
-                    <span><div class="color-box dot-box" style="background:#2ecc71;"></div>苔ゴブリン</span>
-                    <span><div class="color-box dot-box" style="background:#d35400;"></div>銅ゴーレム</span>
-                    <span id="legendWraith" style="display:none;"><div class="color-box dot-box" style="background:#b39ddb;"></div>シャドウレイス</span><br>
-                    <span><div class="color-box" style="background:#1a1060; border:1px solid #4466cc;"></div>あくま部屋</span>
-                    <span><div class="color-box" style="background:#95a5a6;"></div>石</span>
-                    <span><div class="color-box" style="background:#7b8d41;"></div>苔石</span>
-                    <span><div class="color-box" style="background:#9A6229;"></div>銅</span>
-                    <span id="legendDark" style="display:none;"><div class="color-box" style="background:#2a1a4a; border:1px solid #7d5bb5;"></div>闇水晶</span>
-                    <span><div class="color-box" style="background:#8a7a3a; border:1px solid #ffcc00;"></div>宝石鉱脈</span>
-                </div>
-            </div>
+            <!-- 電光掲示板：お知らせは右から左へ流れる -->
+            <div id="tickerBar"><div id="message" class="is-empty"></div></div>
 
             <div id="canvasContainer">
                 <canvas id="gameCanvas"></canvas>
@@ -1170,6 +1384,8 @@
         <!-- ミニマップ（キャンバス枠外・画面左下に固定） -->
         <canvas id="minimap" width="66" height="140" title="タップでカメラ移動"></canvas>
 
+        <!-- 強化パネル＋操作ボタン（縦に並べる列） -->
+        <div id="rightColumn">
         <!-- レベルアップパネル -->
         <div id="levelPanel">
             <div class="lv-panel-handle"></div>
@@ -1242,38 +1458,53 @@
                 <div class="lv-stats-grid" id="wraith-stats"></div>
             </div>
         </div>
+
+        <!-- あくま部屋操作（強化パネルの下に配置） -->
+        <div id="dashboard">
+            <div class="btn-group">
+                <button class="btn-castle btn-castle-square" id="castleBtn" onclick="toggleCastleMode()" title="あくま部屋を作成・移動（初回は無料、以降は有料）">
+                    <span class="castle-btn-icon">🏰</span>
+                    <span class="castle-btn-label" id="castleBtnLabel">作成</span>
+                    <span class="castle-btn-cost" id="castleBtnCost">0G</span>
+                </button>
+                <button class="btn-castle" id="colSkipBtn" onclick="colSkipPrep()" style="display:none; font-size:14px; padding:10px 14px;">⚔ 早出し</button>
+                <button class="btn-castle" id="colRepairBtn" onclick="colRepairCastle()" style="display:none; font-size:14px; padding:10px 14px;">🔧 修復(100 G)</button>
+                <button class="btn-castle" id="levelPanelToggleBtn" onclick="toggleLevelPanel()" style="font-size:14px; padding:10px 14px;">⚗ 強化 ▲</button>
+            </div>
+        </div>
+        </div>
     </div>
 
     <!-- ボス警告バナー -->
     <div id="bossWarning">⚠ 怒りの勇者 接近 ⚠</div>
 
-    <div id="gameOverScreen" class="screen">
-        <div class="result-container">
-            <div class="result-header">
+    <div id="gameOverScreen" class="screen screen-layout">
+            <div class="screen-head result-header">
                 <div class="result-icon" id="resIcon">💀</div>
                 <h1 class="result-title" id="resTitle">TO BE CONTINUED...</h1>
                 <p class="result-subtitle" id="resSubtitle">あくま部屋が勇者に破壊された。次の拠点はどこにしよう。</p>
             </div>
 
+            <div class="screen-body result-container">
             <!-- ハード：レバレッジ精算サマリ -->
-            <div id="resLevBox" style="display:none; margin:0 auto 14px; width:min(420px,90vw); background:rgba(30,0,10,0.85); border:2px solid #ff4466; border-radius:2px; padding:12px 18px; text-align:left; color:#f0d0d8; font-size:0.9rem; line-height:1.9;">
+            <div id="resLevBox" style="display:none; width:100%; box-sizing:border-box; background:rgba(30,0,10,0.85); border:2px solid #ff4466; border-radius:2px; padding:12px 18px; text-align:left; color:#f0d0d8; font-size:0.9rem; line-height:1.9;">
                 <div style="text-align:center; color:#ff6688; font-weight:bold; letter-spacing:2px; margin-bottom:6px;">— レバレッジ精算 —</div>
-                <div style="display:flex; justify-content:space-between;"><span>💰 預入 S × 倍率 <span id="resLevMult">2</span></span><span id="resLevDebt" style="color:#ffcc00;">0</span></div>
+                <div style="display:flex; justify-content:space-between;"><span>💰 預入 S × 倍率 <span id="resLevMult">2</span></span><span id="resLevDebt" style="color:var(--c-gold);">0</span></div>
                 <div style="display:flex; justify-content:space-between;"><span>🎯 開始資本（損益分岐）</span><span id="resLevRepay" style="color:#ff8899;">0</span></div>
-                <div style="display:flex; justify-content:space-between;"><span>🏦 手持ちゴールド</span><span id="resLevHold" style="color:#ffcc00;">0</span></div>
-                <div style="display:flex; justify-content:space-between; border-top:1px solid #553; margin-top:4px; padding-top:4px; font-weight:bold;"><span>💹 純益 ΔB</span><span id="resLevDelta" style="color:#ffcc00; font-size:1.2rem;">0</span></div>
+                <div style="display:flex; justify-content:space-between;"><span>🏦 手持ちゴールド</span><span id="resLevHold" style="color:var(--c-gold);">0</span></div>
+                <div style="display:flex; justify-content:space-between; border-top:1px solid #553; margin-top:4px; padding-top:4px; font-weight:bold;"><span>💹 純益 ΔB</span><span id="resLevDelta" style="color:var(--c-gold); font-size:1.2rem;">0</span></div>
             </div>
 
             <!-- コロシアム：到達waveと記録 -->
-            <div id="resColBox" style="display:none; margin:0 auto 14px; width:min(420px,90vw); background:rgba(30,22,0,0.85); border:2px solid #cc9922; border-radius:2px; padding:12px 18px; text-align:left; color:#f0e4c0; font-size:0.9rem; line-height:1.9;">
+            <div id="resColBox" style="display:none; width:100%; box-sizing:border-box; background:rgba(30,22,0,0.85); border:2px solid #cc9922; border-radius:2px; padding:12px 18px; text-align:left; color:#f0e4c0; font-size:0.9rem; line-height:1.9;">
                 <div style="text-align:center; color:#ffcc44; font-weight:bold; letter-spacing:2px; margin-bottom:6px;">— コロシアム —</div>
-                <div style="display:flex; justify-content:space-between;"><span>🏛 到達 Wave</span><span id="resColWave" style="color:#ffcc00; font-size:1.3rem; font-weight:bold;">0</span></div>
-                <div style="display:flex; justify-content:space-between;"><span>🏅 最高記録</span><span id="resColBest" style="color:#ffcc00;">0</span></div>
+                <div style="display:flex; justify-content:space-between;"><span>🏛 到達 Wave</span><span id="resColWave" style="color:var(--c-gold); font-size:1.3rem; font-weight:bold;">0</span></div>
+                <div style="display:flex; justify-content:space-between;"><span>🏅 最高記録</span><span id="resColBest" style="color:var(--c-gold);">0</span></div>
                 <div id="resColNewRecord" style="display:none; text-align:center; color:#44cc66; font-weight:bold; margin-top:4px;">🎉 記録更新！</div>
-                <div style="display:flex; justify-content:space-between; border-top:1px solid #553; margin-top:4px; padding-top:4px;"><span>💎 記録報酬</span><span id="resColDiamond" style="color:#00ffee;">0</span></div>
+                <div style="display:flex; justify-content:space-between; border-top:1px solid #553; margin-top:4px; padding-top:4px;"><span>💎 記録報酬</span><span id="resColDiamond" style="color:var(--c-dia);">0</span></div>
             </div>
 
-            <div class="result-stats">
+            <div class="result-stats" id="resStats">
                 <div class="result-stat-item">
                     <span class="result-stat-label">⚔️ 討伐した勇者</span>
                     <span class="result-stat-value" id="resHeroes">0</span>
@@ -1288,7 +1519,7 @@
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
                     <span class="result-stat-label">🕳 最大深度</span>
-                    <span class="result-stat-value" id="resDepth" style="color:#ffcc00;">0</span>
+                    <span class="result-stat-value" id="resDepth" style="color:var(--c-gold);">0</span>
                     <span class="result-stat-unit">m</span>
                 </div>
                 <div class="result-stat-divider"></div>
@@ -1308,7 +1539,7 @@
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
                     <span class="result-stat-label">💎 獲得ダイヤモンド</span>
-                    <span class="result-stat-value" id="resEarnedDiamond" style="color:#00ffee;">0</span>
+                    <span class="result-stat-value" id="resEarnedDiamond" style="color:var(--c-dia);">0</span>
                     <span class="result-stat-unit">個</span>
                 </div>
                 <div class="result-stat-divider"></div>
@@ -1320,7 +1551,7 @@
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
                     <span class="result-stat-label">💎 ダイヤ残高</span>
-                    <span class="result-stat-value" id="resCarryDiamond" style="color:#00ffee;">0</span>
+                    <span class="result-stat-value" id="resCarryDiamond" style="color:var(--c-dia);">0</span>
                     <span class="result-stat-unit">個</span>
                 </div>
                 <div class="result-stat-divider"></div>
@@ -1329,13 +1560,15 @@
                     <span class="result-stat-value result-stat-value-small" id="resMonsterLevels" style="color:#44cc66;">-</span>
                 </div>
             </div>
-
-            <div class="result-actions">
-                <button class="btn-start btn-result" onclick="continuePlay()">▶ 続けて遊ぶ</button>
-                <button class="btn-start btn-result btn-result-sub" onclick="changeMode()">🔀 モードを変えて遊ぶ</button>
-                <button class="btn-start btn-result btn-result-sub" onclick="location.reload()">🏠 タイトルへ戻る</button>
             </div>
-        </div>
+
+            <div class="screen-foot result-actions" id="resActions">
+                <button class="btn-start btn-result" onclick="continuePlay()">▶ 続けて遊ぶ</button>
+                <div class="result-actions-sub">
+                    <button class="btn-start btn-result btn-result-sub" onclick="changeMode()">🔀 モード変更</button>
+                    <button class="btn-start btn-result btn-result-sub" onclick="location.reload()">🏠 タイトルへ</button>
+                </div>
+            </div>
     </div>
 
 <script>
@@ -1350,6 +1583,9 @@
     const MINIMAP_ROWS = 100;          // 縦に写すマス数（固定＝縮尺が一定）
     const MINIMAP_MARGIN = 12;
     const MINIMAP_ASPECT_MAX = 2.2;    // 横/縦の縮尺比の上限（横に間延びさせない）
+    // 盤面の左に空きがあるだけ横に広げると、画面が広いほど「ほぼ空の大きな箱」になる。
+    // ミニマップは全体を俯瞰するためのものなので、幅の上限を決めておく。
+    const MINIMAP_MAX_W = 140;
     // 画面左端〜プレイ画面左端の余白いっぱいに置く（左パネルの下から画面下端まで）
     function positionMinimap() {
         const c = document.getElementById('canvasContainer');
@@ -1360,7 +1596,7 @@
         const collapsed = !panel || panel.classList.contains('collapsed');
         const pr = collapsed ? null : panel.getBoundingClientRect();
         const top = Math.round((pr && pr.height ? pr.bottom : 44) + MINIMAP_MARGIN);
-        const w = Math.round(Math.max(72, rect.left - MINIMAP_MARGIN * 2 - 4));
+        const w = Math.round(Math.min(MINIMAP_MAX_W, Math.max(72, rect.left - MINIMAP_MARGIN * 2 - 4)));
         const h = Math.round(Math.max(140, window.innerHeight - top - MINIMAP_MARGIN));
         minimap.style.left = MINIMAP_MARGIN + 'px';
         minimap.style.top = top + 'px';
@@ -1546,6 +1782,27 @@
     canvasContainerEl.addEventListener('wheel', () => { if (!followAutoScroll) setFollow(false); }, { passive: true });
 
     const msgDiv = document.getElementById('message');
+
+    // ===== 電光掲示板の駆動 =====
+    // お知らせの出し方は今までどおり msgDiv.innerText = '…' のまま。
+    // 文字が変わったことを MutationObserver で拾い、流れる速さを文字量に合わせて決め直す。
+    // （呼び出し側が「掲示板であること」を知らなくていいので、書き換え漏れが起きない）
+    const TICKER_PX_PER_SEC = 90;              // 流れる速さ。文字量が増えても体感速度は一定
+    function refreshTicker() {
+        const empty = !msgDiv.textContent.trim();
+        msgDiv.classList.toggle('is-empty', empty);
+        if (empty) return;
+        // translateX(-100%) は自分の幅ぶん動く。その幅（＝掲示板幅＋文字幅）が移動距離。
+        const distance = Math.max(1, msgDiv.offsetWidth);
+        msgDiv.style.setProperty('--ticker-dur', (distance / TICKER_PX_PER_SEC).toFixed(2) + 's');
+        // 新しい知らせは必ず右端から出す（アニメーションを頭から再生し直す）
+        msgDiv.style.animation = 'none';
+        void msgDiv.offsetWidth;
+        msgDiv.style.animation = '';
+    }
+    new MutationObserver(refreshTicker).observe(msgDiv, { childList: true, characterData: true, subtree: true });
+    window.addEventListener('resize', refreshTicker);
+
     const castleBtn = document.getElementById('castleBtn');
     const goldSpan = document.getElementById('goldAmount');
     
@@ -3038,10 +3295,15 @@
     // 指定した画面だけを表示し、他の全画面を確実に閉じる（横並び事故の防止）
     const ALL_SCREENS = ['titleScreen','startScreen','modeSelectScreen','shopScreen','settingsScreen','gameScreen','gameOverScreen'];
     function showScreenOnly(id, displayMode) {
+        // 盤面用の浮きUI（ミニマップ・FAB類）は position:fixed で .screen の外に居るため、
+        // 画面を切り替えても消えない。body にしるしを付けて CSS 側から出し入れする。
+        document.body.classList.toggle('screen-game', id === 'gameScreen');
         for (const sid of ALL_SCREENS) {
             const el = document.getElementById(sid);
             if (!el) continue;
-            el.style.display = (sid === id) ? (displayMode || 'flex') : 'none';
+            // 配置契約に乗っている画面は grid で出す（flex にすると3段構成が崩れて中身がはみ出す）
+            const shown = displayMode || (el.classList.contains('screen-layout') ? 'grid' : 'flex');
+            el.style.display = (sid === id) ? shown : 'none';
             if (sid !== id) { el.classList.remove('fade-in'); continue; }
             // P4-5 表示する画面にフェードインを付ける（クラス付与のみ・入力は阻害しない）
             el.classList.remove('fade-in');
@@ -3131,10 +3393,6 @@
     function refreshInGameUnlocks() {
         const wraithCard = document.getElementById('wraith-card');
         if (wraithCard) wraithCard.style.display = shopData.wraith ? '' : 'none';
-        const lw = document.getElementById('legendWraith');
-        const ld = document.getElementById('legendDark');
-        if (lw) lw.style.display = shopData.wraith ? '' : 'none';
-        if (ld) ld.style.display = shopData.wraith ? '' : 'none';
         updateLevelPanel();
         updateMuteButtons();
     }
@@ -3150,6 +3408,11 @@
     }
     function closeMenuPopover() {
         document.getElementById('menuPopover').classList.remove('open');
+    }
+    // 速度・ポーズ・音・追尾・撤退（ハンバーガーに格納）
+    function toggleGameActionsMenu() {
+        document.getElementById('gameActionsMenu').classList.toggle('open');
+        document.getElementById('gameActionsBtn').classList.toggle('open');
     }
     // 左サイドパネルの畳み込み（デスクトップ）
     function toggleSidePanel() {
@@ -3279,7 +3542,9 @@
     
     // 盤面の幅はモードで変わる（standard/hard=BASE_COLS、コロシアム=COL_SIZE の正方形）。
     // 参照側はすべて実行時に COLS を読むので let で足りる（BFSスクラッチは ROWS*COLS で再確保判定）。
-    const BASE_COLS = 20;
+    // BASE_COLS は奇数にすること。入口 ENTRANCE_X = floor(COLS/2) が中央になり、左右の列数が揃う。
+    // 19 = 左9 + 入口1 + 右9。
+    const BASE_COLS = 19;
     let COLS = BASE_COLS;
     const INITIAL_ROWS = 23;
     const TILE_SIZE = 30;
@@ -4103,37 +4368,92 @@
     // 失敗してもゲーム本体には一切影響させない。
     loadLicense().catch(() => {});
 
+    // 画面に入りきらないときは縮める。
+    // 縦に積んだ箱は「全部に同じ倍率・同じ原点」をかけること。1つだけ縮めると幅がズレて
+    // 左右の位置がそろわなくなる（原点を top center にすると中央線が動かない＝そろったまま）。
+    const SCALED_BOXES = ['sidePanelLeft', 'gameCenter', 'rightColumn', 'dashboard'];
     function adjustMobileScale() {
-        const gc = document.getElementById('gameCenter');
-        if (!gc) return;
-        if (window.innerWidth < 640) {
-            const scale = window.innerWidth / 640;
-            gc.style.transformOrigin = 'top center';
-            gc.style.transform = `scale(${scale.toFixed(4)})`;
-        } else {
-            gc.style.transform = '';
-            gc.style.transformOrigin = '';
+        const boxes = SCALED_BOXES
+            .map(id => document.getElementById(id))
+            .filter(el => el && el.offsetParent !== null);
+        if (!boxes.length) return;
+        // 実寸を測るため一旦リセット（盤面の列数を変えても倍率がひとりでに合う）
+        for (const el of boxes) {
+            el.style.transform = ''; el.style.transformOrigin = ''; el.style.marginBottom = '';
+        }
+        const natural = Math.max(...boxes.map(el => Math.max(el.offsetWidth, el.scrollWidth)));
+        const avail = window.innerWidth - 16;               // 左右にわずかな余白
+        if (natural <= avail) return;
+        const scale = Math.max(0.4, avail / natural);
+        for (const el of boxes) {
+            const h = el.offsetHeight;                      // 縮める前のレイアウト上の高さ
+            el.style.transformOrigin = 'top center';
+            el.style.transform = `scale(${scale.toFixed(4)})`;
+            // transform は見た目だけを縮め、レイアウト上の高さは元のまま。
+            // そのぶんを負のマージンで詰めないと、箱の下に大きな空白が残り、
+            // 全体が縦に伸びて上下が画面から切れる。
+            el.style.marginBottom = Math.round(-h * (1 - scale)) + 'px';
         }
     }
     window.addEventListener('resize', adjustMobileScale);
     window.addEventListener('resize', () => { positionMinimap(); drawMinimap(); });
 
-    // リザルト画面を画面高に収める（内容が縦に長い場合のみ倍率を動的縮小）
-    function adjustResultScale() {
-        const rc = document.querySelector('#gameOverScreen .result-container');
-        if (!rc) return;
-        // 実寸を測るため一旦リセット
-        rc.style.transform = '';
-        rc.style.transformOrigin = '';
-        const natural = rc.offsetHeight;              // padding込みの自然な高さ
-        const avail = window.innerHeight * 0.98;      // 上下に僅かな余白
-        if (natural > avail) {
-            const scale = Math.max(0.4, avail / natural);
-            rc.style.transformOrigin = 'center center';
-            rc.style.transform = `scale(${scale.toFixed(4)})`;
+    // ===== HUD の重なり検査（レイアウト契約の見張り番） =====
+    // #gameCenter のグリッドで重ならないはずのものが、うっかり重なっていないか実測して知らせる。
+    // 「気づいたら重なっていた」を、次に触った人がその場で気づける形にしておく。
+    // ラン開始時に必ず1回。?layoutcheck を付けるとリサイズのたびにも検査する。
+    // 重なっていなければ何も起きない（console に出たら配置が壊れた合図）。
+    // プレイ画面の3段（HUD行・掲示板・盤面）。中身ではなく段そのものを比べる。
+    const HUD_NO_OVERLAP = ['gameHud', 'tickerBar', 'canvasContainer'];
+    // 渡した要素どうしが1枚も重なっていないことを実測で確かめる。
+    // 重なっていたら console に出す（＝配置が壊れた合図）。何も無ければ静か。
+    //
+    // 比べるのは「区画そのもの」にすること。スクロールする区画の“中身”を渡すと、
+    // 中身の矩形は区画からはみ出した分まで返す（実際は隠れて見えていない）ため、
+    // 隣の区画と重なったように誤検出する。
+    function assertNoOverlap(items, hint) {
+        const boxes = items
+            .map(it => (typeof it === 'string'
+                ? { id: it, el: document.getElementById(it) }
+                : it))
+            .filter(b => b.el && b.el.offsetParent !== null)
+            .map(b => ({ id: b.id, r: b.el.getBoundingClientRect() }))
+            .filter(b => b.r.width > 0 && b.r.height > 0);
+        // 全部が同じ矩形＝実レイアウトが無い環境（テストのDOMスタブ）。測っても意味がないので降りる。
+        if (boxes.length > 1 && boxes.every(b =>
+                b.r.top === boxes[0].r.top && b.r.left === boxes[0].r.left &&
+                b.r.width === boxes[0].r.width && b.r.height === boxes[0].r.height)) return;
+        for (let i = 0; i < boxes.length; i++) {
+            for (let j = i + 1; j < boxes.length; j++) {
+                const a = boxes[i].r, b = boxes[j].r;
+                const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+                const oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+                if (ox > 1 && oy > 1) {
+                    console.error(
+                        `[layout] 重なっています: #${boxes[i].id} × #${boxes[j].id} ` +
+                        `(${Math.round(ox)}×${Math.round(oy)}px)。${hint}`);
+                }
+            }
         }
     }
-    window.addEventListener('resize', adjustResultScale);
+    function assertNoHudOverlap() {
+        assertNoOverlap(HUD_NO_OVERLAP, '#gameCenter の grid-template-areas にセルを足して割り当ててください。');
+    }
+    // リザルトは3つの区画（見出し／内訳／操作ボタン）が重なっていないことを見る
+    function assertNoResultOverlap() {
+        const scr = document.getElementById('gameOverScreen');
+        if (!scr) return;
+        const parts = ['screen-head', 'screen-body', 'screen-foot']
+            .map(c => ({ id: c, el: scr.querySelector(':scope > .' + c) }));
+        assertNoOverlap(parts, '.screen-head / .screen-body / .screen-foot のどれかに入れてください。');
+    }
+    if (typeof location !== 'undefined' && new URLSearchParams(location.search || '').has('layoutcheck')) {
+        window.addEventListener('resize', assertNoHudOverlap);
+    }
+
+    // リザルト画面の「はみ出したら縮める」補正は廃止。
+    // .screen-layout（head/body/foot の3段）で中身の段だけが伸び縮みし、
+    // 内側でスクロールするので、そもそも画面からはみ出さない。
 
     function enterGameScreen(mode = 'standard', stakeAmount = 0, levTier = 1) {
         gameMode = mode;
@@ -4144,6 +4464,7 @@
         showScreenOnly('gameScreen');
         initSidePanelState();
         adjustMobileScale();
+        assertNoHudOverlap();                         // 配置契約が守れているかを実測で確認
         cameraFollow = false; updateFollowBtn();      // 追尾カメラはランごとに OFF から
         positionMinimap();
 
@@ -4179,8 +4500,6 @@
 
         // シャドウレイス解禁状態のUI反映
         document.getElementById('wraith-card').style.display = shopData.wraith ? '' : 'none';
-        document.getElementById('legendWraith').style.display = shopData.wraith ? '' : 'none';
-        document.getElementById('legendDark').style.display = shopData.wraith ? '' : 'none';
         // 撤退ボタンは standard/hard で表示（standardは常時＝ラン終了、hardは波の合間のみ＝利確）。
         // コロシアムは「耐えるだけ」なので撤退という概念を持たない（タイトルへ抜けるのみ）。
         const rBtn = document.getElementById('retreatBtn');
@@ -4200,6 +4519,10 @@
         const cc = document.getElementById('canvasContainer');
         cc.style.width  = isColosseum() ? (COLS * TILE_SIZE) + 'px' : '';
         cc.style.height = isColosseum() ? (ROWS * TILE_SIZE) + 'px' : '';
+        // 盤面の外寸（枠4px×2込み）を配置の基準として配る。
+        // 画面が狭くて縦に積むとき、どの箱もこの幅にそろえる＝左右の位置が全部同じになる。
+        document.getElementById('gameScreen').style.setProperty(
+            '--stage-w', (COLS * TILE_SIZE + 8) + 'px');
         // ボスUIリセット
         document.getElementById('bossHpUI').style.display = 'none';
         bossUIVisible = false;
@@ -4209,7 +4532,8 @@
         
         isPlacingCastle = false;
         castleBtn.classList.remove('active');
-        castleBtn.innerText = "🏰 あくま部屋作成(0 Gold)";
+        document.getElementById('castleBtnLabel').innerText = '作成';
+        document.getElementById('castleBtnCost').innerText = '0G';
 
         isFirstCastlePlaced = false;
         isWaveStarted = false;
@@ -4357,9 +4681,7 @@
             (shopData.wraith ? ` 👻Lv.${monsterLevels.wraith}` : '');
 
         showScreenOnly('gameOverScreen');
-        // 表示後にレイアウトが確定してから倍率調整
-        // （↑の代入で「最終値」が入った状態で計測する。カウントアップは最終値以下の桁数しか出さないので溢れない）
-        adjustResultScale();
+        assertNoResultOverlap();          // 配置契約が守れているかを実測で確認
         // P4-6 数値のカウントアップ（見た目だけの演出。値と入力には影響しない）
         animateResultNumbers([
             { id:'resHeroes',        to: defeatedHeroesCount },
@@ -4430,10 +4752,17 @@
     }
 
     function toggleCastleMode() {
+        if (isPlacingCastle) { exitCastlePlacementMode(); return; }
         if (colRallyMode) { colRallyMode = null; updateLevelPanel(); }   // 指令モードとは排他
-        isPlacingCastle = !isPlacingCastle;
-        castleBtn.classList.toggle('active', isPlacingCastle);
-        msgDiv.innerText = isPlacingCastle ? "配置したい空間をクリックしてください" : "";
+        isPlacingCastle = true;
+        castleBtn.classList.add('active');
+        msgDiv.innerText = "配置したい空間をクリックしてください";
+    }
+    // 配置モードを明示的に閉じる（ボタン経由・Shift+クリック経由のどちらで置いても後始末を統一）
+    function exitCastlePlacementMode() {
+        isPlacingCastle = false;
+        castleBtn.classList.remove('active');
+        msgDiv.innerText = "";
     }
 
     function isReachable(startX, startY, targetX, targetY) {
@@ -4594,7 +4923,7 @@
                 castlePos = {x: x, y: y};
                 castleHp = castleMaxHp();
                 __p5_bumpTerrain();          // 城が動いたので距離場を作り直す
-                toggleCastleMode();
+                exitCastlePlacementMode();   // Shift+クリック経由でも配置モードを残さない
 
                 if (!isColosseum()) {
                     // 深度を更新（地表 y=SKY_LAYERS からの距離）
@@ -4624,7 +4953,8 @@
                 if (!isWaveStarted) {
                     isFirstCastlePlaced = true;
                     isWaveStarted = true;
-                    castleBtn.innerText = "🏰 あくま部屋移動(50 Gold)";
+                    document.getElementById('castleBtnLabel').innerText = '移動';
+                    document.getElementById('castleBtnCost').innerText = '50G';
                     if (isColosseum()) {
                         updateColWaveUI();
                         colStartPrep();                       // 置いた瞬間に第1波の準備が始まる
@@ -5221,10 +5551,74 @@
     function moveUnits(agi) { return Math.log2(agi + 1) * 4; }
     function atkUnits(agi) { return Math.min(Math.log2(agi + 1) * 4, ATK_UNITS_CAP); }
 
+    let __eidSeq = 0;
     function makeEntity(x, y, props) {
         const rx = x * TILE_SIZE + TILE_SIZE / 2 + getJitter();
         const ry = y * TILE_SIZE + TILE_SIZE / 2 + getJitter();
-        return Object.assign({ x, y, rx, ry, ox: 0, oy: 0, cd: 0 }, props);
+        return Object.assign({ x, y, rx, ry, ox: 0, oy: 0, cd: 0, eid: ++__eidSeq }, props);
+    }
+
+    // ===== サブセル配置（1マスを等分割して同居個体を散らす）=====
+    // ゲームロジックに「1マス1体」の排他は無い（移動は isPassable しか見ない）ので、
+    // 同じマスに何体でも入る。描画がタイル中心固定だった間は重なった分が丸ごと隠れて
+    // いて、実測では戦闘中の 7〜9 割の個体が見えていなかった（test/p5/epilogue_crowd.js）。
+    // ここでは論理座標 (x,y) に一切触れず、描画オフセット (ox,oy) だけを配る。
+    // ＝経路探索・戦闘・繁殖の挙動は完全に不変。
+    //
+    // 個体の大きさは同居数で変えない（＝いつでも原寸）。原寸を保ったままマスに収まる席は
+    // 2×2 が限界で、席間隔は 15px。実寸はスライム11px・ゴブリン6.8px・ゴーレム11px なので
+    // この3種はきれいに収まる。レイス17px と勇者16px（オーラ込み28.8px）だけは食い込むが、
+    // 大型なので「重なって群れている」として読める。3×3（席間隔10px）にすると HPバーが
+    // 真上の個体の中心に完全に重なるため採らない。
+    const SUBCELL_MAX = 4;                 // 1マスに描く上限（2×2）。超過分は静かに隠す
+    const __occ = new Map();               // マス(flat index) → その場にいる個体の配列
+    let __occArrPool = [];                 // 配列の使い回し（毎フレームの確保をゼロにする＝D-3準拠）
+
+    // 個体IDから決まる固定ゆらぎ（-0.5〜0.5）。決定的なのでフレーム間でチラつかない。
+    function subcellJitter(eid, salt) {
+        const h = Math.imul(eid ^ salt, 2654435761) >>> 0;
+        return h / 4294967296 - 0.5;
+    }
+
+    function assignSubcells() {
+        for (const a of __occ.values()) { a.length = 0; __occArrPool.push(a); }
+        __occ.clear();
+        const push = (e) => {
+            const k = e.y * COLS + e.x;
+            let a = __occ.get(k);
+            if (!a) { a = __occArrPool.pop() || []; __occ.set(k, a); }
+            a.push(e);
+        };
+        monsters.forEach(push);
+        heroes.forEach(push);
+
+        for (const arr of __occ.values()) {
+            const n = arr.length;
+            if (n === 1) {                                  // 単独＝従来どおりマス中心
+                const e = arr[0];
+                e.ox = 0; e.oy = 0; e.hiddenInCrowd = false;
+                continue;
+            }
+            // 席順は「勇者が先、あとは eid 昇順」。eid だけで並べると先に生まれたモンスターが
+            // 席を独占し、後から来た勇者が押し出されて見えなくなる（＝脅威が画面から消える）。
+            // eid は不変なので、この順序もフレーム間で安定＝席の入れ替わりで跳ねない。
+            arr.sort((a, b) => (b.isHero ? 1 : 0) - (a.isHero ? 1 : 0) || a.eid - b.eid);
+            const shown = n < SUBCELL_MAX ? n : SUBCELL_MAX;
+            const g = 2;                                    // 席の格子は 2×2 固定（原寸が収まる広さ）
+            const step = TILE_SIZE / g;                     // 15px
+            const jit = step * 0.10;                        // 格子からの固定ゆらぎ（原寸なので控えめ）
+            const rows = Math.ceil(shown / g);
+            for (let i = 0; i < n; i++) {
+                const e = arr[i];
+                if (i >= shown) { e.hiddenInCrowd = true; continue; }
+                e.hiddenInCrowd = false;
+                const row = (i / g) | 0;
+                const col = i % g;
+                const inRow = Math.min(g, shown - row * g); // その段の実数で段ごとに中央寄せ
+                e.ox = (col + 0.5) * step - inRow * step / 2 + subcellJitter(e.eid, 0x9e37) * jit * 2;
+                e.oy = (row + 0.5) * step - rows  * step / 2 + subcellJitter(e.eid, 0x85eb) * jit * 2;
+            }
+        }
     }
 
     function isPassable(x, y) {
@@ -5671,9 +6065,13 @@
     }
 
     // モバイルでは初期状態でパネルを閉じる
+    // FAB はこの <script> より後ろに書かれているので、ここではまだ存在しない。
+    // 素通しにすると例外でこれ以降の初期化が止まるため、在るときだけ触る。
     if (window.innerWidth <= 640) {
-        document.getElementById('levelPanel').classList.add('collapsed');
-        document.getElementById('levelPanelFAB').textContent = '⚗';
+        const lp = document.getElementById('levelPanel');
+        if (lp) lp.classList.add('collapsed');
+        const lpFab = document.getElementById('levelPanelFAB');
+        if (lpFab) lpFab.textContent = '⚗';
     }
 
     function togglePause() {
@@ -5884,19 +6282,22 @@
         }
 
         function drawEntity(entity) {
-            // スムーズな補間移動 (lerp)
-            const targetX = entity.x * TILE_SIZE + TILE_SIZE / 2;
-            const targetY = entity.y * TILE_SIZE + TILE_SIZE / 2;
+            // スムーズな補間移動 (lerp)。目標はマス中心＋サブセルの席オフセット。
+            const targetX = entity.x * TILE_SIZE + TILE_SIZE / 2 + (entity.ox || 0);
+            const targetY = entity.y * TILE_SIZE + TILE_SIZE / 2 + (entity.oy || 0);
             if (entity.rx === undefined) entity.rx = targetX;
             if (entity.ry === undefined) entity.ry = targetY;
             entity.rx += (targetX - entity.rx) * 0.22;
             entity.ry += (targetY - entity.ry) * 0.22;
 
+            // 上限を超えて席のなかった個体は描かない（位置の補間だけ続けて次に席が空いたら滑らかに出る）
+            if (entity.hiddenInCrowd) return;
+
             const cx = entity.rx;
             const cy = entity.ry;
 
             ctx.save();
-            // ちびは0.55倍に縮小
+            // ちびは0.55倍に縮小。同居数では大きさを変えない（＝いつでも原寸）。
             if (entity.isBaby) {
                 ctx.translate(cx, cy);
                 ctx.scale(0.55, 0.55);
@@ -6145,6 +6546,7 @@
             }
         }
 
+        assignSubcells();               // 同居個体に席を配ってから描く（論理座標は触らない）
         monsters.forEach(drawEntity);
         heroes.forEach(drawEntity);
 

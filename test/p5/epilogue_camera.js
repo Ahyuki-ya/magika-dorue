@@ -41,10 +41,10 @@
   // ---- 2. 描画が例外なく通る（DOM/ctx スタブ上）----
   let drawErr = null;
   try {
-    castlePos = { x: 10, y: y0 + 150 }; castleHp = CASTLE_MAX_HP;
-    heroHouses = [{ x: 5, y: y0 + 120 }];
+    castlePos = { x: ENTRANCE_X, y: y0 + 150 }; castleHp = CASTLE_MAX_HP;
+    heroHouses = [{ x: ENTRANCE_X, y: y0 + 120 }];
     heroes = [];
-    [100, 148, 152, 260].forEach((d, i) => heroes.push(makeEntity(10, y0 + d,
+    [100, 148, 152, 260].forEach((d, i) => heroes.push(makeEntity(ENTRANCE_X, y0 + d,
       { hp: 20, maxHp: 20, atk: 3, agi: 3, range: 4, isHero: true, isEnraged: i === 1 })));
     c.scrollTop = (y0 + 150) * TILE_SIZE;
     positionMinimap();
@@ -68,8 +68,12 @@
   chk('3d 勇者ゼロでも落ちない', followTarget() === null);
 
   // ---- 4. 追尾カメラの動き ----
-  heroes = [makeEntity(10, y0 + 300, { hp: 20, maxHp: 20, atk: 3, agi: 3, range: 4, isHero: true })];
-  castlePos = { x: 10, y: y0 + 300 };
+  heroes = [makeEntity(ENTRANCE_X, y0 + 300, { hp: 20, maxHp: 20, atk: 3, agi: 3, range: 4, isHero: true })];
+  // makeEntity は ry に getJitter() を足す（＝乱数列に依存する）。ここで測りたいのはカメラであって
+  // 湧き位置の揺らぎではないので、ry をタイル中心ぴったりに固定してから追従を見る。
+  // （盤面の列数を変えると乱数の消費が変わり、揺らぎの値も変わるため）
+  heroes[0].ry = (y0 + 300) * TILE_SIZE + TILE_SIZE / 2;
+  castlePos = { x: ENTRANCE_X, y: y0 + 300 };
   c.scrollTop = 0;
   setFollow(true);
   chk('4a setFollow(true) で ON', cameraFollow === true);

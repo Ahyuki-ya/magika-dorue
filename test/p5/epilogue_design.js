@@ -91,6 +91,191 @@
   } catch (e) { err = String(e && e.stack || e); }
   chk('6 描画・演出経路で例外なし', err === null, err);
 
+  // ---- 7. プレイ画面の配置契約（HUD が重ならないことを構造で担保する）----
+  // 「重なって見づらい」を都度直すのではなく、重なりようがない形を強制する。
+  //   ・HUD はすべて #gameCenter のグリッドのセルに入る（position:absolute で浮かせない）
+  //   ・セルは grid-template-areas に宣言されている名前だけ
+  // ここが赤くなったら「配置を絶対座標で足した」合図。areas に行を足す方へ直すこと。
+  const gcRule = css.slice(css.indexOf('#gameCenter {'));
+  const gcBody = gcRule.slice(0, gcRule.indexOf('}'));
+  chk('7a #gameCenter はグリッド', /display:\s*grid/.test(gcBody));
+  const areasM = gcBody.match(/grid-template-areas:([\s\S]*?);/);
+  const declaredAreas = areasM ? [...new Set(areasM[1].match(/[a-z-]+/g) || [])] : [];
+  chk('7b hud / ticker / stage の3段が宣言されている',
+      ['hud', 'ticker', 'stage'].every(a => declaredAreas.includes(a)),
+      declaredAreas.join(','));
+  // 同じ id に複数のルールが書けるので、その id を含むセレクタの本文を「全部」集めて見る
+  //（1つ目だけ見ると、後から足した position:absolute を見落とす）
+  const rulesFor = (id) => [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+    .filter(m => new RegExp('#' + id + '(?![\\w-])').test(m[1]))
+    .map(m => m[2]);
+  // 段（グリッドの行）は3つ。HUDの中身はこの段の中に flex で並ぶ。
+  const ROW_IDS = ['gameHud', 'tickerBar', 'canvasContainer'];
+  const unassigned = ROW_IDS.filter(id => {
+    const area = rulesFor(id).map(b => (b.match(/grid-area:\s*([a-z-]+)/) || [])[1]).filter(Boolean).pop();
+    return !area || !declaredAreas.includes(area);
+  });
+  chk('7c 3段が全部セルに割り当て済み', unassigned.length === 0, unassigned.join(',') || 'none');
+  // 段の左右位置がそろうには、列幅を決めるのが盤面だけであること。
+  // HUD行と掲示板が列幅を広げると、盤面より横に出て段がそろわなくなる。
+  const widthNeutral = ['gameHud', 'tickerBar'].filter(id =>
+    !rulesFor(id).some(b => /width:\s*0/.test(b) && /min-width:\s*100%/.test(b)));
+  chk('7h 列幅を決めるのは盤面だけ', widthNeutral.length === 0, widthNeutral.join(',') || 'none');
+  // 横3列（メニュー+盤面+強化）が入らない幅になったら縦積みへ切り替えること。
+  // 切り替えないまま横に並べ続けると端が画面外に出て切れる。
+  chk('7i 入らない幅では縦積みに切り替える',
+      /@media \(max-width: 1000px\)[\s\S]{0,400}#gameScreen\s*{[^}]*flex-direction:\s*column/.test(css));
+  // 縦積みでは全部の箱を盤面と同じ幅・中央そろえにする（左右の位置を一致させる）
+  chk('7j 縦積みでは全箱を盤面幅にそろえる',
+      /#dashboard\s*{[^}]*width:\s*var\(--stage-w/.test(css) && /align-self:\s*center/.test(css));
+  // 盤面の外寸は JS から配る（列数を変えても追従させるため）
+  chk('7k 盤面の外寸を --stage-w で配っている', /setProperty\(\s*'--stage-w'/.test(src));
+  // 縮めるときは全部の箱に同じ倍率をかける（1つだけ縮めると幅がズレる）
+  // 「倍率をかけるループ」が全箱を回っているかを見る。
+  //（リセット用のループも同じ書き出しなので、倍率適用側だと分かる中身まで含めて確かめる）
+  chk('7l 縮小は全箱に同じ倍率',
+      /SCALED_BOXES/.test(src) &&
+      /for \(const el of boxes\)\s*\{\s*const h = el\.offsetHeight/.test(src));
+  // transform はレイアウト高を縮めないので、負のマージンで詰める
+  chk('7m 縮小ぶんの余白を詰めている', /marginBottom\s*=\s*Math\.round\(-h \* \(1 - scale\)\)/.test(src));
+  // HUD 本体に position:absolute が復活していないか（ドロップダウンは別物なので対象外）
+  const HUD_IDS = [...ROW_IDS, 'gameActionsWrap', 'hudTopCenter', 'currencyUI'];
+  const absHud = HUD_IDS.filter(id => rulesFor(id).some(b => /position:\s*absolute/.test(b)));
+  chk('7d HUD を絶対座標で浮かせていない', absHud.length === 0, absHud.join(',') || 'none');
+  // 実行時の見張り番が残っているか
+  chk('7e 重なり検査が実装されている', /function assertNoOverlap/.test(src));
+  chk('7f ラン開始時に検査を通る', /assertNoHudOverlap\(\);/.test(src));
+  chk('7g リザルトでも重なりを検査する', /assertNoResultOverlap\(\);/.test(src));
+
+  // ---- 8. 盤面と電光掲示板 ----
+  chk('8a 盤面の列数は奇数（入口が中央＝左右対称）', BASE_COLS % 2 === 1, BASE_COLS);
+  chk('8b 入口は中央の列', ENTRANCE_X === (BASE_COLS - 1) / 2, `${ENTRANCE_X} / ${BASE_COLS}`);
+  chk('8c 盤面の幅は canvas の実寸に従う', /#canvasContainer\s*{[\s\S]*?width:\s*max-content/.test(css));
+  chk('8d お知らせは電光掲示板の中', /<div id="tickerBar"><div id="message"/.test(src));
+  chk('8e 右から左へ流れる', /@keyframes tickerScroll/.test(css) && /animation:\s*tickerScroll/.test(css));
+  chk('8f 文字量に応じて速さを揃える', /TICKER_PX_PER_SEC/.test(src));
+  chk('8g 動きを減らす設定を尊重する',
+      /prefers-reduced-motion[\s\S]{0,200}#message\s*{[^}]*animation:\s*none/.test(css));
+
+  // ---- 9. 画面の配置契約（全画面共通の head / body / foot）----
+  // 縦の並びを1つの型に固定し、伸び縮みするのは中身の段だけにする。
+  // これで「収まらなかったら後から縮める」補正が要らなくなる＝はみ出しが構造的に起きない。
+  // 判定はコメントを除いた中身で行う（説明文に書いた "display:" を拾わないため）
+  const layoutBody = ((css.match(/\.screen-layout\s*{([^}]*)}/) || [, ''])[1]).replace(/\/\*[\s\S]*?\*\//g, '');
+  // .screen-layout に display を書くと、.screen の display:none と同じ強さで後勝ちするため
+  // 「その画面が常に表示されたまま」になる（最後の画面が全部を覆って他が見えなくなる）。
+  // 実際に出す時の display は showScreenOnly が入れる、という約束にしてある。
+  chk('9a .screen-layout は display を宣言しない', !/display\s*:/.test(layoutBody), layoutBody.match(/display\s*:[^;]*/) || 'none');
+  const layoutAreas = [...new Set(((layoutBody.match(/grid-template-areas:([\s\S]*?);/) || [, ''])[1]).match(/[a-z]+/g) || [])];
+  chk('9b head / body / foot の3段', ['head', 'body', 'foot'].every(a => layoutAreas.includes(a)), layoutAreas.join(','));
+  // 伸びるのは中身の段だけ（minmax(0,1fr) が無いと子が縮まずはみ出す）
+  chk('9c 伸び縮みするのは中身の段だけ', /grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)\s+auto/.test(layoutBody));
+  chk('9d 中身の段が内側でスクロールする',
+      /\.screen-body\s*{[^}]*min-height:\s*0/.test(css) && /\.screen-body\s*{[^}]*overflow-y:\s*auto/.test(css));
+
+  // HTML 側：契約を使う画面が head/body/foot を「直接の子」として持っているか
+  const SCREENS = ['startScreen', 'modeSelectScreen', 'shopScreen', 'settingsScreen', 'gameOverScreen'];
+  const bodyHtml = src.slice(src.indexOf('<body>'), src.indexOf('<script>'));
+  const badScreens = SCREENS.filter(id => {
+    const at = bodyHtml.indexOf(`id="${id}"`);
+    if (at < 0) return true;
+    if (!/class="screen screen-layout"/.test(bodyHtml.slice(at - 60, at + 60))) return true;
+    // その画面の範囲（次の画面の開始まで）に3つの段が揃っているか
+    const nexts = SCREENS.map(o => bodyHtml.indexOf(`id="${o}"`)).filter(p => p > at);
+    const end = nexts.length ? Math.min(...nexts) : bodyHtml.length;
+    const seg = bodyHtml.slice(at, end);
+    return !['screen-head', 'screen-body', 'screen-foot'].every(p => new RegExp(`class="[^"]*\\b${p}\\b`).test(seg));
+  });
+  chk('9e 主要画面が契約に乗っている', badScreens.length === 0, badScreens.join(',') || 'none');
+  // 後付けの縮小補正が復活していないこと（契約が効いていれば不要）
+  chk('9f はみ出し時の縮小補正が無い', !/function adjustResultScale/.test(src));
+
+  // ---- 9g/9h 実際に画面を切り替えて確かめる（文字列検査では取り逃がすため）----
+  // CSS の書き方を正規表現で見るだけだと「常に表示されたまま」「grid が flex に潰される」
+  // といった “効いていない” 状態を検出できない。実際に切り替えて display を確かめる。
+  const LAYOUT_SCREENS = ['startScreen', 'modeSelectScreen', 'shopScreen', 'settingsScreen', 'gameOverScreen'];
+  const switchBad = [];
+  for (const target of ALL_SCREENS) {
+    showScreenOnly(target);
+    for (const other of ALL_SCREENS) {
+      const d = document.getElementById(other).style.display;
+      if (other === target) {
+        const want = LAYOUT_SCREENS.includes(other) ? 'grid' : 'flex';
+        if (d !== want) switchBad.push(`${other}:${d}≠${want}`);
+      } else if (d !== 'none') {
+        switchBad.push(`${target}表示中に${other}が${d}`);
+      }
+    }
+  }
+  chk('9g 切り替えると狙った1画面だけが出る', switchBad.length === 0, switchBad.slice(0, 4).join(' / ') || 'none');
+  // 契約画面は grid で出さないと3段構成が成立しない（flex だと中身がはみ出す）
+  showScreenOnly('gameOverScreen');
+  chk('9h 契約画面は grid で表示される',
+      document.getElementById('gameOverScreen').style.display === 'grid',
+      document.getElementById('gameOverScreen').style.display);
+
+  // ---- 10. デザイントークン ----
+  // 色を直書きすると、サポーターテーマ（:root を差し替える）がその箇所にだけ効かない。
+  // ＝「直書き＝テーマが半端に壊れる」なので、トークンと同値の直書きは0を保つ。
+  const rootBlock = (css.match(/:root\s*{[\s\S]*?}/) || [''])[0];
+  const cssNoRoot = css.replace(rootBlock, '');
+  const bodyHtml2 = src.slice(src.indexOf('<body>'), src.indexOf('<script>'));
+  const TOKEN_LITERALS = {
+    '--c-bg': '#000018', '--c-bg-game': '#000010', '--c-panel': 'rgba(0,8,32,0.92)',
+    '--c-frame': '#4466cc', '--c-frame-dim': '#2244aa', '--c-frame-faint': '#1a2a60',
+    '--c-text': '#f0f0f0', '--c-text-sub': '#8899cc', '--c-text-faint': '#6688aa',
+    '--c-gold': '#ffcc00', '--c-dia': '#00ffee', '--c-danger': '#ff4422', '--c-ok': '#2ecc71',
+  };
+  const countLit = (hay, lit) =>
+    (hay.match(new RegExp(lit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![0-9a-fA-F])', 'gi')) || []).length;
+  const strayCss = Object.entries(TOKEN_LITERALS)
+    .map(([k, v]) => [k, countLit(cssNoRoot, v)]).filter(([, n]) => n > 0);
+  chk('10a CSS にトークンと同値の直書き色が無い', strayCss.length === 0,
+      strayCss.map(([k, n]) => `${k}×${n}`).join(' ') || 'none');
+  const strayInline = Object.entries(TOKEN_LITERALS)
+    .map(([k, v]) => [k, countLit(bodyHtml2, v)]).filter(([, n]) => n > 0);
+  chk('10b インライン style にも直書き色が無い', strayInline.length === 0,
+      strayInline.map(([k, n]) => `${k}×${n}`).join(' ') || 'none');
+  chk('10c 色トークンが :root に揃っている',
+      Object.keys(TOKEN_LITERALS).every(k => new RegExp(k + ':').test(rootBlock)));
+  // 間隔の目盛り（4px 刻み＋半段の 2px 刻み）。奇数pxの余白は目盛り外。
+  chk('10d 間隔トークンが定義されている', /--s-1:\s*4px/.test(rootBlock) && /--s-h2:\s*6px/.test(rootBlock));
+  const oddGaps = [];
+  for (const m of cssNoRoot.matchAll(/\b(gap|margin|padding)(-(top|bottom|left|right))?\s*:\s*([^;{}]+)/g)) {
+    for (const v of m[4].matchAll(/(\d+)px/g)) {
+      const n = +v[1];
+      if (n > 2 && n % 2 === 1) oddGaps.push(`${m[1]}:${n}px`);
+    }
+  }
+  chk('10e 余白は2px刻みの目盛りに乗っている', oddGaps.length === 0,
+      [...new Set(oddGaps)].join(' ') || 'none');
+
+  // ---- 11. 見た目確認ページ（dev/screens.html）が本体とズレていないか ----
+  // このページは iframe 越しに index.html の「関数」を呼んで各画面を出す。
+  // ゲームの状態変数は let/const 宣言＝window のプロパティではないので、
+  // w.<名前>() で呼べるのは function 宣言されたものだけ。
+  // 本体の関数名を変えるとページだけが黙って壊れるので、ここで対応を見張る。
+  let gallery = null;
+  try { gallery = HARNESS.readFile(HARNESS.htmlPath.replace(/index\.html$/, 'dev/screens.html')); } catch (e) {}
+  if (!gallery) {
+    chk('11 見た目確認ページがある', false, 'dev/screens.html が読めない');
+  } else {
+    // 説明用コメントに書いた例（w.gold = … など）を拾わないよう、先にコメントを落とす
+    const gjs = gallery.replace(/^\s*\/\/.*$/gm, '');
+    const used = [...new Set([...gjs.matchAll(/\bw\.([A-Za-z_$][\w$]*)\s*(?=[(=])/g)].map(m => m[1]))]
+      .filter(n => !['document', 'Storage'].includes(n));
+    const notFn = used.filter(n => !new RegExp(`\\n\\s*function ${n}\\b`).test(src));
+    chk('11a 呼んでいる名前がすべて本体の関数として在る', notFn.length === 0, notFn.join(',') || used.length + '個OK');
+    // 参照している DOM の id が本体に在るか（確認ページ自身の id は対象外）
+    const ids = [...new Set([...gjs.matchAll(/w\.document\.getElementById\('([^']+)'\)|setText\(w, '([^']+)'/g)]
+      .map(m => m[1] || m[2]))];
+    const missingIds = ids.filter(id => !new RegExp(`id="${id}"`).test(src));
+    chk('11b 参照している id がすべて本体に在る', missingIds.length === 0, missingIds.join(',') || ids.length + '個OK');
+    // セーブデータを壊さないこと（同一オリジンで localStorage を共有するため必須）
+    chk('11c 確認ページは localStorage に書き込まない',
+        /Storage\.prototype\.setItem\s*=\s*function\s*\(\)\s*{}/.test(gallery));
+  }
+
   const fails = results.filter(r => !r.ok);
   process.stdout.write(JSON.stringify({
     total: results.length, passed: results.length - fails.length, failed: fails.length,

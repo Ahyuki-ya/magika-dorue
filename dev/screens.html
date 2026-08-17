@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Magika・Dorue — 画面一覧（見た目確認用）</title>
+<style>
+  :root { --bd: #2a3a6a; --tx: #cfe3ff; --sub: #8899cc; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    background: #08080f; color: var(--tx);
+    font-family: 'Courier New', Courier, monospace;
+  }
+  h1 { font-size: 1rem; letter-spacing: 3px; margin: 0 0 4px; }
+  .note { font-size: 0.72rem; color: var(--sub); margin-bottom: 16px; line-height: 1.7; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+  button, select {
+    background: #12203c; color: var(--tx); border: 1px solid var(--bd);
+    border-radius: 4px; padding: 6px 12px; cursor: pointer;
+    font-family: inherit; font-size: 0.78rem;
+  }
+  button:hover { border-color: #4466cc; }
+  button.on { background: #1d3a68; border-color: #6688ff; }
+  .grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  .cell { border: 1px solid var(--bd); border-radius: 6px; overflow: hidden; background: #000; }
+  .cap {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    font-size: 0.72rem; padding: 6px 10px; background: #101828; color: var(--sub);
+    border-bottom: 1px solid var(--bd);
+  }
+  .cap b { color: var(--tx); font-weight: bold; }
+  .cap .err { color: #ff6b6b; }
+  iframe { display: block; border: 0; background: #000; }
+</style>
+</head>
+<body>
+
+<h1>Magika・Dorue / 画面一覧</h1>
+<div class="note">
+  index.html を画面ごとに iframe で並べ、変更のたびに全画面を一目で見比べるためのページ。<br>
+  ローカルサーバー経由で開くこと（file:// では iframe の中を操作できない）。<br>
+  <b>python3 -m http.server 8765</b> を実行して <b>http://localhost:8765/dev/screens.html</b> を開く。<br>
+  <span style="color:#7fd8a0;">セーブデータは書き換わらない（各 iframe で localStorage への書き込みを止めている）。</span>
+</div>
+
+<div class="bar">
+  <span style="font-size:0.75rem; color:var(--sub);">表示幅:</span>
+  <button data-w="390"  data-h="760">📱 mobile 390</button>
+  <button data-w="768"  data-h="900">📲 tablet 768</button>
+  <button data-w="1280" data-h="860" class="on">🖥 desktop 1280</button>
+  <button id="reload">⟳ 再読み込み</button>
+  <span id="status" style="font-size:0.72rem; color:var(--sub);"></span>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+// 各画面の出し方。fn は iframe の window を受け取り、その画面を表示する。
+// index.html 側には手を入れない（確認ページのために本体へデバッグ分岐を足さない）。
+//
+// 注意: index.html のゲーム変数は let/const 宣言なので **window のプロパティではない**。
+//   w.gold = 560 と書いても本体は見ていない（別物のプロパティが増えるだけ）。
+//   触れるのは「function 宣言された関数」と「DOM」だけ、と考えること。
+//   数値を見せたい所は、描画後に DOM のテキストを直接書き換える。
+const setText = (w, id, v) => { const e = w.document.getElementById(id); if (e) e.innerText = v; };
+const say = (w, msg) => setText(w, 'message', msg);
+
+const SCREENS = [
+  { id: 'titleScreen',      label: 'タイトル',        fn: w => w.showScreenOnly('titleScreen') },
+  { id: 'startScreen',      label: 'メインメニュー',   fn: w => w.showMainMenu() },
+  { id: 'modeSelectScreen', label: 'モード選択',      fn: w => w.showModeSelect() },
+  { id: 'modeSelectHard',   label: 'モード選択（ハード設定）', fn: w => {
+      // 保存はせず「読む側」を差し替える（銀行残高が足りないとハード設定が開かないため）
+      w.loadCarryOver = () => 3000;
+      w.showModeSelect(); w.openHardConfig();
+  } },
+  { id: 'shopScreen',       label: 'ショップ／ダイヤ取引', fn: w => { w.showShop(); w.switchShopTab('diamond'); } },
+  { id: 'shopTreasury',     label: 'ショップ／宝具庫',  fn: w => {
+      // 中身が空だと見た目が分からないので、確認用に何個か持たせる
+      for (let i = 0; i < 7; i++) w.addTreasure(w.rollTreasure(300 + i * 220));
+      w.showShop(); w.switchShopTab('treasury');
+  } },
+  { id: 'settingsScreen',   label: 'その他設定',      fn: w => w.showSettings() },
+  { id: 'gameScreen',       label: 'プレイ中',        fn: w => {
+      w.enterGameScreen('standard');
+      say(w, '勇者がやってくる！ あくま部屋を掘って迎え撃て！ ここは電光掲示板の流れ方を見る場所。');
+  } },
+  { id: 'gameColosseum',    label: 'プレイ中（コロシアム）', fn: w => {
+      w.enterGameScreen('colosseum');
+      say(w, '四方の門から勇者が来る。掘って繋げた門だけが攻め口になる。');
+  } },
+  { id: 'gameOverScreen',   label: 'リザルト',        fn: w => {
+      // カウントアップ演出は最終値（＝実際は0）へ着地して上書きしてしまうので、
+      // 見た目確認用に演出を止めてから数字を流し込む
+      w.animateResultNumbers = () => {};
+      w.triggerGameOver(false);
+      [['resHeroes', 42], ['resEarnedGold', 1234], ['resDepth', 87], ['resFinalGold', 560],
+       ['resTreasures', 5], ['resEarnedDiamond', 3], ['resCarryOver', 8900], ['resCarryDiamond', 12],
+      ].forEach(([id, v]) => setText(w, id, v));
+  } },
+];
+
+const grid = document.getElementById('grid');
+const statusEl = document.getElementById('status');
+let W = 1280, H = 860;
+
+function build() {
+  grid.innerHTML = '';
+  let done = 0;
+  statusEl.textContent = '読み込み中…';
+  SCREENS.forEach(s => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    const cap = document.createElement('div');
+    cap.className = 'cap';
+    cap.innerHTML = `<b>${s.label}</b><span>${s.id}</span>`;
+    const f = document.createElement('iframe');
+    f.width = W; f.height = H; f.src = '../index.html';
+    f.addEventListener('load', () => {
+      try {
+        const w = f.contentWindow;
+        // ★ 保存を止める（最優先）
+        // iframe は本物のゲームと同じオリジン＝同じ localStorage を見ている。
+        // リザルトを出すと saveCarryOver / saveRecords / saveRunCount が走るので、
+        // 素通しにすると「確認ページを開いただけでセーブデータが書き換わる」。
+        // 見た目を見るだけのページなので、書き込みは全部捨てる。
+        try { w.Storage.prototype.setItem = function () {}; } catch (e) {}
+        try { w.Storage.prototype.removeItem = function () {}; } catch (e) {}
+        try { w.Storage.prototype.clear = function () {}; } catch (e) {}
+        // 10枚ぶんの音が一斉に鳴るとうるさいので、鳴らす関数ごと差し替えて黙らせる
+        // （isMuted は let 宣言なので外から代入しても効かない。関数なら差し替えられる）
+        w.playSE = () => {}; w.startBGM = () => {};
+        const a = w.document.getElementById('bgmAudio');
+        if (a) { a.muted = true; a.pause(); }
+        s.fn(w);
+      } catch (e) {
+        cap.insertAdjacentHTML('beforeend', `<span class="err">✕ ${e.message}</span>`);
+        console.error(s.id, e);
+      }
+      if (++done === SCREENS.length) statusEl.textContent = `${done} 画面`;
+    });
+    cell.appendChild(cap); cell.appendChild(f); grid.appendChild(cell);
+  });
+}
+
+document.querySelectorAll('button[data-w]').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('button[data-w]').forEach(o => o.classList.remove('on'));
+    b.classList.add('on');
+    W = +b.dataset.w; H = +b.dataset.h;
+    build();
+  });
+});
+document.getElementById('reload').addEventListener('click', build);
+build();
+</script>
+</body>
+</html>

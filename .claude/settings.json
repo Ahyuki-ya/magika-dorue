@@ -1,0 +1,105 @@
+{
+  "permissions": {
+    "disableBypassPermissionsMode": "disable",
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --mirror:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git config --global:*)",
+      "Bash(osascript:*)",
+      "Bash(wrangler deploy:*)",
+      "Bash(npx wrangler deploy:*)",
+      "Bash(wrangler secret:*)",
+      "Bash(npx wrangler secret:*)",
+      "Bash(npm run deploy:*)",
+      "Bash(npm run secret:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./worker/.dev.vars)",
+      "Read(./sk_pkcs8.b64)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.config/**)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/Library/**)",
+      "Read(~/Desktop/**)",
+      "Read(~/Downloads/**)",
+      "Read(~/Movies/**)",
+      "Read(~/Music/**)",
+      "Read(~/Pictures/**)",
+      "Read(~/Applications/**)",
+      "Read(~/Public/**)",
+      "Edit(~/.ssh/**)",
+      "Edit(~/.aws/**)",
+      "Edit(~/.gnupg/**)",
+      "Edit(~/.config/**)",
+      "Edit(~/.claude/**)",
+      "Edit(~/Library/**)",
+      "Edit(~/Desktop/**)",
+      "Edit(~/Downloads/**)",
+      "mcp__ccd_directory__request_directory"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git restore:*)",
+      "Bash(git checkout --:*)",
+      "Edit(./legal/**)",
+      "Write(./legal/**)"
+    ],
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(test/p5/verify.sh:*)",
+      "Bash(node test/p5/harness.js:*)",
+      "Bash(node worker/test/local.mjs:*)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "denyRead": ["~/"],
+      "allowRead": [
+        ".",
+        "~/.zshrc",
+        "~/.zprofile",
+        "~/.npm",
+        "~/.config/gh",
+        "~/.config/git"
+      ],
+      "allowWrite": ["/private/var/folders", "/private/tmp"]
+    },
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "*.github.com",
+        "objects.githubusercontent.com",
+        "codeload.github.com",
+        "registry.npmjs.org",
+        "*.cloudflare.com",
+        "*.workers.dev"
+      ]
+    }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-index.mjs\"",
+            "timeout": 20,
+            "statusMessage": "index.html を検査中"
+          }
+        ]
+      }
+    ]
+  }
+}

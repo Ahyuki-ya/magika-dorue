@@ -163,7 +163,8 @@
   addTreasure(t9);
   let uiErr = null;
   try {
-    showTreasury(); renderTreasuryAll();
+    // 宝具庫は独立画面をやめ、ショップメニュー画面の「宝具庫」タブに統合された
+    showShop(); switchShopTab('treasury'); renderTreasuryAll();
     tzShowDetail(t9.id);
     tzExport(t9.id);                             // 発行 → 発行モーダル表示
     tradeCopyCode();                             // clipboard/execCommand なし環境でも落ちない

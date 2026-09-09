@@ -16,3 +16,6 @@ index.dev.html
 # ガードレールのうち、このMacのフォルダ構成に依存する部分。
 # 履歴書や私的フォルダの名前が入るので公開リポジトリには載せない
 .claude/settings.local.json
+
+# 書体サブセットの作業用（tools/font_subset.py が使う）
+.cache/

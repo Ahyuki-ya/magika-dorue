@@ -44,7 +44,16 @@
 
   // ---- 4. 外部リソース禁止（D-1）----
   chk('4a 外部URLの読み込みがない', !/(src|href)\s*=\s*["']https?:/i.test(src));
-  chk('4b @import / @font-face がない', !/@import|@font-face/i.test(src));
+  chk('4b @import がない', !/@import/i.test(src));
+  // 書体は @font-face で持つが、外部から読んではいけない（D-1）。
+  // url() が data: で始まるものだけを許す＝サブセットを base64 で埋め込んでいる状態。
+  const faceUrls = (src.match(/@font-face[\s\S]*?\}/gi) || [])
+    .flatMap(b => b.match(/url\(\s*['"]?([^'")]+)/gi) || [])
+    .map(u => u.replace(/^url\(\s*['"]?/i, ''));
+  const external = faceUrls.filter(u => !/^data:/i.test(u));
+  chk('4c 書体は data: で埋め込む（外部から読まない）', external.length === 0, external.join(',') || 'none');
+  chk('4d 画面の書体は1系列に揃っている',
+      !/font-family:[^;}]*Courier/i.test(src) && /--font-ui\s*:/.test(src));
 
   // ---- 5. レア度視覚言語（D-4）: 全レア度にクラスとバッジ文字がある ----
   const css = src.slice(src.indexOf('<style>'), src.indexOf('</style>'));

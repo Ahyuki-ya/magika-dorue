@@ -65,6 +65,18 @@
             --r-epic: #9b59b6;   --r-legendary: #ffcc00; --r-god: #ff44dd;
             /* 書体（D-4/(2)：和文と欧文で同じ書体系列。ここ以外で font-family を書かない） */
             --font-ui: 'PixelMplus12', monospace;
+            /* ===== アイコンの絵の具（D-4/(1)：ドット絵SVG が参照する） =====
+               1アイコン3〜4色＋輪郭。明部と暗部の2階調で立体を出し、影・光沢は使わない。
+               既存の色トークンと同じ役割のものは var() で借りて二重管理を避ける。 */
+            --i-ink: #0b0b16;
+            --i-white: var(--c-text);   --i-white-d: #b4bac8;
+            --i-steel: #ccd6ea;         --i-steel-d: #7d8cb0;
+            --i-gold: var(--c-gold);    --i-gold-d: #c89400;
+            --i-red: #e0483c;           --i-red-d: #99241c;
+            --i-cyan: var(--c-dia);     --i-cyan-d: #00b3aa;
+            --i-stone: #a3adc2;         --i-stone-d: #6c768c;
+            --i-wood: #a06a34;          --i-wood-d: #6b4420;
+            --i-violet: #b46be0;        --i-violet-d: #7a3aa8;
             /* 形・動き */
             --radius: 2px;           --dur-fast: 90ms;       --dur-mid: 150ms;
             /* 間隔（4px 刻み・半段の 2px 刻みまで）。余白はこの中から選ぶこと。
@@ -74,6 +86,13 @@
             --s-5: 20px;  --s-6: 24px;  --s-8: 32px;  --s-10: 40px;
             --s-h2: 6px;  --s-h3: 10px; --s-h4: 14px; --s-h5: 18px;
         }
+        /* ===== ドット絵アイコン（D-4/(1)） =====
+           絵文字の代わりに <svg class="ico"><use href="#i-*"/></svg> を置く。
+           絵は 16×16 のドットなので、実寸16px と その整数倍以外の大きさにしない
+           （半端に縮めるとドットが潰れて別の絵になる）。 */
+        .ico   { width: 16px; height: 16px; vertical-align: -3px; flex-shrink: 0; }
+        .ico-2x{ width: 32px; height: 32px; vertical-align: -8px; flex-shrink: 0; }
+
         body {
             font-family: var(--font-ui);
             background-color: var(--c-bg); color: var(--c-text);
@@ -1122,6 +1141,23 @@
 </head>
 <body>
 
+    <!-- ICONS:BEGIN tools/icons.py が生成。手で編集しない -->
+<svg id="icoSprite" aria-hidden="true" focusable="false"
+     width="0" height="0" style="position:absolute"
+     shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-gem" viewBox="0 0 16 16"><title>ダイヤ</title><path fill="var(--i-ink)" d="M7 1h2v1h-2zM6 2h1v1h-1zM9 2h1v1h-1zM5 3h1v1h-1zM10 3h1v1h-1zM4 4h1v1h-1zM11 4h1v1h-1zM3 5h1v1h-1zM12 5h1v1h-1zM2 6h1v1h-1zM13 6h1v1h-1zM2 7h1v1h-1zM13 7h1v1h-1zM3 8h1v1h-1zM12 8h1v1h-1zM4 9h1v1h-1zM11 9h1v1h-1zM5 10h1v1h-1zM10 10h1v1h-1zM6 11h1v1h-1zM9 11h1v1h-1zM7 12h2v1h-2z"/><path fill="var(--i-cyan-d)" d="M3 7h10v1h-10zM4 8h8v1h-8zM5 9h6v1h-6zM6 10h4v1h-4zM7 11h2v1h-2z"/><path fill="var(--i-cyan)" d="M7 2h2v1h-2zM6 3h4v1h-4zM6 4h5v1h-5zM6 5h6v1h-6zM3 6h10v1h-10z"/><path fill="var(--i-white)" d="M5 4h1v1h-1zM4 5h2v1h-2z"/></symbol>
+  <symbol id="i-sword" viewBox="0 0 16 16"><title>剣</title><path fill="var(--i-ink)" d="M7 0h2v1h-2zM6 1h1v1h-1zM9 1h1v1h-1zM5 2h1v1h-1zM10 2h1v1h-1zM5 3h1v1h-1zM10 3h1v1h-1zM5 4h1v1h-1zM10 4h1v1h-1zM5 5h1v1h-1zM10 5h1v1h-1zM5 6h1v1h-1zM10 6h1v1h-1zM5 7h1v1h-1zM10 7h1v1h-1zM2 8h12v1h-12zM2 9h1v1h-1zM13 9h1v1h-1zM2 10h5v1h-5zM9 10h5v1h-5zM6 11h1v1h-1zM9 11h1v1h-1zM6 12h1v1h-1zM9 12h1v1h-1zM5 13h2v1h-2zM9 13h2v1h-2zM5 14h1v1h-1zM10 14h1v1h-1zM5 15h6v1h-6z"/><path fill="var(--i-steel-d)" d="M8 1h1v1h-1zM8 2h2v1h-2zM8 3h2v1h-2zM8 4h2v1h-2zM8 5h2v1h-2zM8 6h2v1h-2zM8 7h2v1h-2z"/><path fill="var(--i-wood)" d="M7 10h2v1h-2zM7 11h2v1h-2zM7 12h2v1h-2zM7 13h2v1h-2z"/><path fill="var(--i-gold)" d="M3 9h10v1h-10zM6 14h4v1h-4z"/><path fill="var(--i-steel)" d="M7 1h1v1h-1zM6 2h2v1h-2zM6 3h2v1h-2zM6 4h2v1h-2zM6 5h2v1h-2zM6 6h2v1h-2zM6 7h2v1h-2z"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 16 16"><title>指令旗</title><path fill="var(--i-ink)" d="M2 0h3v1h-3zM2 1h1v1h-1zM4 1h11v1h-11zM2 2h1v1h-1zM4 2h1v1h-1zM14 2h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM14 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM12 4h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM10 5h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1zM8 6h1v1h-1zM2 7h1v1h-1zM4 7h2v1h-2zM2 8h1v1h-1zM4 8h1v1h-1zM2 9h1v1h-1zM4 9h1v1h-1zM2 10h1v1h-1zM4 10h1v1h-1zM2 11h1v1h-1zM4 11h1v1h-1zM2 12h1v1h-1zM4 12h1v1h-1zM1 13h2v1h-2zM4 13h2v1h-2zM1 14h1v1h-1zM5 14h1v1h-1zM1 15h5v1h-5z"/><path fill="var(--i-red-d)" d="M5 4h7v1h-7zM5 5h5v1h-5zM5 6h3v1h-3z"/><path fill="var(--i-wood)" d="M3 1h1v1h-1zM3 2h1v1h-1zM3 3h1v1h-1zM3 4h1v1h-1zM3 5h1v1h-1zM3 6h1v1h-1zM3 7h1v1h-1zM3 8h1v1h-1zM3 9h1v1h-1zM3 10h1v1h-1zM3 11h1v1h-1zM3 12h1v1h-1zM3 13h1v1h-1zM2 14h3v1h-3z"/><path fill="var(--i-red)" d="M5 2h9v1h-9zM5 3h9v1h-9z"/></symbol>
+  <symbol id="i-retreat" viewBox="0 0 16 16"><title>撤退</title><path fill="var(--i-ink)" d="M2 0h3v1h-3zM2 1h1v1h-1zM4 1h11v1h-11zM2 2h1v1h-1zM4 2h1v1h-1zM14 2h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM14 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM12 4h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM10 5h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1zM8 6h1v1h-1zM2 7h1v1h-1zM4 7h2v1h-2zM2 8h1v1h-1zM4 8h1v1h-1zM2 9h1v1h-1zM4 9h1v1h-1zM2 10h1v1h-1zM4 10h1v1h-1zM2 11h1v1h-1zM4 11h1v1h-1zM2 12h1v1h-1zM4 12h1v1h-1zM1 13h2v1h-2zM4 13h2v1h-2zM1 14h1v1h-1zM5 14h1v1h-1zM1 15h5v1h-5z"/><path fill="var(--i-white-d)" d="M5 4h7v1h-7zM5 5h5v1h-5zM5 6h3v1h-3z"/><path fill="var(--i-wood)" d="M3 1h1v1h-1zM3 2h1v1h-1zM3 3h1v1h-1zM3 4h1v1h-1zM3 5h1v1h-1zM3 6h1v1h-1zM3 7h1v1h-1zM3 8h1v1h-1zM3 9h1v1h-1zM3 10h1v1h-1zM3 11h1v1h-1zM3 12h1v1h-1zM3 13h1v1h-1zM2 14h3v1h-3z"/><path fill="var(--i-white)" d="M5 2h9v1h-9zM5 3h9v1h-9z"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 16 16"><title>錬成</title><path fill="var(--i-ink)" d="M5 1h6v1h-6zM5 2h1v1h-1zM10 2h1v1h-1zM6 3h1v1h-1zM9 3h1v1h-1zM6 4h1v1h-1zM9 4h1v1h-1zM6 5h1v1h-1zM9 5h1v1h-1zM5 6h1v1h-1zM10 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM3 8h1v1h-1zM12 8h1v1h-1zM2 9h1v1h-1zM13 9h1v1h-1zM2 10h1v1h-1zM13 10h1v1h-1zM2 11h1v1h-1zM13 11h1v1h-1zM2 12h1v1h-1zM13 12h1v1h-1zM3 13h1v1h-1zM12 13h1v1h-1zM4 14h8v1h-8z"/><path fill="var(--i-violet-d)" d="M4 12h8v1h-8zM5 13h6v1h-6z"/><path fill="var(--i-violet)" d="M6 8h4v1h-4zM5 9h6v1h-6zM4 10h8v1h-8zM4 11h8v1h-8z"/><path fill="var(--i-white)" d="M6 2h4v1h-4zM7 3h2v1h-2zM7 4h2v1h-2zM7 5h2v1h-2zM6 6h4v1h-4zM5 7h6v1h-6zM4 8h2v1h-2zM10 8h2v1h-2zM3 9h2v1h-2zM11 9h2v1h-2zM3 10h1v1h-1zM12 10h1v1h-1zM3 11h1v1h-1zM12 11h1v1h-1zM3 12h1v1h-1zM12 12h1v1h-1zM4 13h1v1h-1zM11 13h1v1h-1z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 16 16"><title>盾</title><path fill="var(--i-ink)" d="M2 1h12v1h-12zM2 2h1v1h-1zM13 2h1v1h-1zM2 3h1v1h-1zM13 3h1v1h-1zM2 4h1v1h-1zM13 4h1v1h-1zM2 5h1v1h-1zM13 5h1v1h-1zM2 6h1v1h-1zM13 6h1v1h-1zM3 7h1v1h-1zM12 7h1v1h-1zM3 8h1v1h-1zM12 8h1v1h-1zM4 9h1v1h-1zM11 9h1v1h-1zM5 10h1v1h-1zM10 10h1v1h-1zM6 11h1v1h-1zM9 11h1v1h-1zM7 12h2v1h-2z"/><path fill="var(--i-steel-d)" d="M3 4h1v1h-1zM12 4h1v1h-1zM3 5h1v1h-1zM12 5h1v1h-1zM3 6h1v1h-1zM12 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM4 8h1v1h-1zM11 8h1v1h-1zM5 9h1v1h-1zM10 9h1v1h-1zM6 10h1v1h-1zM9 10h1v1h-1z"/><path fill="var(--i-gold)" d="M7 2h2v1h-2zM7 3h2v1h-2zM7 4h2v1h-2zM7 5h2v1h-2zM7 6h2v1h-2zM7 7h2v1h-2zM7 8h2v1h-2zM7 9h2v1h-2zM7 10h2v1h-2zM7 11h2v1h-2z"/><path fill="var(--i-steel)" d="M3 2h4v1h-4zM9 2h4v1h-4zM3 3h4v1h-4zM9 3h4v1h-4zM4 4h3v1h-3zM9 4h3v1h-3zM4 5h3v1h-3zM9 5h3v1h-3zM4 6h3v1h-3zM9 6h3v1h-3zM5 7h2v1h-2zM9 7h2v1h-2zM5 8h2v1h-2zM9 8h2v1h-2zM6 9h1v1h-1zM9 9h1v1h-1z"/></symbol>
+  <symbol id="i-bank" viewBox="0 0 16 16"><title>銀行</title><path fill="var(--i-ink)" d="M7 1h2v1h-2zM5 2h2v1h-2zM9 2h2v1h-2zM3 3h2v1h-2zM11 3h2v1h-2zM2 4h1v1h-1zM13 4h1v1h-1zM2 5h12v1h-12zM2 6h1v1h-1zM13 6h1v1h-1zM2 7h1v1h-1zM13 7h1v1h-1zM2 8h1v1h-1zM13 8h1v1h-1zM2 9h1v1h-1zM13 9h1v1h-1zM2 10h1v1h-1zM13 10h1v1h-1zM2 11h1v1h-1zM13 11h1v1h-1zM2 12h1v1h-1zM13 12h1v1h-1zM2 13h1v1h-1zM13 13h1v1h-1zM2 14h12v1h-12z"/><path fill="var(--i-stone-d)" d="M3 7h1v1h-1zM6 7h1v1h-1zM9 7h1v1h-1zM12 7h1v1h-1zM3 8h1v1h-1zM6 8h1v1h-1zM9 8h1v1h-1zM12 8h1v1h-1zM3 9h1v1h-1zM6 9h1v1h-1zM9 9h1v1h-1zM12 9h1v1h-1zM3 10h1v1h-1zM6 10h1v1h-1zM9 10h1v1h-1zM12 10h1v1h-1zM3 11h1v1h-1zM6 11h1v1h-1zM9 11h1v1h-1zM12 11h1v1h-1zM3 13h10v1h-10z"/><path fill="var(--i-gold)" d="M7 2h2v1h-2zM5 3h6v1h-6zM3 4h10v1h-10z"/><path fill="var(--i-stone)" d="M3 6h10v1h-10zM4 7h2v1h-2zM7 7h2v1h-2zM10 7h2v1h-2zM4 8h2v1h-2zM7 8h2v1h-2zM10 8h2v1h-2zM4 9h2v1h-2zM7 9h2v1h-2zM10 9h2v1h-2zM4 10h2v1h-2zM7 10h2v1h-2zM10 10h2v1h-2zM4 11h2v1h-2zM7 11h2v1h-2zM10 11h2v1h-2zM3 12h10v1h-10z"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 16 16"><title>実績</title><path fill="var(--i-ink)" d="M2 1h12v1h-12zM2 2h1v1h-1zM13 2h1v1h-1zM1 3h3v1h-3zM12 3h3v1h-3zM1 4h1v1h-1zM3 4h1v1h-1zM12 4h1v1h-1zM14 4h1v1h-1zM1 5h1v1h-1zM3 5h1v1h-1zM12 5h1v1h-1zM14 5h1v1h-1zM1 6h3v1h-3zM12 6h3v1h-3zM3 7h1v1h-1zM12 7h1v1h-1zM4 8h1v1h-1zM11 8h1v1h-1zM5 9h1v1h-1zM10 9h1v1h-1zM6 10h1v1h-1zM9 10h1v1h-1zM6 11h1v1h-1zM9 11h1v1h-1zM5 12h2v1h-2zM9 12h2v1h-2zM3 13h1v1h-1zM12 13h1v1h-1zM3 14h10v1h-10z"/><path fill="var(--i-gold-d)" d="M4 3h8v1h-8zM2 4h1v1h-1zM4 4h8v1h-8zM13 4h1v1h-1zM2 5h1v1h-1zM4 5h8v1h-8zM13 5h1v1h-1zM4 6h8v1h-8zM4 7h8v1h-8zM5 8h6v1h-6zM6 9h4v1h-4zM7 10h2v1h-2zM7 11h2v1h-2zM7 12h2v1h-2z"/><path fill="var(--i-gold)" d="M3 2h10v1h-10zM4 13h8v1h-8z"/></symbol>
+  <symbol id="i-rock" viewBox="0 0 16 16"><title>岩</title><path fill="var(--i-ink)" d="M5 2h6v1h-6zM4 3h1v1h-1zM11 3h1v1h-1zM3 4h1v1h-1zM12 4h1v1h-1zM2 5h1v1h-1zM13 5h1v1h-1zM2 6h1v1h-1zM13 6h1v1h-1zM1 7h1v1h-1zM14 7h1v1h-1zM1 8h1v1h-1zM14 8h1v1h-1zM1 9h1v1h-1zM14 9h1v1h-1zM1 10h1v1h-1zM14 10h1v1h-1zM1 11h1v1h-1zM14 11h1v1h-1zM2 12h1v1h-1zM13 12h1v1h-1zM2 13h12v1h-12z"/><path fill="var(--i-stone-d)" d="M9 5h2v1h-2zM7 6h4v1h-4zM6 7h4v1h-4zM4 8h2v1h-2zM7 8h4v1h-4zM4 9h2v1h-2zM7 9h5v1h-5zM2 10h12v1h-12zM2 11h12v1h-12zM3 12h10v1h-10z"/><path fill="var(--i-stone)" d="M5 3h6v1h-6zM4 4h8v1h-8zM3 5h6v1h-6zM11 5h2v1h-2zM3 6h4v1h-4zM11 6h2v1h-2zM2 7h4v1h-4zM10 7h4v1h-4zM2 8h2v1h-2zM6 8h1v1h-1zM11 8h3v1h-3zM2 9h2v1h-2zM6 9h1v1h-1zM12 9h2v1h-2z"/></symbol>
+  <symbol id="i-export" viewBox="0 0 16 16"><title>譲渡</title><path fill="var(--i-ink)" d="M7 0h2v1h-2zM6 1h1v1h-1zM9 1h1v1h-1zM5 2h1v1h-1zM10 2h1v1h-1zM4 3h1v1h-1zM11 3h1v1h-1zM3 4h1v1h-1zM12 4h1v1h-1zM3 5h4v1h-4zM9 5h4v1h-4zM6 6h1v1h-1zM9 6h1v1h-1zM6 7h1v1h-1zM9 7h1v1h-1zM2 9h12v1h-12zM2 10h1v1h-1zM13 10h1v1h-1zM2 11h1v1h-1zM13 11h1v1h-1zM2 12h1v1h-1zM13 12h1v1h-1zM2 13h1v1h-1zM13 13h1v1h-1zM2 14h12v1h-12z"/><path fill="var(--i-wood-d)" d="M4 11h8v1h-8zM4 12h8v1h-8z"/><path fill="var(--i-wood)" d="M3 10h10v1h-10zM3 11h1v1h-1zM12 11h1v1h-1zM3 12h1v1h-1zM12 12h1v1h-1zM3 13h10v1h-10z"/><path fill="var(--i-white)" d="M7 1h2v1h-2zM6 2h4v1h-4zM5 3h6v1h-6zM4 4h8v1h-8zM7 5h2v1h-2zM7 6h2v1h-2zM7 7h2v1h-2z"/></symbol>
+</svg>
+<!-- ICONS:END -->
+
     <!-- BGM（全モード共通・ループ） -->
     <audio id="bgmAudio" src="bgm/magikadorue_bgm_01.m4a" loop preload="auto"></audio>
 
@@ -1139,7 +1175,7 @@
         <div class="screen-body">
         <div class="menu-list">
             <button class="btn-menu" onclick="showModeSelect()">
-                <span class="btn-menu-icon">⚔</span>
+                <span class="btn-menu-icon"><svg class="ico-2x"><use href="#i-sword"/></svg></span>
                 <div>
                     <div class="btn-menu-name">ゲームをプレイ</div>
                 </div>
@@ -1168,14 +1204,14 @@
         <div class="screen-head">
             <p class="menu-heading">― Mode Select ―</p>
             <div id="carryOverUI" style="font-size:1.1rem; color:var(--c-gold); background:rgba(0,8,32,0.85); padding:10px 28px; border-radius:2px; border:2px solid var(--c-frame-dim); display:none; text-align:center;">
-                🏦 銀行残高: <span id="carryOverAmount">0</span> G<br>
-                <span style="font-size:12px; color:#99aacc;">💎 <span id="startDiamondAmount">0</span> ／ ⚗ <span id="startLevAmount">-</span> ／ 🔄 <span id="runCountAmount">0</span> 回</span>
+                <svg class="ico"><use href="#i-bank"/></svg> 銀行残高: <span id="carryOverAmount">0</span> G<br>
+                <span style="font-size:12px; color:#99aacc;"><svg class="ico"><use href="#i-gem"/></svg> <span id="startDiamondAmount">0</span> ／ <svg class="ico"><use href="#i-flask"/></svg> <span id="startLevAmount">-</span> ／ 🔄 <span id="runCountAmount">0</span> 回</span>
             </div>
         </div>
         <div class="screen-body">
         <div class="mode-select">
             <button class="btn-mode btn-mode-standard" onclick="enterGameScreen('standard')">
-                <div class="btn-mode-icon">⚔</div>
+                <div class="btn-mode-icon"><svg class="ico-2x"><use href="#i-sword"/></svg></div>
                 <div class="btn-mode-name">スタンダード</div>
             </button>
             <button class="btn-mode btn-mode-hard" onclick="openHardConfig()">
@@ -1202,7 +1238,7 @@
             <div style="font-size:1.1rem; color:var(--c-gold); margin:4px 0 10px;">S = <span id="stakeVal">500</span> G</div>
             <div style="font-size:0.9rem; margin-bottom:6px;">⚡ レバレッジ倍率 L</div>
             <div id="levTierBtns" style="display:flex; gap:8px; margin-bottom:12px;"></div>
-            <div style="font-size:0.9rem; border-top:1px solid #334; padding-top:10px;">🏦 開始ゴールド: <span id="startGoldVal" style="color:var(--c-gold);">?</span> G</div>
+            <div style="font-size:0.9rem; border-top:1px solid #334; padding-top:10px;"><svg class="ico"><use href="#i-bank"/></svg> 開始ゴールド: <span id="startGoldVal" style="color:var(--c-gold);">?</span> G</div>
             <div style="display:flex; gap:10px; margin-top:14px;">
                 <button class="btn-start" onclick="startHardRun()" style="flex:1; background:#aa2244; border-color:#ff4466;">▶ ハード開始</button>
                 <button class="btn-start" onclick="closeHardConfig()" style="background:#555; border-color:#444; padding:10px 18px;">← 戻る</button>
@@ -1220,14 +1256,14 @@
         <div class="screen-head">
             <p class="menu-heading">― Shop Menu ―</p>
             <div class="ig-tabs">
-                <button class="ig-tab" id="shopTabBtnDiamond" onclick="switchShopTab('diamond')">💎 ダイヤ取引</button>
-                <button class="ig-tab" id="shopTabBtnTreasury" onclick="switchShopTab('treasury')">🏆 宝具庫</button>
+                <button class="ig-tab" id="shopTabBtnDiamond" onclick="switchShopTab('diamond')"><svg class="ico"><use href="#i-gem"/></svg> ダイヤ取引</button>
+                <button class="ig-tab" id="shopTabBtnTreasury" onclick="switchShopTab('treasury')"><svg class="ico"><use href="#i-trophy"/></svg> 宝具庫</button>
                 <button class="ig-tab" id="shopTabBtnBreed" onclick="switchShopTab('breed')">🧬 交配</button>
             </div>
         </div>
         <div class="screen-body">
             <div id="shopTabDiamondSection" style="width:100%; display:flex; flex-direction:column; align-items:center;">
-                <div class="shop-diamond-count">💎 <span id="shopDiamondAmount">0</span></div>
+                <div class="shop-diamond-count"><svg class="ico"><use href="#i-gem"/></svg> <span id="shopDiamondAmount">0</span></div>
                 <div class="shop-list" id="shopList"></div>
             </div>
             <div id="shopTabTreasurySection" style="width:100%; display:none; flex-direction:column; align-items:center;">
@@ -1240,7 +1276,7 @@
                 <button class="btn-start" onclick="tradeOpenImport()" style="font-size:12px; padding:8px 22px; margin-top:8px; background:var(--c-btn-ok-bg); border-color:var(--c-ok);">📥 コードを受け取る</button>
             </div>
             <div id="shopTabBreedSection" style="width:100%; display:none; flex-direction:column; align-items:center;">
-                <div class="shop-diamond-count">💎 <span id="breedDiamondAmount">0</span></div>
+                <div class="shop-diamond-count"><svg class="ico"><use href="#i-gem"/></svg> <span id="breedDiamondAmount">0</span></div>
                 <div class="shop-list" id="breedList"></div>
             </div>
         </div>
@@ -1276,7 +1312,7 @@
         <div class="forge-panel">
             <div class="forge-header">
                 <span>⚒ 鍛冶場</span>
-                <span class="forge-bank">🏦 <b id="forgeBank">0</b> G</span>
+                <span class="forge-bank"><svg class="ico"><use href="#i-bank"/></svg> <b id="forgeBank">0</b> G</span>
                 <button class="ig-close" onclick="forgeClose()" title="閉じる">×</button>
             </div>
             <div id="forgeBase"></div>
@@ -1290,7 +1326,7 @@
     <!-- 譲渡コード発行モーダル（コピーして相手に渡す） -->
     <div id="tradeExportModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.78); align-items:center; justify-content:center;" onclick="if(event.target===this)tradeCloseExport()">
         <div style="width:min(380px,92vw); background:var(--c-panel); border:2px solid var(--c-gold); border-radius:12px; padding:18px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6);">
-            <div style="color:var(--c-gold); font-weight:bold; margin-bottom:6px;">📤 譲渡コードを発行しました</div>
+            <div style="color:var(--c-gold); font-weight:bold; margin-bottom:6px;"><svg class="ico"><use href="#i-export"/></svg> 譲渡コードを発行しました</div>
             <div id="tradeExportItem" style="font-size:12px; color:var(--c-text); margin-bottom:8px;"></div>
             <textarea id="tradeExportCode" class="trade-code" readonly onclick="this.select()"></textarea>
             <div style="font-size:12px; color:var(--c-text-sub); margin:6px 0 10px; text-align:left;">
@@ -1337,7 +1373,7 @@
                 <span class="side-btn-label">お買い物</span>
             </button>
             <button class="side-btn" onclick="openInGamePanel('treasury')">
-                <span class="side-btn-icon">🏆</span>
+                <span class="side-btn-icon"><svg class="ico-2x"><use href="#i-trophy"/></svg></span>
                 <span class="side-btn-label">宝具庫</span>
             </button>
             <button class="side-btn" onclick="openInGamePanel('settings')">
@@ -1345,7 +1381,7 @@
                 <span class="side-btn-label">その他設定</span>
             </button>
             <button class="side-btn side-btn-quit" onclick="quitToTitle()">
-                <span class="side-btn-icon">🏳</span>
+                <span class="side-btn-icon"><svg class="ico-2x"><use href="#i-retreat"/></svg></span>
                 <span class="side-btn-label">タイトルへ</span>
             </button>
         </div>
@@ -1359,7 +1395,7 @@
                 <div class="ig-drawer-header">
                     <div class="ig-tabs">
                         <button class="ig-tab" id="igTabShop" onclick="switchInGameTab('shop')">🛒 お買い物</button>
-                        <button class="ig-tab" id="igTabTreasury" onclick="switchInGameTab('treasury')">🏆 宝具庫</button>
+                        <button class="ig-tab" id="igTabTreasury" onclick="switchInGameTab('treasury')"><svg class="ico"><use href="#i-trophy"/></svg> 宝具庫</button>
                         <button class="ig-tab" id="igTabBreed" onclick="switchInGameTab('breed')">🧬 交配</button>
                         <button class="ig-tab" id="igTabSettings" onclick="switchInGameTab('settings')">⚙ 記録</button>
                     </div>
@@ -1368,7 +1404,7 @@
                 <div class="ig-drawer-body">
                     <div id="igShopSection" style="width:100%; display:flex; flex-direction:column; align-items:center;">
                         <div class="ig-note">このランのダイヤで即時強化（戦闘は進行中）</div>
-                        <div class="shop-diamond-count">💎 <span id="igShopDiamondAmount">0</span></div>
+                        <div class="shop-diamond-count"><svg class="ico"><use href="#i-gem"/></svg> <span id="igShopDiamondAmount">0</span></div>
                         <div class="shop-list" id="igShopList"></div>
                     </div>
                     <div id="igTreasurySection" style="width:100%; display:none; flex-direction:column; align-items:center;">
@@ -1380,7 +1416,7 @@
                     </div>
                     <div id="igBreedSection" style="width:100%; display:none; flex-direction:column; align-items:center;">
                         <div class="ig-note">このランのダイヤで即時解放（戦闘は進行中）</div>
-                        <div class="shop-diamond-count">💎 <span id="igBreedDiamondAmount">0</span></div>
+                        <div class="shop-diamond-count"><svg class="ico"><use href="#i-gem"/></svg> <span id="igBreedDiamondAmount">0</span></div>
                         <div class="shop-list" id="igBreedList"></div>
                     </div>
                     <div id="igSettingsSection" style="width:100%; display:none; flex-direction:column; align-items:center;">
@@ -1406,14 +1442,14 @@
                     <button id="pauseBtn" onclick="togglePause()">⏸ ポーズ</button>
                     <button id="muteBtn" onclick="toggleMute()">🔊 音</button>
                     <button id="followBtn" onclick="toggleFollow()" title="最前線の勇者をカメラで追う">🎯 追尾</button>
-                    <button id="retreatBtn" onclick="retreatCashOut()" style="display:none;">🏳 撤退</button>
+                    <button id="retreatBtn" onclick="retreatCashOut()" style="display:none;"><svg class="ico"><use href="#i-retreat"/></svg> 撤退</button>
                 </div>
             </div>
 
             <!-- 勇者ステータス＋予告＋ボスHP（中央セル・縦積み） -->
             <div id="hudTopCenter">
                 <div id="heroStatsUI">
-                    <div class="hero-lv-label">⚔ 勇者</div>
+                    <div class="hero-lv-label"><svg class="ico"><use href="#i-sword"/></svg> 勇者</div>
                     <div>Lv. <span class="hero-lv-value" id="hLv">1</span> <span id="hType" style="font-size:12px; color:#aaa; letter-spacing:1px;"></span></div>
                     <div class="hero-stat-row">
                         <div class="hero-stat-chip">攻 <span id="hAtk">-</span></div>
@@ -1422,7 +1458,7 @@
                     </div>
                     <div id="depthRow" style="font-size:12px; color:var(--c-text-sub);">🕳 深度 <span id="depthUI">0</span> m</div>
                     <div id="colWaveUI" style="display:none; font-size:12px; color:#ffcc44; font-weight:bold;">🏛 Wave <span id="colWaveNum">0</span><span id="colWaveBest" style="color:var(--c-text-sub); font-weight:normal; font-size:12px;"></span></div>
-                    <div id="colArmyUI" style="display:none; font-size:12px; color:var(--c-text-sub);">⚔ 兵 <span id="colArmyNum">0</span>/<span id="colArmyCap">100</span>　🥚 繁殖 <span id="colBredNum">0</span>/<span id="colBredCap">12</span>　🚪 開通した門 <span id="colGateNum">0</span>/4 <span id="colGateNames" style="color:#ffcc44;"></span></div>
+                    <div id="colArmyUI" style="display:none; font-size:12px; color:var(--c-text-sub);"><svg class="ico"><use href="#i-sword"/></svg> 兵 <span id="colArmyNum">0</span>/<span id="colArmyCap">100</span>　🥚 繁殖 <span id="colBredNum">0</span>/<span id="colBredCap">12</span>　🚪 開通した門 <span id="colGateNum">0</span>/4 <span id="colGateNames" style="color:#ffcc44;"></span></div>
                 </div>
                 <!-- 勇者の予告は勇者ウィンドウの外（独立した行）。重なりようがない。 -->
                 <div id="nextHeroUI"></div>
@@ -1433,7 +1469,7 @@
             </div>
 
             <div id="currencyUI">
-                <div id="diamondUI">💎 <span id="diamondAmount">0</span></div>
+                <div id="diamondUI"><svg class="ico"><use href="#i-gem"/></svg> <span id="diamondAmount">0</span></div>
                 <div id="goldUI">💰 <span id="goldAmount">50</span> G</div>
             </div>
           </div>
@@ -1455,16 +1491,16 @@
         <div id="levelPanel">
             <div class="lv-panel-handle"></div>
             <div class="lv-panel-title" style="display:flex; justify-content:space-between; align-items:center;">
-                <span>⚗ 強化パネル</span>
+                <span><svg class="ico"><use href="#i-flask"/></svg> 強化パネル</span>
                 <button id="levelPanelCloseBtn" onclick="toggleLevelPanel()">×</button>
             </div>
 
             <!-- 石スライム -->
             <div class="lv-card">
                 <div class="lv-card-header">
-                    <span class="lv-card-name slime">🪨 石スライム</span>
+                    <span class="lv-card-name slime"><svg class="ico"><use href="#i-rock"/></svg> 石スライム</span>
                     <span class="lv-badge" id="slime-lv-badge">Lv.1</span>
-                    <button class="lv-rally-btn" id="slime-rally" onclick="colToggleRallyMode('slime')" title="集合地点を指令する" style="display:none;">🚩</button>
+                    <button class="lv-rally-btn" id="slime-rally" onclick="colToggleRallyMode('slime')" title="集合地点を指令する" style="display:none;"><svg class="ico"><use href="#i-flag"/></svg></button>
                 </div>
                 <div class="lv-controls">
                     <button class="lv-pm-btn lv-minus slime" id="slime-btn-down" onclick="levelDown('slime')">－</button>
@@ -1480,7 +1516,7 @@
                 <div class="lv-card-header">
                     <span class="lv-card-name goblin">🌿 苔ゴブリン</span>
                     <span class="lv-badge" id="goblin-lv-badge">Lv.1</span>
-                    <button class="lv-rally-btn" id="goblin-rally" onclick="colToggleRallyMode('goblin')" title="集合地点を指令する" style="display:none;">🚩</button>
+                    <button class="lv-rally-btn" id="goblin-rally" onclick="colToggleRallyMode('goblin')" title="集合地点を指令する" style="display:none;"><svg class="ico"><use href="#i-flag"/></svg></button>
                 </div>
                 <div class="lv-controls">
                     <button class="lv-pm-btn lv-minus goblin" id="goblin-btn-down" onclick="levelDown('goblin')">－</button>
@@ -1496,7 +1532,7 @@
                 <div class="lv-card-header">
                     <span class="lv-card-name golem">🟤 銅ゴーレム</span>
                     <span class="lv-badge" id="golem-lv-badge">Lv.1</span>
-                    <button class="lv-rally-btn" id="golem-rally" onclick="colToggleRallyMode('golem')" title="集合地点を指令する" style="display:none;">🚩</button>
+                    <button class="lv-rally-btn" id="golem-rally" onclick="colToggleRallyMode('golem')" title="集合地点を指令する" style="display:none;"><svg class="ico"><use href="#i-flag"/></svg></button>
                 </div>
                 <div class="lv-controls">
                     <button class="lv-pm-btn lv-minus golem" id="golem-btn-down" onclick="levelDown('golem')">－</button>
@@ -1512,7 +1548,7 @@
                 <div class="lv-card-header">
                     <span class="lv-card-name wraith">👻 シャドウレイス</span>
                     <span class="lv-badge" id="wraith-lv-badge">Lv.1</span>
-                    <button class="lv-rally-btn" id="wraith-rally" onclick="colToggleRallyMode('wraith')" title="集合地点を指令する" style="display:none;">🚩</button>
+                    <button class="lv-rally-btn" id="wraith-rally" onclick="colToggleRallyMode('wraith')" title="集合地点を指令する" style="display:none;"><svg class="ico"><use href="#i-flag"/></svg></button>
                 </div>
                 <div class="lv-controls">
                     <button class="lv-pm-btn lv-minus wraith" id="wraith-btn-down" onclick="levelDown('wraith')">－</button>
@@ -1532,9 +1568,9 @@
                     <span class="castle-btn-label" id="castleBtnLabel">作成</span>
                     <span class="castle-btn-cost" id="castleBtnCost">0G</span>
                 </button>
-                <button class="btn-castle" id="colSkipBtn" onclick="colSkipPrep()" style="display:none; font-size:14px; padding:10px 14px;">⚔ 早出し</button>
+                <button class="btn-castle" id="colSkipBtn" onclick="colSkipPrep()" style="display:none; font-size:14px; padding:10px 14px;"><svg class="ico"><use href="#i-sword"/></svg> 早出し</button>
                 <button class="btn-castle" id="colRepairBtn" onclick="colRepairCastle()" style="display:none; font-size:14px; padding:10px 14px;">🔧 修復(100 G)</button>
-                <button class="btn-castle" id="levelPanelToggleBtn" onclick="toggleLevelPanel()" style="font-size:14px; padding:10px 14px;">⚗ 強化 ▲</button>
+                <button class="btn-castle" id="levelPanelToggleBtn" onclick="toggleLevelPanel()" style="font-size:14px; padding:10px 14px;"><svg class="ico"><use href="#i-flask"/></svg> 強化 ▲</button>
             </div>
         </div>
         </div>
@@ -1556,7 +1592,7 @@
                 <div style="text-align:center; color:#ff6688; font-weight:bold; letter-spacing:2px; margin-bottom:6px;">― レバレッジ精算 ―</div>
                 <div style="display:flex; justify-content:space-between;"><span>💰 預入 S × 倍率 <span id="resLevMult">2</span></span><span id="resLevDebt" style="color:var(--c-gold);">0</span></div>
                 <div style="display:flex; justify-content:space-between;"><span>🎯 開始資本（損益分岐）</span><span id="resLevRepay" style="color:#ff8899;">0</span></div>
-                <div style="display:flex; justify-content:space-between;"><span>🏦 手持ちゴールド</span><span id="resLevHold" style="color:var(--c-gold);">0</span></div>
+                <div style="display:flex; justify-content:space-between;"><span><svg class="ico"><use href="#i-bank"/></svg> 手持ちゴールド</span><span id="resLevHold" style="color:var(--c-gold);">0</span></div>
                 <div style="display:flex; justify-content:space-between; border-top:1px solid #553; margin-top:4px; padding-top:4px; font-weight:bold;"><span>💹 純益 ΔB</span><span id="resLevDelta" style="color:var(--c-gold); font-size:1.2rem;">0</span></div>
             </div>
 
@@ -1566,12 +1602,12 @@
                 <div style="display:flex; justify-content:space-between;"><span>🏛 到達 Wave</span><span id="resColWave" style="color:var(--c-gold); font-size:1.3rem; font-weight:bold;">0</span></div>
                 <div style="display:flex; justify-content:space-between;"><span>🏅 最高記録</span><span id="resColBest" style="color:var(--c-gold);">0</span></div>
                 <div id="resColNewRecord" style="display:none; text-align:center; color:#44cc66; font-weight:bold; margin-top:4px;">🎉 記録更新！</div>
-                <div style="display:flex; justify-content:space-between; border-top:1px solid #553; margin-top:4px; padding-top:4px;"><span>💎 記録報酬</span><span id="resColDiamond" style="color:var(--c-dia);">0</span></div>
+                <div style="display:flex; justify-content:space-between; border-top:1px solid #553; margin-top:4px; padding-top:4px;"><span><svg class="ico"><use href="#i-gem"/></svg> 記録報酬</span><span id="resColDiamond" style="color:var(--c-dia);">0</span></div>
             </div>
 
             <div class="result-stats" id="resStats">
                 <div class="result-stat-item">
-                    <span class="result-stat-label">⚔️ 討伐した勇者</span>
+                    <span class="result-stat-label"><svg class="ico"><use href="#i-sword"/></svg> 討伐した勇者</span>
                     <span class="result-stat-value" id="resHeroes">0</span>
                     <span class="result-stat-unit">人</span>
                 </div>
@@ -1589,13 +1625,13 @@
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item result-stat-sub">
-                    <span class="result-stat-label">🏦 最終所持ゴールド</span>
+                    <span class="result-stat-label"><svg class="ico"><use href="#i-bank"/></svg> 最終所持ゴールド</span>
                     <span class="result-stat-value result-stat-value-small" id="resFinalGold">0</span>
                     <span class="result-stat-unit">G</span>
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
-                    <span class="result-stat-label">🏆 入手した宝具</span>
+                    <span class="result-stat-label"><svg class="ico"><use href="#i-trophy"/></svg> 入手した宝具</span>
                     <span class="result-stat-value" id="resTreasures" style="color:var(--r-epic);">0</span>
                     <span class="result-stat-unit">個</span>
                 </div>
@@ -1603,25 +1639,25 @@
                 <div class="res-drop-row" id="resDropRow"></div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
-                    <span class="result-stat-label">💎 獲得ダイヤモンド</span>
+                    <span class="result-stat-label"><svg class="ico"><use href="#i-gem"/></svg> 獲得ダイヤモンド</span>
                     <span class="result-stat-value" id="resEarnedDiamond" style="color:var(--c-dia);">0</span>
                     <span class="result-stat-unit">個</span>
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
-                    <span class="result-stat-label">🏦 銀行残高</span>
+                    <span class="result-stat-label"><svg class="ico"><use href="#i-bank"/></svg> 銀行残高</span>
                     <span class="result-stat-value" id="resCarryOver" style="color:#44cc66;">0</span>
                     <span class="result-stat-unit">G</span>
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item">
-                    <span class="result-stat-label">💎 ダイヤ残高</span>
+                    <span class="result-stat-label"><svg class="ico"><use href="#i-gem"/></svg> ダイヤ残高</span>
                     <span class="result-stat-value" id="resCarryDiamond" style="color:var(--c-dia);">0</span>
                     <span class="result-stat-unit">個</span>
                 </div>
                 <div class="result-stat-divider"></div>
                 <div class="result-stat-item result-stat-sub">
-                    <span class="result-stat-label">⚗ モンスターLv</span>
+                    <span class="result-stat-label"><svg class="ico"><use href="#i-flask"/></svg> モンスターLv</span>
                     <span class="result-stat-value result-stat-value-small" id="resMonsterLevels" style="color:#44cc66;">-</span>
                 </div>
             </div>
@@ -2106,7 +2142,7 @@
             btn.className = 'shop-buy-btn';
             if (isMax) { btn.textContent = 'MAX'; btn.disabled = true; }
             else {
-                btn.textContent = `💎 ${cost}`;
+                btn.innerHTML = `${ico('gem')} ${cost}`;
                 btn.disabled = locked || available < cost;
                 btn.onclick = () => buyShopItem(item.key, live);
             }
@@ -2117,7 +2153,7 @@
         // ===== モンスターのレベル上限を解放（1💎で上限+DIAMOND_CAP_STEP・最大100・恒久） =====
         const header = document.createElement('div');
         header.style.cssText = 'width:100%; text-align:center; color:#8899cc; font-size:12px; letter-spacing:2px; margin:14px 0 6px; border-top:1px solid #223; padding-top:10px;';
-        header.textContent = `― レベル上限の解放（1💎で上限+${DIAMOND_CAP_STEP}・最大${MAX_LEVEL}）―`;
+        header.innerHTML = `― レベル上限の解放（1${ico('gem')}で上限+${DIAMOND_CAP_STEP}・最大${MAX_LEVEL}）―`;
         list.appendChild(header);
         // liveなら実行中の値、非liveならストレージの値を参照（タイトルからでも正しく表示）
         const shopLevels = live ? monsterLevels : loadMonsterLevels();
@@ -2139,7 +2175,7 @@
             btn.className = 'shop-buy-btn';
             if (isMax) { btn.textContent = 'MAX'; btn.disabled = true; }
             else {
-                btn.textContent = `上限+${DIAMOND_CAP_STEP} 💎1`;
+                btn.innerHTML = `上限+${DIAMOND_CAP_STEP} ${ico('gem')}1`;
                 btn.disabled = available < 1;
                 btn.onclick = () => raiseCapDiamond(mt, live);
             }
@@ -2205,7 +2241,7 @@
             if (isMax) { btn.textContent = 'MAX'; btn.disabled = true; }
             else if (showLockIcon) { btn.textContent = '🔒'; btn.disabled = true; }
             else {
-                btn.textContent = `💎 ${cost}`;
+                btn.innerHTML = `${ico('gem')} ${cost}`;
                 btn.disabled = locked || available < cost;
                 btn.onclick = () => buyBreedNode(node.key, live);
             }
@@ -3162,7 +3198,7 @@
             cell.innerHTML =
                 `<div class="tz-rank rar-badge b-${t.rarity}">${rarBadge(t.rarity)}</div>`
                 + (isEq ? '<div class="tz-eq">✅</div>' : '')
-                + (t.traded ? '<div class="tz-trd">📤済</div>' : '')
+                + (t.traded ? `<div class="tz-trd">${ico('export')}済</div>` : '')
                 + `<div class="tz-ic">${t.icon}</div>`
                 + `<div class="tz-nm">${t.name}</div>`
                 + `<div class="tz-lv${isMaxLv(t) ? ' maxed' : ''}">Lv${lvOf(t)}</div>`;
@@ -3201,7 +3237,7 @@
                  + `</div>`;
         }).join('');
         let btn;
-        if (t.traded) btn = `<button class="btn-start" disabled style="opacity:0.4; width:100%;">📤 取引済み（使用不可）</button>`;
+        if (t.traded) btn = `<button class="btn-start" disabled style="opacity:0.4; width:100%;">${ico('export')} 取引済み（使用不可）</button>`;
         else if (isEq) btn = `<button class="btn-start" style="background:#555; width:100%;" onclick="tzUnequip('${id}')">装備を解除</button>`;
         else if (full) btn = `<button class="btn-start" disabled style="opacity:0.4; width:100%;">装備枠が満杯（3/3）</button>`;
         else btn = `<button class="btn-start" style="width:100%; background:#3a2a5a; border-color:#9b59b6;" onclick="tzEquip('${id}')">装備する</button>`;
@@ -3218,10 +3254,10 @@
         // 取引（道A）: 譲渡コード発行／取引済みなら削除で整理
         let trade;
         if (t.traded) {
-            trade = `<div style="margin-top:8px; font-size:12px; color:var(--c-traded);">📤 譲渡コードを発行済み（この宝具は使えません）</div>`
+            trade = `<div style="margin-top:8px; font-size:12px; color:var(--c-traded);">${ico('export')} 譲渡コードを発行済み（この宝具は使えません）</div>`
                 + `<button class="btn-start" style="width:100%; margin-top:6px; background:var(--c-btn-warn-bg); border-color:var(--c-btn-warn); font-size:12px; padding:7px;" onclick="tzDelete('${id}')">🗑 宝具庫から削除</button>`;
         } else if (isEq) {
-            trade = `<div style="margin-top:8px; font-size:12px; color:var(--c-text-sub);">📤 譲渡するには先に装備を解除</div>`;
+            trade = `<div style="margin-top:8px; font-size:12px; color:var(--c-text-sub);">${ico('export')} 譲渡するには先に装備を解除</div>`;
         } else {
             trade = `<button class="btn-start" style="width:100%; margin-top:8px; background:var(--c-btn-gold-bg); border-color:var(--c-gold); font-size:12px; padding:7px;" onclick="tzExport('${id}')">📤 譲渡コード発行</button>`;
         }
@@ -3520,11 +3556,11 @@
         if (!grid || !list) return;
         const r = loadRecords();
         grid.innerHTML =
-            `<div class="record-chip">⚔️ 累計討伐 <b>${r.kills}</b></div>` +
+            `<div class="record-chip">${ico('sword')} 累計討伐 <b>${r.kills}</b></div>` +
             `<div class="record-chip">🕳 最深記録 <b>${r.maxDepthEver}</b>m</div>` +
             `<div class="record-chip">🍼 累計繁殖 <b>${r.breeds}</b></div>` +
-            `<div class="record-chip">🏆 最高勇者Lv <b>${r.maxHeroLevel}</b></div>` +
-            `<div class="record-chip">💎 累計ダイヤ <b>${r.diamondsEarned}</b></div>`;
+            `<div class="record-chip">${ico('trophy')} 最高勇者Lv <b>${r.maxHeroLevel}</b></div>` +
+            `<div class="record-chip">${ico('gem')} 累計ダイヤ <b>${r.diamondsEarned}</b></div>`;
         list.innerHTML = '';
         for (const a of ACHIEVEMENTS) {
             const done = a.test(r);
@@ -3780,6 +3816,12 @@
     function hybridId(body, coat) { return `${body}+${coat}`; }
     function bodyOf(mt) { const i = mt.indexOf('+'); return i < 0 ? mt : mt.slice(0, i); }
     function coatOf(mt) { const i = mt.indexOf('+'); return i < 0 ? mt : mt.slice(i + 1); }
+
+    // ドット絵アイコンを文字列として差し込む（D-4/(1)）。
+    // ★ innerHTML に入れる場所でだけ使うこと。innerText/textContent に入れるとタグが
+    //   そのまま文字として出る。逆に、確認ダイアログ（confirm）や canvas の文字のように
+    //   HTML を解釈しない場所にはアイコンを置けないので、そこは文字だけで書く。
+    function ico(name, cls) { return `<svg class="ico${cls ? ' ' + cls : ''}"><use href="#i-${name}"/></svg>`; }
     function isHybrid(mt) { return mt.indexOf('+') >= 0; }
 
     // 全12種（4フォルム × 自分以外の3素材）
@@ -4048,6 +4090,100 @@
     }
     buildTileArt();
 
+    // ===== 盤面のドット絵（P4-4／デザイン規約 D-4/(1)） =====
+    // 「1文字＝1ドット」の文字絵を、起動時に1回だけオフスクリーンcanvasへ焼く。
+    // 描画ループでは drawImage 1発になる（毎フレームのパス描画・グラデ生成をしない＝D-2/D-3）。
+    // 旧実装は arc / ellipse / roundRect の曲線と落ち影・オーラで個体を描いていたが、
+    //   ・規約(3)「影・ぼかしを雰囲気のために足さない／立体は2階調と1pxの輪郭だけ」に反する
+    //   ・体感スローダウンの主因が「canvas 描画のパス数」だった（Performance Notes）
+    // の2つの理由で、絵を焼いて貼る方式へ置き換えた。
+    // ★ 起動時に乱数を消費しない（等価性ハーネスの保存則2）。ここは fillRect だけで完結する。
+    // ★ 絵そのものは tools/sprites.py が生成する。手で直さず、
+    //   tools/sprites.py を直して `python3 tools/sprites.py --index` を走らせること。
+    const SPRITE_INK = '#0b0b16';          // 輪郭。すべての要素に濃い輪郭線を入れる
+    const SPRITE_EYE = '#f2f4ff';          // 白目。4種で共通にして「一族」に見せている
+    const SPRITE_DOOR = '#2a1330';         // あくま部屋の入口の闇
+
+    // ===== SPRITES:BEGIN tools/sprites.py が生成。手で編集しない =====
+    // 体つき（form）。素材(coat)は色だけ差し替えるので、絵は4種で足りる。
+    const SPRITE_FORMS = {
+        slime: ['................','................','................','................','................','......kkkk......','....kk1111kk....','..kk11111111kk..','..k1www11www1k..','..k1wkw11wkw1k..','..k1www11www1k..','.k111111111111k.','.k122222222221k.','.k222222222222k.','.kkkkkkkkkkkkkk.','................'],   // スライム
+        goblin: ['................','................','..kk........kk..','..k1k......k1k..','..k11kkkkkk11k..','...k11111111k...','...k11111111k...','...k1ww11ww1k...','...k1wk11kw1k...','...k11111111k...','...k1kkkkkk1k...','...k11111111k...','..k1122222211k..','..k2222222222k..','..kkkkkkkkkkkk..','................'],   // ゴブリン
+        golem: ['................','.kkkkkkkkkkkkkk.','.k111111111111k.','.k111111111111k.','.k1www1111www1k.','.k1wkw1111wkw1k.','.k1www1111www1k.','.k111111111111k.','.k112222222211k.','.k222222222222k.','.k222222222222k.','.k222222222222k.','.kkkkkkkkkkkkkk.','..kk........kk..','..k2k......k2k..','..kkk......kkk..'],   // ゴーレム
+        wraith: ['................','......kkkk......','....kk1111kk....','...k11111111k...','...k1ww11ww1k...','...k1wk11kw1k...','...k11111111k...','...k11111111k...','...k12222221k...','...k22222222k...','...k22222222k...','...k2kk22kk2k...','...k.kk..kk.k...','................','................','................'],   // レイス
+    };
+    // ちび。成体を0.55倍に縮めるとドットが潰れるので別に描いてある。
+    const SPRITE_CHIBI = {
+        slime: ['..........','...kkkk...','..k1111k..','.k111111k.','.k1w11w1k.','.k111111k.','.k122221k.','.k222222k.','.kkkkkkkk.','..........'],   // ちびスライム
+        goblin: ['..........','.kk....kk.','.k1k..k1k.','.k11kk11k.','.k1w11w1k.','.k111111k.','.k122221k.','.k222222k.','.kkkkkkkk.','..........'],   // ちびゴブリン
+        wraith: ['..........','..kkkkkk..','.k111111k.','.k1w11w1k.','.k111111k.','.k122221k.','.k222222k.','.k22kk22k.','.kk.kk.kk.','..........'],   // ちびレイス
+        golem: ['..........','.kkkkkkkk.','.k111111k.','.k1w11w1k.','.k111111k.','.k222222k.','.k222222k.','.kkkkkkkk.','..k2..2k..','..kk..kk..'],   // ちびゴーレム
+    };
+    const SPRITE_HERO = ['................','....kkkkkkkk....','...kssssssssk...','...kssssssssk...','...kkwwkkwwkk...','...kssssssssk...','...kkkkkkkkkk...','..k1111111111k..','.k111111111111k.','.k122222222221k.','.k122222222221k.','..k2222222222k..','..kkkk2222kkkk..','....k22kk22k....','....k22kk22k....','....kkkkkkkk....'];
+    const SPRITE_CASTLE = ['...............','.kk.........kk.','.kRk.......kRk.','.kkkkkkkkkkkkk.','.kRRRRRRRRRRRk.','.kRRRRRRRRRRRk.','.kRRkkkkkkkRRk.','.kRRkVVVVVkRRk.','.kRRkVgVgVkRRk.','.kRRkVVVVVkRRk.','.kRRkVVVVVkRRk.','.kRRkkkkkkkRRk.','.kRRRRRRRRRRRk.','.kkkkkkkkkkkkk.','...............'];   // 15×15。盤面では2倍の30px で置く。
+    // 素材(coat)ごとの [地色, 暗部]。MONSTER_COLORS と同じ役割・同じ見え方に揃えてある。
+    const SPRITE_MATS = {
+        slime: ['#95a5a6', '#6d7f80'],   // 石
+        goblin: ['#3ddc84', '#1f8a52'],   // 苔
+        golem: ['#d35400', '#8a3600'],   // 銅
+        wraith: ['#b39ddb', '#6a4f9c'],   // 影
+    };
+    const SPRITE_HERO_COLORS = { calm: ['#4aa3e0', '#1f5c8a'], rage: ['#e0483c', '#99241c'] };
+    const SPRITE_HELM = ['#ccd6ea', '#7d8cb0'];
+    const SPRITE_CASTLE_COLORS = ['#c0392b', '#7b241c'];
+    // ===== SPRITES:END =====
+
+    // 文字絵 → オフスクリーンcanvas。scale は整数倍のみ（1px グリッドを崩さないため）。
+    function paintSprite(rows, colors, scale) {
+        const n = rows.length;
+        const cv = document.createElement('canvas');
+        cv.width = n * scale; cv.height = n * scale;
+        const c = cv.getContext('2d');
+        for (let y = 0; y < n; y++) {
+            const row = rows[y];
+            let x = 0;
+            while (x < n) {
+                const ch = row[x];
+                if (ch === '.') { x++; continue; }
+                let w = 1;                                   // 横に続く同色は1回の fillRect にまとめる
+                while (x + w < n && row[x + w] === ch) w++;
+                c.fillStyle = colors[ch];
+                c.fillRect(x * scale, y * scale, w * scale, scale);
+                x += w;
+            }
+        }
+        return cv;
+    }
+    function spriteColors(base, dark) {
+        return { k: SPRITE_INK, '1': base, '2': dark, w: SPRITE_EYE,
+                 s: SPRITE_HELM[0], S: SPRITE_HELM[1],
+                 R: SPRITE_CASTLE_COLORS[0], V: SPRITE_DOOR, g: '#ffcc00' };
+    }
+
+    // mtype（体つき＋素材）→ 焼き上がった絵。成体とちびを別に持つ。
+    // 体つき4 × 素材4 = 16通り ×（成体・ちび）＝32枚。起動時に一度だけ焼く。
+    const ENTITY_ART = {};
+    function buildEntityArt() {
+        for (const form of Object.keys(SPRITE_FORMS)) {
+            for (const coat of Object.keys(SPRITE_MATS)) {
+                const col = spriteColors(SPRITE_MATS[coat][0], SPRITE_MATS[coat][1]);
+                const key = form + '|' + coat;
+                ENTITY_ART[key]         = paintSprite(SPRITE_FORMS[form], col, 1);
+                ENTITY_ART[key + '|ch'] = paintSprite(SPRITE_CHIBI[form], col, 1);
+            }
+        }
+        ENTITY_ART.hero     = paintSprite(SPRITE_HERO, spriteColors(SPRITE_HERO_COLORS.calm[0], SPRITE_HERO_COLORS.calm[1]), 1);
+        ENTITY_ART.heroRage = paintSprite(SPRITE_HERO, spriteColors(SPRITE_HERO_COLORS.rage[0], SPRITE_HERO_COLORS.rage[1]), 1);
+        ENTITY_ART.castle   = paintSprite(SPRITE_CASTLE, spriteColors(SPRITE_CASTLE_COLORS[0], SPRITE_CASTLE_COLORS[1]), 2);
+    }
+    buildEntityArt();
+
+    // 体つき(bodyOf)と素材(coatOf)の組で絵を引く。
+    // 純種は「自分の体つき＋自分の素材」なので、ハイブリッドと同じ引き方で足りる。
+    function entityArt(mtype, isBaby) {
+        return ENTITY_ART[bodyOf(mtype) + '|' + coatOf(mtype) + (isBaby ? '|ch' : '')];
+    }
+
     // ゲーム内変数
     let map = []; 
     let heroes = [];
@@ -4117,7 +4253,7 @@
         if (rb) {
             const canRetreat = isWaveStarted && !heroes.some(h => h.hp > 0);
             rb.style.opacity = canRetreat ? '1' : '0.4';
-            rb.innerText = canRetreat ? '🏳 撤退' : '🏳 波の合間に';
+            rb.innerHTML = canRetreat ? `${ico('retreat')} 撤退` : `${ico('retreat')} 波の合間に`;
         }
     }
     // 撤退：standardはいつでもラン終了、hardは波の合間のみ利確
@@ -4125,7 +4261,7 @@
         if (!isGameRunning) return;
         // standard：経済精算なし。確認してリザルトへ
         if (!leverage.active) {
-            if (confirm('🏳 このランを終了しますか？\n\nこれまでの成績でリザルトへ進みます。')) {
+            if (confirm('このランを終了しますか？\n\nこれまでの成績でリザルトへ進みます。')) {
                 triggerGameOver(true);
             }
             return;
@@ -4144,7 +4280,7 @@
         const capital = levCapital();
         const delta = gold - capital;
         const sign = delta >= 0 ? '+' : '';
-        const msg = `🏳 ここで撤退（利確）しますか？\n\n`
+        const msg = `ここで撤退（利確）しますか？\n\n`
             + `手持ちゴールド: ${gold} G\n`
             + `開始資本 (預入${leverage.stake}×${leverage.mult}): ${capital} G\n`
             + `── 純益: ${sign}${delta} G ──\n\n`
@@ -4446,7 +4582,7 @@
             rallyBtn.id = `${mt}-rally`;
             rallyBtn.title = '集合地点を指令する';
             rallyBtn.style.display = 'none';
-            rallyBtn.textContent = '🚩';
+            rallyBtn.innerHTML = ico('flag');
             rallyBtn.onclick = () => colToggleRallyMode(mt);   // mt に '+' を含むため属性文字列は使わない
 
             header.appendChild(nameEl);
@@ -4516,8 +4652,8 @@
                 const r = colRally[mt];
                 rallyBtn.classList.toggle('active', colRallyMode === mt);
                 rallyBtn.classList.toggle('set', !!r && colRallyMode !== mt);
-                rallyBtn.innerText = colRallyMode === mt ? '🚩選択中' : (r ? `🚩${r.x},${r.y}` : '🚩');
-                rallyBtn.title = r ? `集合地点 (${r.x},${r.y})／🚩を押して変更・同じ場所で解除`
+                rallyBtn.innerHTML = colRallyMode === mt ? `${ico('flag')}選択中` : (r ? `${ico('flag')}${r.x},${r.y}` : ico('flag'));
+                rallyBtn.title = r ? `集合地点 (${r.x},${r.y})／指令旗を押して変更・同じ場所で解除`
                                    : '集合地点を指令する（未設定＝ランダムに動き回る）';
             }
 
@@ -4544,7 +4680,7 @@
             // ＋ボタン（ゴールドで Lv+1、上限 cap まで。上限超えは💎で解放）
             const btnUp = document.getElementById(`${mt}-btn`);
             if (lv >= cap) {
-                btnUp.disabled = true; btnUp.title = `上限 Lv.${cap}（お買い物で💎により解放）`;
+                btnUp.disabled = true; btnUp.title = `上限 Lv.${cap}（お買い物でダイヤにより解放）`;
             } else {
                 const cost = goldCostFor(lv);
                 btnUp.disabled = (gold < cost);
@@ -4595,7 +4731,7 @@
     function levelUp(mt) {
         const lv = monsterLevels[mt];
         if (lv >= monsterCap[mt]) {   // 上限に到達（ダイヤで上限解放が必要）
-            msgDiv.innerText = `Lv上限です！お買い物で💎を使い上限を解放してください（現在 上限${monsterCap[mt]}）`;
+            msgDiv.innerHTML = `Lv上限です！お買い物で${ico('gem')}を使い上限を解放してください（現在 上限${monsterCap[mt]}）`;
             setTimeout(() => { if(msgDiv.innerText.includes('上限')) msgDiv.innerText = ''; }, 1800);
             playSE('error');
             return;
@@ -4938,7 +5074,7 @@
         const rBtn = document.getElementById('retreatBtn');
         rBtn.style.display = isColosseum() ? 'none' : 'block';
         rBtn.style.opacity = '1';
-        rBtn.innerText = '🏳 撤退';
+        rBtn.innerHTML = `${ico('retreat')} 撤退`;
         updateLevHUD();
         // ===== コロシアム専用のUI切り替え =====
         // 深度→Wave、ミニマップ非表示（全面が見えている）、城ボタン→早出し、修復ボタン表示
@@ -5064,7 +5200,7 @@
             document.getElementById('resTitle').innerText = colResult.isNew ? 'NEW RECORD!' : 'ARENA CLOSED';
             document.getElementById('resSubtitle').innerText = `Wave ${colWave} まで耐えた。壁はまだ残っていたか？`;
         } else if (voluntary) {
-            document.getElementById('resIcon').innerText = '🏳';
+            document.getElementById('resIcon').innerHTML = ico('retreat', 'ico-2x');
             document.getElementById('resTitle').innerText = 'WITHDRAWN';
             document.getElementById('resSubtitle').innerText = leverage.active
                 ? '深部から撤退し、利益を確定した。次はどこまで潜る？'
@@ -5665,7 +5801,7 @@
         isPlacingCastle = false;                       // 城配置モードとは排他
         castleBtn.classList.remove('active');
         if (colRallyMode) {
-            msgDiv.innerText = `🚩 ${MONSTER_NAMES[mt]} の集合地点を掘った通路からクリック（もう一度🚩で解除）`;
+            msgDiv.innerHTML = `${ico('flag')} ${MONSTER_NAMES[mt]} の集合地点を掘った通路からクリック（もう一度${ico('flag')}で解除）`;
         } else {
             msgDiv.innerText = '';
         }
@@ -5724,7 +5860,7 @@
         const skip = document.getElementById('colSkipBtn');
         if (skip) {
             skip.style.opacity = colPrepRemaining > 0 ? '1' : '0.45';
-            skip.innerText = colPrepRemaining > 0 ? `⚔ 早出し(+${colPrepRemaining * 5}G)` : '⚔ 早出し';
+            skip.innerHTML = colPrepRemaining > 0 ? `${ico('sword')} 早出し(+${colPrepRemaining * 5}G)` : `${ico('sword')} 早出し`;
         }
     }
 
@@ -5893,7 +6029,7 @@
         heroGold = hg;
 
         if (isEnraged) {
-            spawnFloatingText(2, 2, '⚔ 怒れる勇者！', '#e74c3c');
+            spawnFloatingText(2, 2, '怒れる勇者！', '#e74c3c');
             showBossWarning();
         }
 
@@ -6344,7 +6480,7 @@
                     if (Math.random() * 100 < diamondChancePct) {
                         diamond++;
                         totalEarnedDiamond++;
-                        spawnFloatingText(target.x, target.y - 1, '+1💎', '#00cfff');
+                        spawnFloatingText(target.x, target.y - 1, '+1ダイヤ', '#00cfff');
                         playSE('gem');
                     }
 
@@ -6496,8 +6632,8 @@
         const btn      = document.getElementById('levelPanelToggleBtn');
         const isNowCollapsed = panel.classList.toggle('collapsed');
         backdrop.classList.toggle('open', !isNowCollapsed);
-        if (fab) fab.textContent = isNowCollapsed ? '⚗' : '×';
-        if (btn) btn.textContent = isNowCollapsed ? '⚗ 強化 ▼' : '⚗ 強化 ▲';
+        if (fab) fab.innerHTML = isNowCollapsed ? ico('flask') : '×';
+        if (btn) btn.innerHTML = isNowCollapsed ? `${ico('flask')} 強化 ▼` : `${ico('flask')} 強化 ▲`;
     }
 
     // モバイルでは初期状態でパネルを閉じる
@@ -6507,7 +6643,7 @@
         const lp = document.getElementById('levelPanel');
         if (lp) lp.classList.add('collapsed');
         const lpFab = document.getElementById('levelPanelFAB');
-        if (lpFab) lpFab.textContent = '⚗';
+        if (lpFab) lpFab.innerHTML = ico('flask');
     }
 
     function togglePause() {
@@ -6660,6 +6796,9 @@
         } // end if (!isPaused)
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // ドット絵を貼るので、拡大・伸縮のときに補間させない（＝ドットの角を残す）。
+        // canvas のサイズを変えると context の状態が戻るため、毎フレームここで入れ直す。
+        ctx.imageSmoothingEnabled = false;
 
         for (let y = 0; y < ROWS; y++) {
             // P4-3 深度トーン: 深いほど行全体をわずかに闇へ沈める（行1回の計算のみ＝コスト増ほぼゼロ）
@@ -6685,8 +6824,7 @@
             }
             if (castleAtX >= 0) {
                 const px = castleAtX * TILE_SIZE, py = y * TILE_SIZE;
-                ctx.fillStyle = '#1a1060'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                ctx.strokeStyle = '#4466cc'; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                ctx.drawImage(ENTITY_ART.castle, px, py);       // 15×15 のドット絵を2倍で1タイルぶん
                 ctx.fillStyle = '#cc0000'; ctx.fillRect(px, py - 6, TILE_SIZE, 4);
                 ctx.fillStyle = '#00cc44';
                 const hpRatio = Math.max(0, castleHp) / castleMaxHp();
@@ -6745,66 +6883,25 @@
             ctx.fillRect(px + 12, py + 19, 6, 9);
         }
 
-        // ハイブリッドの体の輪郭だけをパスにする（fillはしない）。既存の各体描画から輪郭値だけを写す。
-        function traceFormSilhouette(form, cx, cy) {
-            if (form === 'slime') {
-                const r = 5;
-                ctx.beginPath(); ctx.ellipse(cx, cy, r * 1.1, r * 0.9, 0, 0, Math.PI * 2);
-            } else if (form === 'goblin') {
-                const r = 4.5;
-                ctx.beginPath(); ctx.ellipse(cx, cy + 1, r * 0.75, r, 0, 0, Math.PI * 2);
-            } else if (form === 'golem') {
-                const s = 5.5;
-                ctx.beginPath(); ctx.roundRect(cx - s, cy - s, s * 2, s * 2, 2);
-            } else if (form === 'wraith') {
-                const r = 5;
-                ctx.beginPath(); ctx.ellipse(cx, cy - 0.5, r * 0.9, r * 0.95, 0, 0, Math.PI * 2);
-            }
+        // ドット絵を1枚貼る。弾む・ぷるぷる（squash & stretch）はここで作る。
+        // 伸縮は「1px 単位」に量子化してあるので、ドットが半端に潰れない。
+        // 論理時刻 gameTime から決まるので、乱数は一切消費しない（保存則2）。
+        function drawSprite(art, cx, cy, phase) {
+            const s = Math.round(Math.sin((gameTime + phase) / 240));   // -1 / 0 / +1 px
+            const w = art.width + s, h = art.height - s;
+            const bottom = Math.round(cy + art.height / 2);             // 足元を固定して縦に伸び縮みさせる
+            ctx.drawImage(art, Math.round(cx - w / 2), bottom - h, w, h);
         }
 
-        // ハイブリッドの素材（coat）を体の上に重ねる。
-        // 体の輪郭をひと塗りして色を寄せ、素材ごとのアクセントを置く。
-        // ctx.shadowBlur と毎フレームのグラデーション生成は使わない（描画性能予算・magi_CLAUDE.md）。
-        function drawCoat(mt, form, cx, cy) {
-            const coat = coatOf(mt);
-            // 体の輪郭に合わせた基準サイズ（traceFormSilhouetteの値と揃える）
-            const rad = form === 'golem' ? 5.5 : (form === 'goblin' ? 4.5 : 5);
-
-            // 1) 素材色でひと塗り
-            ctx.globalAlpha = 0.38;
-            ctx.fillStyle = MONSTER_COLORS[mt];
-            traceFormSilhouette(form, cx, cy); ctx.fill();
-            ctx.globalAlpha = 1;
-
-            // 2) 素材色の輪郭線（体つきの形をはっきりさせる）
-            ctx.strokeStyle = MONSTER_COLORS[mt]; ctx.lineWidth = 0.9;
-            traceFormSilhouette(form, cx, cy); ctx.stroke();
-
-            // 3) 素材ごとのアクセント（coatOf(mt) で分岐。素材が何かを言い当てられる形にする）
-            if (coat === 'slime') {
-                // 石：灰色がかった角ばった粒を3つ
-                ctx.fillStyle = 'rgba(149,165,166,0.85)';
-                [[-rad*0.4, -rad*0.3, 1], [rad*0.35, rad*0.1, 0.9], [-rad*0.1, rad*0.45, 0.8]].forEach(([dx, dy, s]) => {
-                    ctx.fillRect(cx + dx - s/2, cy + dy - s/2, s, s);
-                });
-            } else if (coat === 'goblin') {
-                // 苔：緑の丸い斑点を3つ（既存の苔ゴブリンの斑点表現と同じ色）
-                ctx.fillStyle = 'rgba(130,224,170,0.55)';
-                [[-rad*0.35, -rad*0.2, 1.1], [rad*0.3, rad*0.15, 0.9], [-rad*0.05, rad*0.45, 0.8]].forEach(([dx, dy, s]) => {
-                    ctx.beginPath(); ctx.arc(cx + dx, cy + dy, s, 0, Math.PI * 2); ctx.fill();
-                });
-            } else if (coat === 'golem') {
-                // 銅：金色のボルトを四隅に4つ（既存の銅ゴーレムのボルトと同じ色）
-                ctx.fillStyle = '#ffcc00';
-                [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([dx, dy]) => {
-                    ctx.beginPath(); ctx.arc(cx + dx*(rad-1.5), cy + dy*(rad-1.5), 1, 0, Math.PI * 2); ctx.fill();
-                });
-            } else if (coat === 'wraith') {
-                // 影：半透明の紫のもやを体より一回り大きく（既存のレイスの外側オーラと同じ色）
-                ctx.fillStyle = 'rgba(125,91,181,0.18)';
-                ctx.beginPath(); ctx.ellipse(cx, cy, rad * 1.35, rad * 1.4, 0, 0, Math.PI * 2); ctx.fill();
-            }
+        // HPバー。個体の絵の上端より少し上に置く。
+        function drawHpBar(entity, cx, cy, halfH, bw) {
+            const bh = 2, bx = Math.round(cx - bw / 2), by = Math.round(cy - halfH - 5);
+            ctx.fillStyle = SPRITE_INK;  ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+            ctx.fillStyle = '#922b21';   ctx.fillRect(bx, by, bw, bh);
+            ctx.fillStyle = '#27ae60';
+            ctx.fillRect(bx, by, Math.round(bw * Math.max(0, entity.hp / entity.maxHp)), bh);
         }
+
 
         function drawEntity(entity) {
             // スムーズな補間移動 (lerp)。目標はマス中心＋サブセルの席オフセット。
@@ -6821,259 +6918,44 @@
             const cx = entity.rx;
             const cy = entity.ry;
 
-            ctx.save();
-            // ちびは0.55倍に縮小。同居数では大きさを変えない（＝いつでも原寸）。
-            if (entity.isBaby) {
-                ctx.translate(cx, cy);
-                ctx.scale(0.55, 0.55);
-                ctx.translate(-cx, -cy);
-            }
-
-            // ハイブリッドは体つき(body)の描画を流用し、素材(coat)を上から重ねる
+            // ちびは「成体を0.55倍に縮める」のをやめ、ちび用の絵（10×10）を別に持つ。
+            // ドット絵は非整数倍に縮めるとドットが潰れて別の絵になってしまうため。
             const form = entity.mtype ? bodyOf(entity.mtype) : null;
 
+            // 個体は焼いてある絵を1枚貼るだけ。体つき(form)はシルエットで、
+            // 素材(coat)は色で読ませる（＝ハイブリッドは両方が同時に読める）。
+            const phase = entity.x * 71 + entity.y * 131;    // 個体ごとに弾む位相をずらす
             if (entity.isHero) {
-                const r = 8;
-                const enraged = entity.isEnraged;
-                // 外側オーラ（同心円3枚の重ね。毎フレームのグラデ生成をしない＝D-3）
-                const auraRGB = enraged ? '231,76,60' : '52,152,219';
-                ctx.fillStyle = `rgba(${auraRGB},0.10)`;
-                ctx.beginPath(); ctx.arc(cx, cy, r * 1.8, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = `rgba(${auraRGB},0.15)`;
-                ctx.beginPath(); ctx.arc(cx, cy, r * 1.4, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = `rgba(${auraRGB},0.2)`;
-                ctx.beginPath(); ctx.arc(cx, cy, r * 1.1, 0, Math.PI * 2); ctx.fill();
+                const art = entity.isEnraged ? ENTITY_ART.heroRage : ENTITY_ART.hero;
+                drawSprite(art, cx, cy, phase);
+                drawHpBar(entity, cx, cy, art.height / 2, 18);
 
-                // 影
-                ctx.beginPath();
-                ctx.ellipse(cx, cy + r * 0.8, r * 0.85, r * 0.25, 0, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
-
-                // 本体（2階調シェーディング：地色 → 暗部 → 明部）
-                ctx.beginPath();
-                ctx.arc(cx, cy, r, 0, Math.PI * 2);
-                ctx.fillStyle = enraged ? '#e74c3c' : '#3498db'; ctx.fill();
-                ctx.strokeStyle = enraged ? '#e74c3c' : '#85c1e9';
-                ctx.lineWidth = 1.5; ctx.stroke();
-                ctx.beginPath();                                  // 暗部（下右）
-                ctx.ellipse(cx + r * 0.2, cy + r * 0.3, r * 0.72, r * 0.6, 0, 0, Math.PI * 2);
-                ctx.fillStyle = enraged ? 'rgba(123,36,28,0.7)' : 'rgba(26,82,118,0.7)'; ctx.fill();
-                ctx.beginPath();                                  // 明部（上左）
-                ctx.ellipse(cx - r * 0.32, cy - r * 0.34, r * 0.42, r * 0.32, 0, 0, Math.PI * 2);
-                ctx.fillStyle = enraged ? 'rgba(255,153,153,0.85)' : 'rgba(116,185,255,0.85)'; ctx.fill();
-
-                // 剣マーク（十字）
-                ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.5;
-                ctx.lineCap = 'round';
-                ctx.beginPath(); ctx.moveTo(cx, cy - 4.5); ctx.lineTo(cx, cy + 4.5); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(cx - 3, cy - 1.5); ctx.lineTo(cx + 3, cy - 1.5); ctx.stroke();
-
-                // HPバー（少し広め）
-                const bw = 18, bh = 3;
-                const bx = cx - bw/2, by = cy - r - 6;
-                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx-1, by-1, bw+2, bh+2);
-                ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
-                ctx.fillStyle = '#27ae60';
-                ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
-
-                // 装備アイコン（HPバーの上）
-                const icons = [];
-                if (entity.hasShield) icons.push('🛡');
-                if (entity.hasBoots)  icons.push('👟');
-                if (entity.hasPotion) icons.push(entity.potionUsed ? '🫙' : '💊');
-                if (icons.length > 0) {
-                    ctx.font = '7px serif';
-                    ctx.textAlign = 'center';
-                    const iconY = by - 5;
-                    const spacing = 8;
-                    const startX = cx - (icons.length - 1) * spacing / 2;
-                    icons.forEach((icon, i) => {
-                        ctx.globalAlpha = (icon === '🫙') ? 0.4 : 1.0;
-                        ctx.fillText(icon, startX + i * spacing, iconY);
+                // 装備の目印（HPバーの上）。絵文字は使わず、3pxの色札を並べる（D-4/(1)）。
+                const marks = [];
+                if (entity.hasShield) marks.push(SPRITE_HELM[0]);            // 盾＝鋼
+                if (entity.hasBoots)  marks.push('#a06a34');                 // 靴＝革
+                if (entity.hasPotion) marks.push(entity.potionUsed ? '#6c768c' : '#b46be0');   // 薬＝紫／使用済みは灰
+                if (marks.length) {
+                    const my = Math.round(cy - art.height / 2 - 10);
+                    const startX = Math.round(cx - (marks.length * 5 - 1) / 2);
+                    marks.forEach((color, i) => {
+                        const mx = startX + i * 5;
+                        ctx.fillStyle = SPRITE_INK; ctx.fillRect(mx - 1, my - 1, 5, 5);
+                        ctx.fillStyle = color;      ctx.fillRect(mx, my, 3, 3);
                     });
-                    ctx.globalAlpha = 1.0;
                 }
-
-            } else if (form === 'slime') {
-                // ---- 石スライム：丸くて石っぽい模様 ----
-                const r = 5;
-                ctx.beginPath();
-                ctx.ellipse(cx, cy + 1, r * 1.1, r * 0.85, 0, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fill();
-
-                // 本体（2階調シェーディング：地色 → 暗部 → 明部。毎フレームのグラデ生成をしない＝D-3）
-                ctx.beginPath();
-                ctx.ellipse(cx, cy, r * 1.1, r * 0.9, 0, 0, Math.PI * 2);
-                ctx.fillStyle = '#95a5a6'; ctx.fill();
-                ctx.strokeStyle = '#717d7e'; ctx.lineWidth = 1; ctx.stroke();
-                ctx.beginPath();                                  // 暗部（下右）
-                ctx.ellipse(cx + r * 0.25, cy + r * 0.3, r * 0.8, r * 0.55, 0, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(97,106,107,0.75)'; ctx.fill();
-                ctx.beginPath();                                  // 明部（上左）
-                ctx.ellipse(cx - r * 0.35, cy - r * 0.35, r * 0.5, r * 0.34, 0, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(213,216,220,0.85)'; ctx.fill();
-
-                // 石の割れ目
-                ctx.strokeStyle = 'rgba(80,80,80,0.6)'; ctx.lineWidth = 0.8;
-                ctx.beginPath(); ctx.moveTo(cx - 1, cy - 2); ctx.lineTo(cx + 2, cy + 1); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(cx - 2, cy + 1); ctx.lineTo(cx, cy + 3); ctx.stroke();
-
-                // つぶらな目
-                ctx.fillStyle = '#2c3e50';
-                ctx.beginPath(); ctx.arc(cx - 1.8, cy - 0.5, 1, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(cx + 1.8, cy - 0.5, 1, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = 'rgba(255,255,255,0.7)';
-                ctx.beginPath(); ctx.arc(cx - 1.3, cy - 1, 0.35, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(cx + 2.3, cy - 1, 0.35, 0, Math.PI * 2); ctx.fill();
-
-                const bw = 10, bh = 2;
-                const bx = cx - bw/2, by = cy - r - 5;
-                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
-                ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
-                ctx.fillStyle = '#27ae60';
-                ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
-
-            } else if (form === 'goblin') {
-                // ---- 苔ゴブリン：三角頭＋緑まだら ----
-                const r = 4.5;
-                // 影
-                ctx.beginPath();
-                ctx.ellipse(cx, cy + r * 0.8, r * 0.8, r * 0.22, 0, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fill();
-
-                // 体（やや縦長）
-                ctx.beginPath();
-                ctx.ellipse(cx, cy + 1, r * 0.75, r, 0, 0, Math.PI * 2);
-                ctx.fillStyle = '#27ae60'; ctx.fill();
-                ctx.strokeStyle = '#1a5632'; ctx.lineWidth = 0.8; ctx.stroke();
-                ctx.beginPath();                                  // 暗部（下右）
-                ctx.ellipse(cx + r * 0.2, cy + r * 0.5, r * 0.55, r * 0.6, 0, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(29,106,58,0.7)'; ctx.fill();
-                ctx.beginPath();                                  // 明部（上左）
-                ctx.ellipse(cx - r * 0.28, cy - r * 0.2, r * 0.34, r * 0.42, 0, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(88,214,141,0.8)'; ctx.fill();
-
-                // 苔の斑点
-                ctx.fillStyle = 'rgba(130,224,170,0.55)';
-                [[cx-1.5, cy-0.5, 1.2],[cx+1.2, cy+1, 0.9],[cx-0.5, cy+2.2, 0.8]].forEach(([x,y,s]) => {
-                    ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI*2); ctx.fill();
-                });
-
-                // 耳（とんがり）
-                ctx.fillStyle = '#27ae60';
-                ctx.beginPath(); ctx.moveTo(cx - r*0.7, cy - r*0.5); ctx.lineTo(cx - r*1.1, cy - r*1.1); ctx.lineTo(cx - r*0.2, cy - r*0.7); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(cx + r*0.7, cy - r*0.5); ctx.lineTo(cx + r*1.1, cy - r*1.1); ctx.lineTo(cx + r*0.2, cy - r*0.7); ctx.fill();
-
-                // 目（赤く光る）
-                ctx.fillStyle = '#e74c3c';
-                ctx.beginPath(); ctx.arc(cx - 1.5, cy - 0.5, 1, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(cx + 1.5, cy - 0.5, 1, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = 'rgba(255,100,100,0.5)';
-                ctx.beginPath(); ctx.arc(cx - 1.5, cy - 0.5, 1.5, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(cx + 1.5, cy - 0.5, 1.5, 0, Math.PI * 2); ctx.fill();
-
-                const bw = 10, bh = 2;
-                const bx = cx - bw/2, by = cy - r - 5;
-                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
-                ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
-                ctx.fillStyle = '#27ae60';
-                ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
-
-            } else if (form === 'golem') {
-                // ---- 銅ゴーレム：四角くゴツい ----
-                const s = 5.5;
-                // 影
-                ctx.fillStyle = 'rgba(0,0,0,0.3)';
-                ctx.fillRect(cx - s*0.9, cy + s*0.7, s*1.8, s*0.4);
-
-                // 本体（角丸四角・2階調シェーディング。グラデ生成なし＝D-3）
-                ctx.beginPath();
-                ctx.roundRect(cx - s, cy - s, s*2, s*2, 2);
-                ctx.fillStyle = '#ca6f1e'; ctx.fill();
-                ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 1; ctx.stroke();
-                ctx.fillStyle = 'rgba(126,81,9,0.8)';             // 暗部（下半分）
-                ctx.fillRect(cx - s + 1, cy + s * 0.15, s * 2 - 2, s * 0.85 - 1);
-                ctx.fillStyle = 'rgba(229,152,102,0.85)';         // 明部（上左）
-                ctx.fillRect(cx - s + 1, cy - s + 1, s * 1.1, s * 0.75);
-
-                // 銅の継ぎ目ライン
-                ctx.strokeStyle = 'rgba(80,40,0,0.5)'; ctx.lineWidth = 0.8;
-                ctx.beginPath(); ctx.moveTo(cx - s, cy); ctx.lineTo(cx + s, cy); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx, cy + s); ctx.stroke();
-
-                // ボルト（四隅）
-                ctx.fillStyle = '#ffcc00';
-                [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([dx,dy]) => {
-                    ctx.beginPath(); ctx.arc(cx + dx*(s-1.5), cy + dy*(s-1.5), 1, 0, Math.PI*2); ctx.fill();
-                });
-
-                // 目（黄色く光る）。shadowBlur は最重の描画処理なので使わず、半透明レイヤーで発光風に（D-2）
-                ctx.fillStyle = 'rgba(255,204,0,0.28)';
-                ctx.beginPath(); ctx.arc(cx - 1.8, cy - 1, 2.6, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(cx + 1.8, cy - 1, 2.6, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#ffcc00';
-                ctx.beginPath(); ctx.arc(cx - 1.8, cy - 1, 1.2, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(cx + 1.8, cy - 1, 1.2, 0, Math.PI * 2); ctx.fill();
-
-                const bw = 12, bh = 2;
-                const bx = cx - bw/2, by = cy - s - 6;
-                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
-                ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
-                ctx.fillStyle = '#27ae60';
-                ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
-
-            } else if (form === 'wraith') {
-                // ---- シャドウレイス：半透明の幽体・揺らめく裾 ----
-                // shadowBlurは重いため未使用。半透明レイヤー重ねで発光風に
-                const r = 5;
-                const wob = Math.sin(Date.now() / 180 + entity.rx) * 1.2; // 揺らめき
-
-                // 外側のオーラ（半透明の紫）
-                ctx.fillStyle = 'rgba(125,91,181,0.18)';
-                ctx.beginPath();
-                ctx.ellipse(cx, cy, r * 1.7, r * 1.9, 0, 0, Math.PI * 2);
-                ctx.fill();
-
-                // 幽体本体（上半分は丸、下は波打つ裾）
-                ctx.fillStyle = 'rgba(179,157,219,0.85)';
-                ctx.beginPath();
-                ctx.arc(cx, cy - 1, r * 0.9, Math.PI, 0);
-                ctx.lineTo(cx + r * 0.9, cy + r * 0.8);
-                ctx.quadraticCurveTo(cx + r * 0.45, cy + r * 0.3 + wob, cx, cy + r * 0.8);
-                ctx.quadraticCurveTo(cx - r * 0.45, cy + r * 0.3 - wob, cx - r * 0.9, cy + r * 0.8);
-                ctx.closePath();
-                ctx.fill();
-
-                // 内側のコア
-                ctx.fillStyle = 'rgba(90,60,140,0.6)';
-                ctx.beginPath();
-                ctx.arc(cx, cy - 1, r * 0.45, 0, Math.PI * 2);
-                ctx.fill();
-
-                // 目（白く光る点）
-                ctx.fillStyle = '#f5eeff';
-                ctx.beginPath(); ctx.arc(cx - 1.7, cy - 1.5, 1, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(cx + 1.7, cy - 1.5, 1, 0, Math.PI * 2); ctx.fill();
-
-                const bw = 10, bh = 2;
-                const bx = cx - bw/2, by = cy - r - 5;
-                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
-                ctx.fillStyle = '#922b21'; ctx.fillRect(bx, by, bw, bh);
-                ctx.fillStyle = '#27ae60';
-                ctx.fillRect(bx, by, bw * Math.max(0, entity.hp / entity.maxHp), bh);
+            } else if (form) {
+                const art = entityArt(entity.mtype, entity.isBaby);
+                drawSprite(art, cx, cy, phase);
+                drawHpBar(entity, cx, cy, art.height / 2, entity.isBaby ? 8 : 12);
             }
 
-            // ハイブリッドは体の上に素材の色を薄く重ね、素材のアクセントを置く（体つきと素材の両方を読ませる）
-            if (form && isHybrid(entity.mtype)) drawCoat(entity.mtype, form, cx, cy);
-
-            ctx.restore();
-
-            // ちびの成長バー
+            // ちびの成長バー（ちびの絵は10pxなので、その下端に合わせる）
             if (entity.isBaby) {
                 const progress = Math.min(1, (gameTime - entity.bornAt) / BABY_GROW_MS);
-                const bw = 12, bh = 2, bx = cx - bw/2, by = cy + 8;
-                ctx.fillStyle = '#333'; ctx.fillRect(bx-0.5, by-0.5, bw+1, bh+1);
-                ctx.fillStyle = '#e91e96'; ctx.fillRect(bx, by, bw * progress, bh);
+                const bw = 10, bh = 2, bx = Math.round(cx - bw/2), by = Math.round(cy + 7);
+                ctx.fillStyle = SPRITE_INK;  ctx.fillRect(bx-1, by-1, bw+2, bh+2);
+                ctx.fillStyle = '#e91e96';   ctx.fillRect(bx, by, Math.round(bw * progress), bh);
             }
         }
 
@@ -7126,15 +7008,15 @@
     }
 </script>
 <div id="levelPanelBackdrop" onclick="toggleLevelPanel()"></div>
-<button id="levelPanelFAB" onclick="toggleLevelPanel()">⚗</button>
+<button id="levelPanelFAB" onclick="toggleLevelPanel()"><svg class="ico"><use href="#i-flask"/></svg></button>
 <button id="digModeBtn" class="mode-btn active" onclick="setTouchMode('dig')">⛏</button>
 <button id="exploreModeBtn" class="mode-btn" onclick="setTouchMode('explore')">👁</button>
 <button id="menuFAB" onclick="toggleMenuPopover()">≡</button>
 <div id="menuPopover">
     <button class="side-btn" onclick="openInGamePanel('shop')"><span class="side-btn-icon">🛒</span><span class="side-btn-label">お買い物</span></button>
-    <button class="side-btn" onclick="openInGamePanel('treasury')"><span class="side-btn-icon">🏆</span><span class="side-btn-label">宝具庫</span></button>
+    <button class="side-btn" onclick="openInGamePanel('treasury')"><span class="side-btn-icon"><svg class="ico-2x"><use href="#i-trophy"/></svg></span><span class="side-btn-label">宝具庫</span></button>
     <button class="side-btn" onclick="openInGamePanel('settings')"><span class="side-btn-icon">⚙</span><span class="side-btn-label">その他設定</span></button>
-    <button class="side-btn side-btn-quit" onclick="quitToTitle()"><span class="side-btn-icon">🏳</span><span class="side-btn-label">タイトルへ</span></button>
+    <button class="side-btn side-btn-quit" onclick="quitToTitle()"><span class="side-btn-icon"><svg class="ico-2x"><use href="#i-retreat"/></svg></span><span class="side-btn-label">タイトルへ</span></button>
 </div>
 </body>
 </html>

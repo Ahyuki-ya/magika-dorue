@@ -19,3 +19,6 @@ index.dev.html
 
 # 書体サブセットの作業用（tools/font_subset.py が使う）
 .cache/
+
+# Python の中間物（tools/*.py の実行で出る）
+__pycache__/

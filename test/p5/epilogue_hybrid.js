@@ -412,10 +412,12 @@
   }
 
   {
-    // drawCoat / traceFormSilhouette は gameLoop 内のローカル関数なので、外からは直接呼べない
+    // 描画は gameLoop 内のローカル関数なので、外からは直接呼べない
     // （harnessのeval同一スコープにも出てこない）。12種すべてのハイブリッドを場に出して
     // gameLoop を1回回し（monsters.forEach(drawEntity) 経由で内部的に呼ばれる）、
     // 描画経路で例外が出ないことだけを見る。
+    // ★ 2026-09-10 以降、個体は「体つき×素材」で焼いたドット絵を貼る方式。
+    //   組み合わせの取り違え（ENTITY_ART の引き方）はここで undefined になって落ちる。
     const { cx, cy } = mkArena();
     let err = null;
     try {
@@ -425,7 +427,7 @@
       });
       tick();
     } catch (e) { err = String(e && e.stack || e); }
-    chk('9f drawCoat/traceFormSilhouette（12種すべて・gameLoop経由）で例外なし', err === null, err);
+    chk('9f 12種すべてのドット絵（体つき×素材）が gameLoop 経由で描ける', err === null, err);
   }
 
   // ---- 後始末：localStorage を触った項目を元に戻す ----

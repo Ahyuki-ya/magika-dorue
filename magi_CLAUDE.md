@@ -306,6 +306,60 @@ JIS第1・第2水準の漢字を持つ等幅アウトラインフォントで、
   4c＝`@font-face` の `url()` が `data:` であること（外部から読まない）、
   4d＝`Courier` が残っていないことと `--font-ui` が在ること。
 
+### アイコンと盤面（発注3-a・発注4の第一段・2026-09-10 実施）
+
+**UI アイコン10種**と**盤面の個体すべて**をドット絵に置き換えた。
+絵は文字絵（1文字＝1ドット）で持ち、生成物は機械が書く。**絵を直すときは生成元を直す。**
+
+| 何を | 生成元 | 出力先 | 走らせ方 |
+|---|---|---|---|
+| UI アイコン（16×16） | [tools/icons.py](tools/icons.py) | index.html の `ICONS:BEGIN〜END`（`<symbol>`） | `python3 tools/icons.py --preview` |
+| 盤面（体つき・ちび・勇者・あくま部屋） | [tools/sprites.py](tools/sprites.py) | index.html の `SPRITES:BEGIN〜END`（文字絵の配列） | `python3 tools/sprites.py --index` |
+
+確認ページは `dev/icons.html`（16倍拡大・実寸・明るい地の上）と `dev/board.html`。
+
+#### 決めごと
+
+- **絵は箱の中心に載せる。** 光の向きで左右非対称になるのは構わないが、塗りの外接矩形の
+  中心が箱の中心と一致していないと、文字と並べたときだけ傾いて見える。
+  `tools/icons.py` の `check_centered` が生成時に弾く。
+- **大きさは 16px とその整数倍だけ**（ちびは10px、あくま部屋は15×15を2倍で30px）。
+  半端に縮めるとドットが潰れて別の絵になる。CSS の `.ico` / `.ico-2x` も同じ理由で固定値。
+- **`ico(name)` は innerHTML に入れる場所でだけ使う。**
+  `innerText` / `textContent` に入れるとタグがそのまま文字として出る。
+  逆に `confirm()` や canvas の文字は HTML を解釈しないので、そこは文字だけで書く。
+
+#### 盤面（P4-4）
+
+旧実装は `arc` / `ellipse` / `roundRect` の曲線と落ち影・オーラで個体を描いていた。
+規約(3)に反するうえ、`magi_CLAUDE.md` の Performance Notes が
+「体感スローダウンの主因は canvas 描画のパス数」と書いていた当のコードだった。
+**起動時に1回だけオフスクリーンcanvasへ焼き、描画ループでは `drawImage` 1発**にした。
+
+- `paintSprite` … 文字絵 → canvas。横に続く同色は1回の `fillRect` にまとめる
+- `buildEntityArt` … 体つき4 × 素材4 = 16通り ×（成体・ちび）＝32枚を起動時に焼く。
+  **起動時に乱数を消費しない**（等価性ハーネスの保存則2）
+- `entityArt(mtype, isBaby)` … `bodyOf`＋`coatOf` の組で引く。純種も同じ引き方で足りる
+- `drawSprite` … 弾む・ぷるぷる（squash & stretch）。伸縮は**1px単位に量子化**してあるので
+  ドットが半端に潰れない。`ctx.imageSmoothingEnabled = false` を毎フレーム入れ直す
+  （canvas のサイズを変えると context の状態が戻るため）
+- **ちびは 0.55 倍に縮めるのをやめ、10×10 の絵を別に持つ**
+- 勇者の装備は絵文字をやめ、3pxの色札（鋼＝盾／革＝靴／紫＝薬・使用済みは灰）
+- `drawCoat` / `traceFormSilhouette` は役目を終えたので削除した
+
+#### 回帰テスト
+
+`epilogue_design` に 4e〜4i を追加した。
+`<symbol>` が定義されていること、`<use>` の参照先がすべて在ること、`crispEdges` が付いていること、
+**`drawEntity` に曲線が戻っていないこと**、canvas の文字に絵文字を使っていないこと。
+
+#### まだ残っているもの（発注3-b）
+
+絵文字は10種を置き換えた段階で、**宝具のアイコン（`icon:'⚔️'` のデータ）と
+`MONSTER_ICONS`、メッセージ文中の絵文字が残っている**。
+発注書のとおり、残りは「UIアイコンとして要るもの／意味が重複していて統合できるもの／
+文章の一部として出ているもの」の3つに仕分けてから進める。
+
 ### 作業の順番（発注書より）
 
 1. **規約の確定**（この節。完了）

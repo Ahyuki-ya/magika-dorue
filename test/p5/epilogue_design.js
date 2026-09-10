@@ -55,6 +55,22 @@
   chk('4d 画面の書体は1系列に揃っている',
       !/font-family:[^;}]*Courier/i.test(src) && /--font-ui\s*:/.test(src));
 
+  // ---- 4e〜4h アイコンと盤面はドット絵で描く（D-4）----
+  // 絵文字は OS ごとに絵が変わる＝色も線幅も制御を放棄することになるので、
+  // UI アイコンは 1px グリッドの SVG、盤面はプリレンダしたドット絵を貼る。
+  const symbols = [...src.matchAll(/<symbol id="(i-[a-z0-9-]+)"/g)].map(m => m[1]);
+  const uses = [...src.matchAll(/href="#(i-[a-z0-9-]+)"/g)].map(m => m[1]);
+  const undef = [...new Set(uses)].filter(u => !symbols.includes(u));
+  chk('4e アイコンの <symbol> が定義されている', symbols.length > 0, symbols.length + '種');
+  chk('4f 参照している <use> がすべて定義済み', undef.length === 0, undef.join(',') || 'none');
+  chk('4g アイコンは1pxグリッドに乗る（crispEdges 指定がある）', /shape-rendering="crispEdges"/.test(src));
+  // 個体の描画は「焼いた絵を貼る」だけにする。曲線やオーラを足すと規約(3)に戻ってしまう。
+  const drawEnt = src.slice(src.indexOf('function drawEntity('), src.indexOf('assignSubcells();'));
+  chk('4h 個体はドット絵を貼るだけ（曲線を描かない）',
+      drawEnt.length > 0 && !/ctx\.(arc|ellipse|roundRect|quadraticCurveTo)\(/.test(drawEnt));
+  chk('4i canvas の文字に絵文字を使わない',
+      !/ctx\.font\s*=\s*['"`][^'"`]*serif/.test(src));
+
   // ---- 5. レア度視覚言語（D-4）: 全レア度にクラスとバッジ文字がある ----
   const css = src.slice(src.indexOf('<style>'), src.indexOf('</style>'));
   const missingCls = RARITY_KEYS.filter(k => !new RegExp('\\.rar-' + k + '\\b').test(css));

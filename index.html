@@ -3782,6 +3782,34 @@
         document.getElementById('gameActionsMenu').classList.toggle('open');
         document.getElementById('gameActionsBtn').classList.toggle('open');
     }
+    function closeGameActionsMenu() {
+        document.getElementById('gameActionsMenu').classList.remove('open');
+        document.getElementById('gameActionsBtn').classList.remove('open');
+    }
+    // 開いているメニューは、外側を触ったら閉じる。
+    // ★ 掘削は mousedown / touchstart で始まる（click ではない）ので、そこで捕まえる。
+    //   click まで待つと「閉じるつもりの1回目」で1マス掘ってしまい、ゴールドが減る。
+    // ★ 盤面の上で閉じたときだけ、その1回を飲み込む（＝掘らせない）。
+    //   他のボタンの上なら飲み込まない。閉じるためだけに2回押させるのは煩わしいので。
+    // メニュー自身と、それを開いたボタンの上は対象外（トグルが二重に効かないように）。
+    function closeOpenMenusOnOutside(e) {
+        const inside = (menuId, btnId) => {
+            const menu = document.getElementById(menuId), btn = document.getElementById(btnId);
+            return (menu && menu.contains(e.target)) || (btn && btn.contains(e.target));
+        };
+        let closed = false;
+        const acts = document.getElementById('gameActionsMenu');
+        if (acts && acts.classList.contains('open') && !inside('gameActionsMenu', 'gameActionsBtn')) {
+            closeGameActionsMenu(); closed = true;
+        }
+        const pop = document.getElementById('menuPopover');
+        if (pop && pop.classList.contains('open') && !inside('menuPopover', 'menuFAB')) {
+            closeMenuPopover(); closed = true;
+        }
+        if (closed && e.target === canvas) { e.preventDefault(); e.stopPropagation(); }
+    }
+    document.addEventListener('mousedown', closeOpenMenusOnOutside, true);
+    document.addEventListener('touchstart', closeOpenMenusOnOutside, { capture: true, passive: false });
     // 左サイドパネルの畳み込み（デスクトップ）
     function toggleSidePanel() {
         const panel = document.getElementById('sidePanelLeft');
@@ -4394,6 +4422,14 @@
     const HERO_HOUSE_CLEAR = 6;     // 設置に必要な周囲クリア範囲（チェビシェフ・この範囲に敵ゼロ）※幅20のマップでは30だと実質不可能なため縮小
     const HERO_HOUSE_GAP = 30;      // 前回の家より最低これだけ深く（初回は深度この値以上）
     const HERO_HOUSE_CHANCE = 0.10; // 条件を満たした行動ごとの設置確率（一斉設置を防ぎ自然に前進）
+    // 勇者が「立ち止まって何かをする」時間（論理時刻ms）。
+    // 何をしているのかを見て分かるようにするための間。ポーズと早送りに追従する。
+    const HERO_BUILD_MS   = 6000;   // 家を建てるあいだ足を止める
+    const POTION_BACK_MS  = 1600;   // 薬を飲む前に敵から離れる時間の上限
+    const POTION_SAFE     = 4;      // これだけ離れれば「安全」とみなす（マンハッタン距離）
+    const POTION_DRINK_MS = 1200;   // 飲むあいだ足を止める
+    const POTION_REGEN_MS = 4500;   // 効き目が広がる時間（一気に回復しない＝緊迫感が残る）
+    const POTION_HEAL     = 0.5;    // 合計の回復量（最大HP比）
     let heroHouses = [];            // 設置済み [{x,y,depth}]
     let heroSpawn = null;           // 現在の勇者スポーン位置（null=デフォルトの空）
     let lastHouseDepth = 0;         // 最深の家の深度（次はこれ+GAP以上が必要）
@@ -6066,7 +6102,10 @@
             color: isEnraged ? '#e74c3c' : '#3498db',
             isEnraged, heroType,
             hasPotion: false, potionUsed: false,
-            hasShield: false, hasBoots: false
+            hasShield: false, hasBoots: false,
+            stallKind: null, stallUntil: 0,          // 立ち止まって何かをしている最中か
+            potionPhase: null, potionBackUntil: 0,   // 薬：離れる → 飲む → 効いている
+            regenUntil: 0, regenRate: 0, regenAcc: 0
         }));
 
         // 装備購入（heroGoldを消費・タイプ別）
@@ -6439,19 +6478,32 @@
         return __bfsToward(entity, tx, ty, monsterOnly, Infinity); // 全域フォールバック（強保存の要）
     }
 
-    // 勇者の家：条件を満たせば現在地に設置し、以降のスポーン地点を前進させる
+    // 家を建てられる場所か（周囲 HERO_HOUSE_CLEAR マスに生存モンスターがいない）。
+    // 建設中も毎フレーム見て、近づかれたら手を止める＝「安全な場所で建てたい」動機になる。
+    function heroHouseSpotIsClear(entity) {
+        for (const m of monsters) {
+            if (m.hp <= 0) continue;
+            if (Math.max(Math.abs(m.x - entity.x), Math.abs(m.y - entity.y)) <= HERO_HOUSE_CLEAR) return false;
+        }
+        return true;
+    }
+
+    // 勇者の家：条件を満たしたら「建設」を始める。
+    // 即座に建てず HERO_BUILD_MS のあいだその場に立ち止まる（何をしているか見て分かるように）。
     function tryPlaceHeroHouse(entity) {
         if (heroGold < HERO_HOUSE_COST) return;          // 1yで購入
         if (entity.y < SKY_LAYERS + 1) return;           // 地下のみ
         const d = depthOf(entity.y);
         if (d < lastHouseDepth + HERO_HOUSE_GAP) return; // 前回より30以上深く（初回は深度30以上）
         if (Math.random() >= HERO_HOUSE_CHANCE) return;  // 使用確率（毎行動ごと）
-        // 周囲 HERO_HOUSE_CLEAR マス（チェビシェフ）に生存モンスターがいないこと
-        for (const m of monsters) {
-            if (m.hp <= 0) continue;
-            if (Math.max(Math.abs(m.x - entity.x), Math.abs(m.y - entity.y)) <= HERO_HOUSE_CLEAR) return;
-        }
-        // 設置
+        if (!heroHouseSpotIsClear(entity)) return;
+        entity.stallKind = 'build';
+        entity.stallUntil = gameTime + HERO_BUILD_MS;
+    }
+
+    // 建設が終わった瞬間に呼ぶ。ここで初めて実体ができる。
+    function placeHeroHouse(entity) {
+        const d = depthOf(entity.y);
         heroGold -= HERO_HOUSE_COST;
         heroHouses.push({ x: entity.x, y: entity.y, depth: d });
         heroSpawn = { x: entity.x, y: entity.y };
@@ -6470,6 +6522,65 @@
         playSE('buy');
         spawnFloatingText(entity.x, entity.y - 1, '勇者の家!', '#ffdd55', 14);
         spawnBurst(entity.x, entity.y, ['#ffdd55', '#ffffff', '#cc8844'], 14);
+    }
+
+    // ===== 勇者の「立ち止まって何かをする」 =====
+    // 家を建てる／薬を飲むあいだ、その場に留まる。論理時刻で測るのでポーズと早送りに追従する。
+    // 足だけ止める（攻撃フェーズは上で済んでいる）ので、隣に来た敵には反撃できる。
+    // 戻り値 true = 今フレームは足を動かさない。
+    function heroStallStep(entity) {
+        if (!entity.stallKind) return false;
+        // 家は「安全な場所で建てたい」ので、近づかれたら手を止めて逃げる
+        if (entity.stallKind === 'build' && !heroHouseSpotIsClear(entity)) {
+            entity.stallKind = null;
+            return false;
+        }
+        if (gameTime < entity.stallUntil) return true;
+        const kind = entity.stallKind;
+        entity.stallKind = null;
+        if (kind === 'build') placeHeroHouse(entity);
+        else if (kind === 'potion') drinkPotion(entity);
+        return true;                                  // 完了した回も足は止めておく
+    }
+
+    // 薬は「一旦距離をとってから飲む」。retreat のあいだは敵から離れる向きに歩く。
+    // 離れきるか POTION_BACK_MS 経ったら、その場に立ち止まって飲む。
+    function heroPotionStep(entity) {
+        if (entity.potionPhase !== 'retreat') return false;
+        let near = null, best = Infinity;
+        for (const m of monsters) {
+            if (m.hp <= 0) continue;
+            const d = Math.abs(m.x - entity.x) + Math.abs(m.y - entity.y);
+            if (d < best) { best = d; near = m; }
+        }
+        if (!near || best >= POTION_SAFE || gameTime >= entity.potionBackUntil) {
+            entity.potionPhase = 'drink';
+            entity.stallKind = 'potion';
+            entity.stallUntil = gameTime + POTION_DRINK_MS;
+            return true;
+        }
+        // 敵から最も遠ざかる隣接マスへ1歩。向きの順は固定なので乱数を使わない。
+        let step = null, far = best;
+        for (const d of [{x:0,y:-1},{x:0,y:1},{x:-1,y:0},{x:1,y:0}]) {
+            const nx = entity.x + d.x, ny = entity.y + d.y;
+            if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+            if (ny < skyLimit()) continue;
+            if (!isPassable(nx, ny)) continue;
+            const dd = Math.abs(near.x - nx) + Math.abs(near.y - ny);
+            if (dd > far) { far = dd; step = { x: nx, y: ny }; }
+        }
+        if (step) { entity.x = step.x; entity.y = step.y; }
+        return true;
+    }
+
+    // 飲んだ瞬間。効き目は一気に出さず POTION_REGEN_MS かけてじわじわ広がる。
+    function drinkPotion(entity) {
+        entity.potionUsed = true;
+        entity.potionPhase = 'done';
+        entity.regenUntil = gameTime + POTION_REGEN_MS;
+        entity.regenRate = (entity.maxHp * POTION_HEAL) / POTION_REGEN_MS;   // HP/ms
+        entity.regenAcc = 0;
+        spawnFloatingText(entity.x, entity.y, '薬', '#2ecc71');
     }
 
     // 移動クロック(cd)と攻撃クロック(acd)を別に回す。
@@ -6581,6 +6692,14 @@
             entity.cd -= threshold;
 
             if (entity.isHero) {
+                // 立ち止まり中・薬のために後退中は、通常の移動をしない。
+                // ★ スタック検出より先に置くこと。立ち止まりを「詰まっている」と誤認させないため、
+                //   足を止めているあいだは lastMoveTime を進め続ける。
+                if (heroStallStep(entity) || heroPotionStep(entity)) {
+                    entity.lastMoveTime = gameTime;
+                    entity.lastX = entity.x; entity.lastY = entity.y;
+                    return;
+                }
                 // スタック検出：2秒以上同じ位置にいたら5秒間あくま部屋へ直行
                 const now = gameTime; // P5-6 論理時刻（ポーズ中は進まない）
                 if (entity.lastMoveTime === undefined) {
@@ -6760,12 +6879,18 @@
             heroes.forEach(h => updateEntity(h, monsters, threshold));
             monsters.forEach(m => updateEntity(m, heroes, threshold));
 
-        // ポーション自動発動（HP30%以下で一度だけ）
+        // ポーション（HP30%以下で一度だけ）。
+        // 「一旦距離をとって → 立ち止まって飲む → じわじわ効く」の3段。
+        // 一気に回復させないので、飲んだあとも詰められれば死ぬ＝緊迫感が残る。
         heroes.forEach(h => {
-            if (h.hasPotion && !h.potionUsed && h.hp > 0 && h.hp <= h.maxHp * 0.3) {
-                h.hp = Math.min(h.maxHp, h.hp + Math.ceil(h.maxHp * 0.5));
-                h.potionUsed = true;
-                spawnFloatingText(h.x, h.y, '回復！', '#2ecc71');
+            if (h.hasPotion && !h.potionUsed && !h.potionPhase && h.hp > 0 && h.hp <= h.maxHp * 0.3) {
+                h.potionPhase = 'retreat';
+                h.potionBackUntil = gameTime + POTION_BACK_MS;
+            }
+            if (h.regenUntil && gameTime < h.regenUntil && h.hp > 0 && h.hp < h.maxHp) {
+                h.regenAcc += h.regenRate * interval;      // HPは整数のまま保つ（端数は繰り越す）
+                const add = Math.floor(h.regenAcc);
+                if (add > 0) { h.hp = Math.min(h.maxHp, h.hp + add); h.regenAcc -= add; }
             }
         });
 
@@ -6972,6 +7097,22 @@
             ctx.drawImage(art, Math.round(cx - w / 2), bottom - h, w, h);
         }
 
+        // 立ち止まっている勇者の頭上に「…」の吹き出しを出す。
+        // 黒地に白1pxの枠＝DQのウィンドウと同じ作法。点は論理時刻で増減するので
+        // ポーズ中は止まり、乱数も使わない。
+        function drawStallBubble(cx, cy, halfH) {
+            const w = 15, h = 9;
+            const bx = Math.round(cx - w / 2), by = Math.round(cy - halfH - 17);
+            ctx.fillStyle = SPRITE_INK;   ctx.fillRect(bx, by, w, h);
+            ctx.fillStyle = SPRITE_EYE;
+            ctx.fillRect(bx, by, w, 1); ctx.fillRect(bx, by + h - 1, w, 1);
+            ctx.fillRect(bx, by, 1, h); ctx.fillRect(bx + w - 1, by, 1, h);
+            ctx.fillStyle = SPRITE_INK;   ctx.fillRect(bx + 6, by + h, 3, 2);   // しっぽ
+            ctx.fillStyle = SPRITE_EYE;
+            const n = 1 + Math.floor((gameTime / 350) % 3);                     // 点が1→2→3
+            for (let i = 0; i < n; i++) ctx.fillRect(bx + 3 + i * 4, by + 5, 2, 2);
+        }
+
         // HPバー。個体の絵の上端より少し上に置く。
         function drawHpBar(entity, cx, cy, halfH, bw) {
             const bh = 2, bx = Math.round(cx - bw / 2), by = Math.round(cy - halfH - 5);
@@ -7008,6 +7149,7 @@
                 const art = entity.isEnraged ? ENTITY_ART.heroRage : ENTITY_ART.hero;
                 drawSprite(art, cx, cy, phase);
                 drawHpBar(entity, cx, cy, art.height / 2, 18);
+                if (entity.stallKind) drawStallBubble(cx, cy, art.height / 2);
 
                 // 装備の目印（HPバーの上）。絵文字は使わず、3pxの色札を並べる（D-4/(1)）。
                 const marks = [];

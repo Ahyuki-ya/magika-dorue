@@ -20,7 +20,7 @@ canvas の描き替え（発注4）は、絵柄が決まってから別の作業
 import io, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from icons import grid, paths, check_centered  # noqa: E402
+from icons import grid, paths, center  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "dev", "board.html")

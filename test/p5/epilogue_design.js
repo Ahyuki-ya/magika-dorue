@@ -70,6 +70,24 @@
       drawEnt.length > 0 && !/ctx\.(arc|ellipse|roundRect|quadraticCurveTo)\(/.test(drawEnt));
   chk('4i canvas の文字に絵文字を使わない',
       !/ctx\.font\s*=\s*['"`][^'"`]*serif/.test(src));
+  // 4j 画面に出る絵文字が残っていないこと。
+  // 「絵文字かどうか」は見た目ではなく、埋め込んだ書体に入っているかで決める
+  // （★ ← → × ≡ などはドット絵の書体で描かれるので文字であって絵文字ではない）。
+  // 旧セーブを読み替える LEGACY_ICON の中だけは、絵文字が「鍵」として残ってよい。
+  {
+    const src2 = src.replace(/const LEGACY_ICON = \{[\s\S]*?\};/, '');
+    const face = src2.match(/src: url\(data:font\/woff;base64,([A-Za-z0-9+/=]+)\)/);
+    const cand = src2.match(/[\u{1F000}-\u{1FAFF}\u{2190}-\u{2BFF}\u{FE0F}\u{23E9}-\u{23FA}]/gu) || [];
+    // 書体の cmap までは読まないので、明らかに絵文字な面（U+1F000〜）と
+    // 異体字セレクタだけを見る。記号面（U+2190〜）は書体に入っているものが多いので、
+    // ここでは代表的な未収録記号だけを名指しで見る。
+    const emoji = cand.filter(c => c.codePointAt(0) >= 0x1F000
+                             || ['\u26A0','\u2705','\u2714','\u2694','\u2692','\u2697','\u26CF',
+                                 '\u2699','\u26A1','\u23F8','\u23F1','\u23F3','\uFE0F'].includes(c));
+    chk('4j 画面に出る絵文字が残っていない', emoji.length === 0,
+        [...new Set(emoji)].join('') || 'none');
+    chk('4k 書体は埋め込まれている', !!face);
+  }
 
   // ---- 5. レア度視覚言語（D-4）: 全レア度にクラスとバッジ文字がある ----
   const css = src.slice(src.indexOf('<style>'), src.indexOf('</style>'));

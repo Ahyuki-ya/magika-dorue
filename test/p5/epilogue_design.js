@@ -168,9 +168,17 @@
   // 切り替えないまま横に並べ続けると端が画面外に出て切れる。
   chk('7i 入らない幅では縦積みに切り替える',
       /@media \(max-width: 1000px\)[\s\S]{0,400}#gameScreen\s*{[^}]*flex-direction:\s*column/.test(css));
-  // 縦積みでは全部の箱を盤面と同じ幅・中央そろえにする（左右の位置を一致させる）
-  chk('7j 縦積みでは全箱を盤面幅にそろえる',
-      /#dashboard\s*{[^}]*width:\s*var\(--stage-w/.test(css) && /align-self:\s*center/.test(css));
+  // 縦積みでは全部の箱を盤面と同じ幅・中央そろえにする（左右の位置を一致させる）。
+  // ★ CSS で幅をそろえる箱と、JS で同じ倍率をかける箱（SCALED_BOXES）は一致していないといけない。
+  //   片方にだけ足すと、縮めたときに幅がズレて段がそろわなくなる。
+  const scaledIds = [...(((src.match(/SCALED_BOXES = \[([^\]]*)\]/) || [])[1]) || '')
+    .matchAll(/'([^']+)'/g)].map(m => m[1]);
+  const stageRule = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+    .find(m => /width:\s*var\(--stage-w/.test(m[2]));
+  const stageSel = stageRule ? stageRule[1] : '';
+  const notAligned = scaledIds.filter(id => !new RegExp('#' + id + '(?![\\w-])').test(stageSel));
+  chk('7j 縦積みで幅をそろえる箱と縮小する箱が一致', scaledIds.length > 0 && notAligned.length === 0
+      && /align-self:\s*center/.test(css), notAligned.join(',') || 'none');
   // 盤面の外寸は JS から配る（列数を変えても追従させるため）
   chk('7k 盤面の外寸を --stage-w で配っている', /setProperty\(\s*'--stage-w'/.test(src));
   // 縮めるときは全部の箱に同じ倍率をかける（1つだけ縮めると幅がズレる）

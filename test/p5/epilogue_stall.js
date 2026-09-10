@@ -93,12 +93,12 @@
     }
   }
 
-  // ---- 3. 薬：離れてから飲み、じわじわ効く ----
+  // ---- 3. 薬＝休憩：離れて休み、休んでいるあいだだけ回復する ----
   {
     const { cx } = arena();
     const hy = SKY_LAYERS + 6;
     const hero = mkHero(cx, hy, { hasPotion: true, potionUsed: false, hp: 10, maxHp: 40, agi: 8 });
-    // すぐ隣に敵（弱くして勇者が死なないように）
+    // すぐ隣に敵（攻撃力0にして勇者が死なないようにする）
     const mon = makeEntity(cx, hy + 1, {
       isHero: false, mtype: 'slime', hp: 999, maxHp: 999, atk: 0, agi: 1, range: 4, color: '#95a5a6',
     });
@@ -106,26 +106,83 @@
     const hp0 = hero.hp;
     tick(1);
     chk('3a HP30%以下で「離れる」に入る', hero.potionPhase === 'retreat', hero.potionPhase);
-    chk('3b 飲む前に回復はしない', hero.hp === hp0, hero.hp);
-    // 離れて飲むまで進める
+    chk('3b 休憩に入るまで回復しない', hero.hp === hp0, hero.hp);
     let guard = 0;
     while (!hero.potionUsed && guard++ < 2000) tick();
-    chk('3c いずれ薬を飲む', hero.potionUsed === true);
-    const distWhenDrunk = Math.abs(hero.x - mon.x) + Math.abs(hero.y - mon.y);
-    chk('3d 敵から離れてから飲んでいる', distWhenDrunk > 1, distWhenDrunk);
-    const hpAtDrink = hero.hp;
-    chk('3e 飲んだ瞬間には効いていない', hpAtDrink <= hp0 + 1, hpAtDrink);
+    chk('3c いずれ休憩に入る', hero.potionUsed === true && hero.stallKind === 'rest', hero.stallKind);
+    const dist = Math.abs(hero.x - mon.x) + Math.abs(hero.y - mon.y);
+    chk('3d 敵から離れてから休む', dist > 1, dist);
+    const hpAtRest = hero.hp;
+    // 敵を片付けて、休みきれるようにする（居座られると下の 4 のとおり中断される）
+    monsters.length = 0;
     tick(40);
-    const hpMid = hero.hp;
-    chk('3f じわじわ増える', hpMid > hpAtDrink, hpAtDrink + ' → ' + hpMid);
-    chk('3g HPは整数のまま', Number.isInteger(hero.hp), hero.hp);
-    // 効き終わるまで
+    chk('3e 休んでいるあいだは回復する', hero.hp > hpAtRest, hpAtRest + ' → ' + hero.hp);
+    chk('3f HPは整数のまま', Number.isInteger(hero.hp), hero.hp);
+    // 休みきるまで
     guard = 0;
-    while (gameTime < hero.regenUntil + FI * 2 && guard++ < 2000) tick();
+    while (hero.stallKind === 'rest' && guard++ < 2000) tick();
     const healed = hero.hp - hp0;
     const want = Math.round(hero.maxHp * POTION_HEAL);
-    chk('3h 合計の回復量はおよそ maxHp×POTION_HEAL', Math.abs(healed - want) <= 2, healed + ' / ' + want);
-    chk('3i 効き終わったら止まる', hero.hp <= hero.maxHp);
+    chk('3g 休みきれば maxHp×POTION_HEAL ぶん回復する', Math.abs(healed - want) <= 2, healed + ' / ' + want);
+    chk('3h 休み終わったら回復も止まる', hero.hp <= hero.maxHp);
+  }
+
+  // ---- 4. 休憩は近づかれたら中断し、回復もそこで終わる ----
+  {
+    const { cx } = arena();
+    const hy = SKY_LAYERS + 6;
+    const hero = mkHero(cx, hy, { hasPotion: true, potionUsed: false, hp: 10, maxHp: 40, agi: 8 });
+    let guard = 0;
+    while (hero.stallKind !== 'rest' && guard++ < 2000) tick();
+    chk('4a 敵がいなければすぐ休憩に入る', hero.stallKind === 'rest');
+    tick(30);
+    const hpMid = hero.hp;
+    chk('4b 途中まで回復している', hpMid > 10, hpMid);
+    // 休憩の目の前にモンスターを置く
+    monsters.push(makeEntity(hero.x, hero.y + 1, {
+      isHero: false, mtype: 'slime', hp: 999, maxHp: 999, atk: 0, agi: 1, range: 4, color: '#95a5a6',
+    }));
+    guard = 0;
+    while (hero.stallKind === 'rest' && guard++ < 200) tick();
+    chk('4c 近づかれたら休憩を中断する', hero.stallKind !== 'rest', guard + 'tick');
+    const hpAtBreak = hero.hp;
+    tick(40);
+    chk('4d 中断したら回復も止まる（そこまで）', hero.hp === hpAtBreak, hpAtBreak + ' → ' + hero.hp);
+    chk('4e 中断しても薬は戻らない', hero.potionUsed === true);
+    chk('4f 休みきる前なので回復は満額に届かない',
+        hpAtBreak - 10 < Math.round(hero.maxHp * POTION_HEAL), (hpAtBreak - 10));
+  }
+
+  // ---- 5. 怒りの勇者は薬を使い切らない（何度でも休みに戻る） ----
+  {
+    const { cx } = arena();
+    const hy = SKY_LAYERS + 6;
+    const boss = mkHero(cx, hy, { hasPotion: true, potionUsed: false, hp: 10, maxHp: 40, agi: 8, isEnraged: true });
+    let guard = 0;
+    while (boss.stallKind !== 'rest' && guard++ < 2000) tick();
+    chk('5a 怒りの勇者も休憩に入る', boss.stallKind === 'rest');
+    // 1回目の休憩を最後まで
+    guard = 0;
+    while (boss.stallKind === 'rest' && guard++ < 2000) tick();
+    chk('5b 休み終わっても薬は残る（使い切らない）', boss.potionUsed === false && !boss.potionPhase,
+        boss.potionUsed + '/' + boss.potionPhase);
+    // 間をおかないと次の休憩には入らない
+    boss.hp = 5;
+    tick(4);
+    chk('5c すぐには休み直さない（間がある）', boss.stallKind !== 'rest', boss.stallKind);
+    guard = 0;
+    while (boss.stallKind !== 'rest' && guard++ < 2000) tick();
+    chk('5d 間をおけばまた休みに入る', boss.stallKind === 'rest', guard + 'tick');
+    // 普通の勇者は1回きり
+    const { cx: cx2 } = arena();
+    const hero = mkHero(cx2, SKY_LAYERS + 6, { hasPotion: true, potionUsed: false, hp: 10, maxHp: 40, agi: 8 });
+    guard = 0;
+    while (hero.stallKind !== 'rest' && guard++ < 2000) tick();
+    guard = 0;
+    while (hero.stallKind === 'rest' && guard++ < 2000) tick();
+    hero.hp = 5;
+    tick(300);
+    chk('5e 普通の勇者は1回きり', hero.potionUsed === true && hero.stallKind !== 'rest', hero.stallKind);
   }
 
   process.stdout.write(JSON.stringify(out, null, 1) + '\n');

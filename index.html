@@ -162,32 +162,20 @@
                HUD行と掲示板は width:0 + min-width:100% で「列幅を広げないが列幅いっぱいに広がる」
                ＝ 3段の左右の位置が必ずそろう。 */
             grid-template-columns: max-content;
-            grid-template-areas: "hud" "ticker" "stage";
+            grid-template-areas: "hud" "ticker" "stage" "bar";
             justify-items: stretch; align-items: start;
             row-gap: 8px;
             flex-shrink: 0; max-width: 100%;
         }
-        /* HUD は上から「勇者 / 所持金 / あくま部屋」の3段。どれも盤面の中心線に載せる。
-           1段目だけ左にハンバーガーが要るので、左右に同じ幅の柱(1fr)を立てて中央を動かさない。
-           ★ 左にだけ物を置いて justify-content:space-between にすると、
-             中央のものが右へずれて見える（これが「中心にきてない」の正体だった）。 */
+        /* ===== 上は「見るだけ」・下は「押すだけ」 =====
+           操作が上・左・右・ポップオーバーの4か所に散っていて、視線の起点が定まらなかった。
+           状態（勇者・所持金）だけを上に残し、押すものは全部 #cmdBar（下部）へ集めた。 */
         #gameHud {
             grid-area: hud; width: 0; min-width: 100%;
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            grid-template-areas:
-                "acts hero gutter"
-                "cur  cur  cur"
-                "dash dash dash";
-            align-items: start; justify-items: center;
-            row-gap: var(--s-h2);
+            display: flex; flex-direction: column; align-items: center;
+            gap: var(--s-h2);
         }
-        #gameActionsWrap { grid-area: acts; justify-self: start; position: relative; }
-        #hudTopCenter    { grid-area: hero; min-width: 0; }
-        #currencyUI      { grid-area: cur; }
-        #dashboard       { grid-area: dash; width: auto; }
-        /* HUD に来た操作ボタンは横に並べる（縦に積むと盤面が下へ追い出される） */
-        #dashboard .btn-group { flex-direction: row; flex-wrap: wrap; justify-content: center; width: auto; }
+        #hudTopCenter { min-width: 0; }
         #tickerBar       { grid-area: ticker; width: 0; min-width: 100%; }
         #canvasContainer { grid-area: stage; }
 
@@ -300,7 +288,6 @@
         @keyframes screenFade { from { opacity: 0; } to { opacity: 1; } }
 
         /* あくま部屋操作群（強化パネルの下・右カラム） */
-        #dashboard { width: 100%; box-sizing: border-box; }
         .btn-group { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
         button {
             padding: 8px 16px; font-size: 14px; cursor: pointer;
@@ -326,20 +313,14 @@
         }
         .btn-castle:hover { background: #1a2860; border-color: var(--c-frame); }
         .btn-castle.active { background: #6a1010; border-color: #cc2200; color: #ffaaaa; box-shadow: 0 0 8px rgba(200,0,0,0.4); }
-        /* あくま部屋作成は正方形の専用ボタンに */
-        .btn-castle-square {
-            width: 84px; height: 84px; padding: 0;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 2px; flex-shrink: 0;
-        }
-        .btn-castle-square .castle-btn-icon { font-size: 24px; line-height: 1; }
-        .btn-castle-square .castle-btn-label { font-size: 12px; }
-        .btn-castle-square .castle-btn-cost { font-size: 12px; color: var(--c-gold); font-weight: bold; }
         
         #canvasContainer {
             /* 幅は canvas の実寸（COLS × TILE_SIZE）に従わせる＝盤面が左右対称に収まる */
             width: max-content;
-            height: min(920px, calc(100vh - 190px));
+            /* 画面の高さから、上のHUD・掲示板・下部コマンドバーのぶんを引く。
+               ★ 段を足したらこの数字も足すこと。合っていないと盤面の下が画面から切れるか、
+                 下部バーが画面外へ押し出されて押せなくなる。 */
+            height: min(920px, calc(100vh - 220px));
             overflow-y: auto; overflow-x: hidden;
             border: 4px solid var(--c-frame);
             box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px var(--c-frame);
@@ -389,31 +370,31 @@
             #message { animation: none; padding-left: 10px; }
         }
 
-        /* ===== プレイ画面左上：速度・ポーズ・音・追尾・撤退（ハンバーガーに格納） ===== */
-        #gameActionsBtn {
-            font-size: 1.1rem; line-height: 1; padding: 6px 12px;
-            background: #2c3e50; border: 1px solid #7f8c8d; border-radius: 4px;
-            color: white; cursor: pointer; margin: 0;
+        /* ===== 下部コマンドバー（盤面の下・盤面と同じ幅） =====
+           速度・ポーズ・音・追尾・撤退・あくま部屋作成を1本に並べる。
+           以前はハンバーガーの中に隠していたが、早送りとポーズは最も使うものなので
+           1手かけて開かせる理由が無かった。 */
+        #cmdBar {
+            grid-area: bar; width: 0; min-width: 100%;
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+            gap: var(--s-1);
+            background: var(--c-panel); border: 2px solid var(--c-frame-dim);
+            border-radius: var(--radius); padding: var(--s-1);
+            box-sizing: border-box;
         }
-        #gameActionsBtn:hover { background: #34495e; }
-        #gameActionsBtn.open { background: #34495e; border-color: #aabbcc; }
-        /* メニュー本体だけは意図的な重ね（ポップオーバー）。開いている間しか出ない。 */
-        #gameActionsMenu {
-            display: none; flex-direction: column; gap: 4px;
-            position: absolute; top: calc(100% + 4px); left: 0; z-index: 101;
-            min-width: 110px; background: rgba(20,30,45,0.97);
-            border: 1px solid #7f8c8d; border-radius: 4px; padding: 6px;
+        #cmdBar button {
+            margin: 0; width: auto; font-size: 12px; padding: var(--s-h2) var(--s-2);
+            background: #0a1840; border: 2px solid var(--c-frame-dim); color: #aaccff;
+            display: inline-flex; align-items: center; gap: var(--s-1); white-space: nowrap;
         }
-        #gameActionsMenu.open { display: flex; }
-        #gameActionsMenu button {
-            width: 100%; text-align: left; margin: 0;
-            font-size: 12px; padding: 6px 10px;
-            background: #2c3e50; border: 1px solid #7f8c8d; border-radius: 4px;
-            color: white; cursor: pointer;
-        }
-        #gameActionsMenu button:hover { background: #34495e; }
-        #retreatBtn { background: #aa2244; border-color: #ff4466; }
-        #retreatBtn:hover { background: #c22a50; }
+        #cmdBar button:hover:not(:disabled) { background: #1a2860; border-color: var(--c-frame); }
+        /* 一番よく押すものだけ色で立てる（並びの中で迷わせない） */
+        #cmdBar .cmd-primary { border-color: var(--c-frame); color: #ffffff; }
+        #cmdBar .cmd-primary .castle-btn-cost { color: var(--c-gold); font-weight: bold; }
+        /* 「作る」と「操作する」の区切り。線1本で群を分ける */
+        .cmd-sep { width: 1px; align-self: stretch; background: var(--c-frame-faint); }
+        #retreatBtn { background: #aa2244; border-color: #ff4466; color: #ffffff; }
+        #retreatBtn:hover:not(:disabled) { background: #c22a50; }
 
         /* ===== 右カラム：強化パネル＋あくま部屋操作を縦に並べる ===== */
         #rightColumn {
@@ -1498,18 +1479,6 @@
           <!-- HUD行：左＝メニュー / 中央＝勇者 / 右＝所持金。
                掲示板・盤面と同じ幅の中で左右に振り分けるので、横位置が3段そろう。 -->
           <div id="gameHud">
-            <!-- 速度・ポーズ・音・追尾・撤退はハンバーガーにまとめる（左上） -->
-            <div id="gameActionsWrap">
-                <button id="gameActionsBtn" onclick="toggleGameActionsMenu()" title="メニュー">≡</button>
-                <div id="gameActionsMenu">
-                    <button id="speedBtn" onclick="toggleSpeed()">▶▶ 早送り</button>
-                    <button id="pauseBtn" onclick="togglePause()"><svg class="ico"><use href="#i-pause"/></svg> ポーズ</button>
-                    <button id="muteBtn" onclick="toggleMute()"><svg class="ico"><use href="#i-sound"/></svg> 音</button>
-                    <button id="followBtn" onclick="toggleFollow()" title="最前線の勇者をカメラで追う"><svg class="ico"><use href="#i-target"/></svg> 追尾</button>
-                    <button id="retreatBtn" onclick="retreatCashOut()" style="display:none;"><svg class="ico"><use href="#i-retreat"/></svg> 撤退</button>
-                </div>
-            </div>
-
             <!-- 勇者ステータス＋予告＋ボスHP（中央セル・縦積み） -->
             <div id="hudTopCenter">
                 <div id="heroStatsUI">
@@ -1537,19 +1506,6 @@
                 <div id="goldUI"><svg class="ico"><use href="#i-coin"/></svg> <span id="goldAmount">50</span> G</div>
             </div>
 
-            <!-- あくま部屋の設置。所持金の下＝盤面の中心線の上に置く（要望 2026-09-10） -->
-            <div id="dashboard">
-                <div class="btn-group">
-                    <button class="btn-castle btn-castle-square" id="castleBtn" onclick="toggleCastleMode()" title="あくま部屋を作成・移動（初回は無料、以降は有料）">
-                        <span class="castle-btn-icon"><svg class="ico-2x"><use href="#i-castle"/></svg></span>
-                        <span class="castle-btn-label" id="castleBtnLabel">作成</span>
-                        <span class="castle-btn-cost" id="castleBtnCost">0G</span>
-                    </button>
-                    <button class="btn-castle" id="colSkipBtn" onclick="colSkipPrep()" style="display:none; font-size:14px; padding:10px 14px;"><svg class="ico"><use href="#i-sword"/></svg> 早出し</button>
-                    <button class="btn-castle" id="colRepairBtn" onclick="colRepairCastle()" style="display:none; font-size:14px; padding:10px 14px;"><svg class="ico"><use href="#i-wrench"/></svg> 修復(100 G)</button>
-                    <button class="btn-castle" id="levelPanelToggleBtn" onclick="toggleLevelPanel()" style="font-size:14px; padding:10px 14px;"><svg class="ico"><use href="#i-flask"/></svg> 強化 ▲</button>
-                </div>
-            </div>
           </div>
 
             <!-- 電光掲示板：お知らせは右から左へ流れる -->
@@ -1557,6 +1513,26 @@
 
             <div id="canvasContainer">
                 <canvas id="gameCanvas"></canvas>
+            </div>
+
+            <!-- 下部コマンドバー：「今すること」を全部ここに集める（要望 2026-09-11）。
+                 上は見るだけ・下は押すだけ、と役割で分ける。 -->
+            <div id="cmdBar">
+                <button class="btn-castle cmd-primary" id="castleBtn" onclick="toggleCastleMode()"
+                        title="あくま部屋を作成・移動（初回は無料、以降は有料）">
+                    <svg class="ico"><use href="#i-castle"/></svg>
+                    <span id="castleBtnLabel">作成</span>
+                    <span class="castle-btn-cost" id="castleBtnCost">0G</span>
+                </button>
+                <button class="btn-castle" id="colSkipBtn" onclick="colSkipPrep()" style="display:none;"><svg class="ico"><use href="#i-sword"/></svg> 早出し</button>
+                <button class="btn-castle" id="colRepairBtn" onclick="colRepairCastle()" style="display:none;"><svg class="ico"><use href="#i-wrench"/></svg> 修復</button>
+                <span class="cmd-sep"></span>
+                <button id="speedBtn" onclick="toggleSpeed()">▶▶ 早送り</button>
+                <button id="pauseBtn" onclick="togglePause()"><svg class="ico"><use href="#i-pause"/></svg> ポーズ</button>
+                <button id="muteBtn" onclick="toggleMute()"><svg class="ico"><use href="#i-sound"/></svg> 音</button>
+                <button id="followBtn" onclick="toggleFollow()" title="最前線の勇者をカメラで追う"><svg class="ico"><use href="#i-target"/></svg> 追尾</button>
+                <button id="retreatBtn" onclick="retreatCashOut()" style="display:none;"><svg class="ico"><use href="#i-retreat"/></svg> 撤退</button>
+                <button class="btn-castle" id="levelPanelToggleBtn" onclick="toggleLevelPanel()"><svg class="ico"><use href="#i-flask"/></svg> 強化 ▲</button>
             </div>
         </div>
 
@@ -2065,7 +2041,7 @@
     function updateMuteButtons() {
         const label = isMuted ? `${ico('mute')} 消音` : `${ico('sound')} 音`;
         const btn = document.getElementById('muteBtn');
-        if (btn) btn.textContent = label;
+        if (btn) btn.innerHTML = label;      // ★ico() はタグなので textContent に入れない
         const sBtn = document.getElementById('settingsMuteBtn');
         if (sBtn) sBtn.innerHTML = isMuted ? `${ico('mute')} サウンド: OFF` : `${ico('sound')} サウンド: ON`;
         const igBtn = document.getElementById('igMuteBtn');
@@ -3790,15 +3766,9 @@
     function closeMenuPopover() {
         document.getElementById('menuPopover').classList.remove('open');
     }
-    // 速度・ポーズ・音・追尾・撤退（ハンバーガーに格納）
-    function toggleGameActionsMenu() {
-        document.getElementById('gameActionsMenu').classList.toggle('open');
-        document.getElementById('gameActionsBtn').classList.toggle('open');
-    }
-    function closeGameActionsMenu() {
-        document.getElementById('gameActionsMenu').classList.remove('open');
-        document.getElementById('gameActionsBtn').classList.remove('open');
-    }
+    // 速度・ポーズ・音・追尾・撤退は #cmdBar（下部）へ出したので、
+    // それらをしまっていたハンバーガーは無くなった。開閉が残っているのは
+    // モバイルの #menuPopover（お買い物・宝具庫など）だけ。
     // 開いているメニューは、外側を触ったら閉じる。
     // ★ 掘削は mousedown / touchstart で始まる（click ではない）ので、そこで捕まえる。
     //   click まで待つと「閉じるつもりの1回目」で1マス掘ってしまい、ゴールドが減る。
@@ -3811,10 +3781,6 @@
             return (menu && menu.contains(e.target)) || (btn && btn.contains(e.target));
         };
         let closed = false;
-        const acts = document.getElementById('gameActionsMenu');
-        if (acts && acts.classList.contains('open') && !inside('gameActionsMenu', 'gameActionsBtn')) {
-            closeGameActionsMenu(); closed = true;
-        }
         const pop = document.getElementById('menuPopover');
         if (pop && pop.classList.contains('open') && !inside('menuPopover', 'menuFAB')) {
             closeMenuPopover(); closed = true;
@@ -5208,7 +5174,7 @@
         // 撤退ボタンは standard/hard で表示（standardは常時＝ラン終了、hardは波の合間のみ＝利確）。
         // コロシアムは「耐えるだけ」なので撤退という概念を持たない（タイトルへ抜けるのみ）。
         const rBtn = document.getElementById('retreatBtn');
-        rBtn.style.display = isColosseum() ? 'none' : 'block';
+        rBtn.style.display = isColosseum() ? 'none' : '';   // '' で CSS 側の inline-flex に戻す
         rBtn.style.opacity = '1';
         rBtn.innerHTML = `${ico('retreat')} 撤退`;
         updateLevHUD();

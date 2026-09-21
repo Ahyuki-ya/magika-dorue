@@ -319,7 +319,8 @@
             width: max-content;
             /* 画面の高さから、上のHUD・掲示板・下部コマンドバーのぶんを引く。
                ★ 段を足したらこの数字も足すこと。合っていないと盤面の下が画面から切れるか、
-                 下部バーが画面外へ押し出されて押せなくなる。 */
+                 下部バーが画面外へ押し出されて押せなくなる。
+               ※ 横3列（幅1001px以上）ではこの値は使わず、下の「一画面に固定」ルールで残りの高さいっぱいになる。 */
             height: min(920px, calc(100vh - 220px));
             overflow-y: auto; overflow-x: hidden;
             border: 4px solid var(--c-frame);
@@ -391,8 +392,23 @@
         /* 一番よく押すものだけ色で立てる（並びの中で迷わせない） */
         #cmdBar .cmd-primary { border-color: var(--c-frame); color: #ffffff; }
         #cmdBar .cmd-primary .castle-btn-cost { color: var(--c-gold); font-weight: bold; }
+        /* あくま部屋ボタンは上の所持金（#goldUI/#diamondUI）と同じ「横長の札」にする（要望 2026-09-21）。
+           高さは他のボタンとそろえ（バーの高さ＝盤面の高さ計算に響く）、横にだけ伸ばす */
+        #cmdBar #castleBtn {
+            min-width: 150px; justify-content: center;
+            padding: var(--s-h2) 16px; font-size: 14px; font-weight: bold;
+            border-radius: 2px; border: 2px solid var(--c-frame); background: var(--c-panel);
+        }
+        #cmdBar #castleBtn.active { background: #6a1010; border-color: #cc2200; color: #ffaaaa; }
         /* 「作る」と「操作する」の区切り。線1本で群を分ける */
         .cmd-sep { width: 1px; align-self: stretch; background: var(--c-frame-faint); }
+        /* 文言が変わるボタンは、長いほうの文言の幅を最初から取っておく。
+           幅が変わると中央寄せのバー全体が左右に動き、押そうとした所から逃げる（要望 2026-09-21） */
+        #cmdBar button { justify-content: center; }
+        #speedBtn   { min-width: 112px; }   /* ▶▶ 早送り ／ ‖ 通常速度 */
+        #pauseBtn   { min-width: 88px; }    /* ‖ ポーズ ／ ▶ 再開 */
+        #muteBtn    { min-width: 72px; }    /* 音 ／ 消音 */
+        #retreatBtn { min-width: 112px; }   /* 撤退 ／ 波の合間に */
         #retreatBtn { background: #aa2244; border-color: #ff4466; color: #ffffff; }
         #retreatBtn:hover:not(:disabled) { background: #c22a50; }
 
@@ -421,7 +437,7 @@
             max-width: min(94vw, 560px);
         }
         #heroStatsUI {
-            display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+            display: flex; align-items: center; flex-wrap: nowrap; gap: 10px; white-space: nowrap;
             font-size: 12px; font-weight: bold; color: var(--c-text);
             background: var(--c-panel); padding: 6px 14px;
             border-radius: 2px; border: 2px solid var(--c-frame);
@@ -434,8 +450,17 @@
             font-size: 16px; color: var(--c-gold); font-weight: bold;
         }
         #heroStatsUI .hero-stat-row {
-            display: flex; gap: 6px; flex-wrap: wrap;
+            display: flex; gap: 6px; flex-wrap: nowrap;
         }
+        /* 数字の桁が増えても札の幅が揺れないよう、桁ぶんの幅を先に取っておく（等幅フォント） */
+        #hAtk, #hAgi, #hHp, #depthUI, #hLv { display: inline-block; text-align: right; }
+        #hAtk, #hAgi { min-width: 3ch; }
+        #hHp { min-width: 5ch; }
+        #depthUI { min-width: 4ch; }
+        #hLv { min-width: 2ch; }
+        #goldAmount, #diamondAmount { display: inline-block; text-align: right; }
+        #goldAmount { min-width: 6ch; }
+        #diamondAmount { min-width: 4ch; }
         #heroStatsUI .hero-stat-chip {
             background: rgba(68,102,204,0.18); border-radius: 2px;
             padding: 2px 6px; font-size: 12px; color: #aabbdd;
@@ -752,6 +777,32 @@
             #minimap { display: none !important; }   /* 縦積みでは左に置き場が無い */
         }
 
+        /* ===== 横3列のときは「一画面に固定」（要望 2026-09-21） =====
+           ・左右の列（メニュー／強化）は 1fr ずつの枠に寄せる → メニューを畳んでも盤面は動かない
+           ・盤面は残りの高さいっぱい → HUD の中身が変わっても下部バーが画面外に押し出されない
+           ・画面そのものはスクロールさせない（見えている所で全部押せる）
+           display は showScreenOnly が inline で flex を入れるので、プレイ中の印（body.screen-game）
+           が付いているときだけ !important で grid に差し替える（非表示の none は邪魔しない）。 */
+        @media (min-width: 1001px) {
+            body.screen-game #gameScreen {
+                display: grid !important;
+                grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+                grid-template-rows: minmax(0, 1fr);
+                grid-template-areas: "left center right";
+                column-gap: 14px; align-items: start;
+                overflow: hidden;
+            }
+            #gameScreen > #sidePanelLeft,
+            #gameScreen > #sidePanelOpenHandle { grid-area: left; justify-self: end; }
+            #gameScreen > #gameCenter {
+                grid-area: center; align-self: stretch; min-height: 0;
+                grid-template-rows: auto auto minmax(0, 1fr) auto;
+            }
+            #gameScreen > #rightColumn { grid-area: right; justify-self: start; max-height: 100%; min-height: 0; }
+            #gameScreen #canvasContainer { height: auto; align-self: stretch; min-height: 0; }
+            #levelPanel { max-height: calc(100vh - 24px); }
+        }
+
         @media (max-width: 640px) {
             .title { font-size: 2.2rem; letter-spacing: 2px; margin-bottom: 16px; }
             #carryOverUI { font-size: 0.9rem !important; padding: 8px 16px !important; margin-bottom: 12px !important; }
@@ -897,18 +948,34 @@
             100% { box-shadow: 0 0 0 1px #000080, 0 0 0 5px #000080, 0 0 0 6px var(--c-frame); }
         }
         /* ボスHP：文字にも縁取りを入れて背景と干渉しても読めるように（P4-9） */
+        /* ===== 予告・ボスHPの行（高さ固定・要望 2026-09-21） =====
+           以前は出る・消えるたびに行ごと増減し、盤面と下部バーが上下に押されていた。
+           行の高さを先に確保し、左＝予告・右＝ボスHP の固定の置き場に入れる。 */
+        #hudAlertRow {
+            display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+            column-gap: 8px; align-items: center;
+            width: 100%; height: 26px;
+        }
+        #hudAlertRow > #nextHeroUI { justify-self: end; white-space: nowrap; }
+        #hudAlertRow > #bossHpUI   { justify-self: start; }
+        /* コロシアムは予告が長く、ボスと同時には出ない（準備中は勇者がいない）ので中央1枠にする */
+        #hudAlertRow.single > #nextHeroUI,
+        #hudAlertRow.single > #bossHpUI { grid-column: 1 / -1; grid-row: 1; justify-self: center; }
         #bossHpUI {
-            display: none; width: 260px;
+            display: flex; align-items: center; gap: 8px;
+            visibility: hidden; width: 240px; box-sizing: border-box;
             background: rgba(30,0,0,0.92); border: 2px solid #aa2200;
-            border-radius: var(--radius); padding: 6px 10px;
+            border-radius: var(--radius); padding: 2px 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.55);
         }
+        #bossHpUI.on { visibility: visible; }
         #bossHpUI .boss-label {
-            font-size: 12px; color: #ff8866; letter-spacing: 2px;
-            text-align: center; margin-bottom: 4px; font-weight: bold;
+            font-size: 12px; color: #ff8866; letter-spacing: 1px; white-space: nowrap;
+            font-weight: bold;
             text-shadow: 0 1px 0 #000, 0 0 4px rgba(0,0,0,0.9);
         }
         #bossHpUI .boss-bar-track {
+            flex: 1 1 auto;
             height: 8px; background: #200; border: 1px solid #661100;
             box-shadow: inset 0 1px 0 rgba(0,0,0,0.6);
         }
@@ -921,6 +988,7 @@
             font-size: 12px; color: var(--c-text-sub); min-height: 14px;
             text-shadow: 0 1px 0 #000; text-align: center;
         }
+        #nextHeroUI { border: 1px solid transparent; padding: 2px 10px; }
         #nextHeroUI:not(:empty) {
             background: rgba(0,8,32,0.85); border: 1px solid #2a3a6a;
             border-radius: 2px; padding: 2px 10px;
@@ -1494,10 +1562,13 @@
                     <div id="colArmyUI" style="display:none; font-size:12px; color:var(--c-text-sub);"><svg class="ico"><use href="#i-sword"/></svg> 兵 <span id="colArmyNum">0</span>/<span id="colArmyCap">100</span>　<svg class="ico"><use href="#i-egg"/></svg> 繁殖 <span id="colBredNum">0</span>/<span id="colBredCap">12</span>　<svg class="ico"><use href="#i-gate"/></svg> 開通した門 <span id="colGateNum">0</span>/4 <span id="colGateNames" style="color:#ffcc44;"></span></div>
                 </div>
                 <!-- 勇者の予告は勇者ウィンドウの外（独立した行）。重なりようがない。 -->
-                <div id="nextHeroUI"></div>
-                <div id="bossHpUI">
-                    <div class="boss-label"><svg class="ico"><use href="#i-warn"/></svg> 怒りの勇者</div>
-                    <div class="boss-bar-track"><div class="boss-bar-fill" id="bossHpFill"></div></div>
+                <!-- 予告とボスHPは高さ固定の1行に左右で並べる。出る・消えるで下の盤面を押さないため -->
+                <div id="hudAlertRow">
+                    <div id="nextHeroUI"></div>
+                    <div id="bossHpUI">
+                        <div class="boss-label"><svg class="ico"><use href="#i-warn"/></svg> 怒りの勇者</div>
+                        <div class="boss-bar-track"><div class="boss-bar-fill" id="bossHpFill"></div></div>
+                    </div>
                 </div>
             </div>
 
@@ -1728,19 +1799,33 @@
     // 盤面の左に空きがあるだけ横に広げると、画面が広いほど「ほぼ空の大きな箱」になる。
     // ミニマップは全体を俯瞰するためのものなので、幅の上限を決めておく。
     const MINIMAP_MAX_W = 140;
-    // 画面左端～プレイ画面左端の余白いっぱいに置く（左パネルの下から画面下端まで）
+    // 左上のメニュー（#sidePanelLeft）と同じ列に置く（要望 2026-09-21）。
+    // メニューの真下から画面下端まで・幅もメニューにそろえる。畳んでいるときは開くハンドルの列。
     function positionMinimap() {
         const c = document.getElementById('canvasContainer');
         if (!c || !minimap) return;
         if (getComputedStyle(minimap).display === 'none') return;   // モバイルでは非表示
         const rect = c.getBoundingClientRect();
         const panel = document.getElementById('sidePanelLeft');
+        const handle = document.getElementById('sidePanelOpenHandle');
         const collapsed = !panel || panel.classList.contains('collapsed');
         const pr = collapsed ? null : panel.getBoundingClientRect();
-        const top = Math.round((pr && pr.height ? pr.bottom : 44) + MINIMAP_MARGIN);
-        const w = Math.round(Math.min(MINIMAP_MAX_W, Math.max(72, rect.left - MINIMAP_MARGIN * 2 - 4)));
+        const hr = (collapsed && handle) ? handle.getBoundingClientRect() : null;
+        const col = (pr && pr.width) ? pr : (hr && hr.width ? hr : null);
+        const top = Math.round((col ? col.bottom : 44) + MINIMAP_MARGIN);
+        // 列の幅にそろえる。canvas の width は枠線(2px×2)を含まないので、そのぶん引く。
+        // ハンドルだけのとき（畳んだとき）は細すぎるので、ハンドルの右端にそろえて左へ広げる
+        //（盤面側へ広げると盤面に重なる）
+        let w, left;
+        if (pr && pr.width) { w = pr.width - 4; left = pr.left; }
+        else {
+            const right = hr && hr.width ? hr.right : rect.left - MINIMAP_MARGIN;
+            w = Math.min(MINIMAP_MAX_W, right - MINIMAP_MARGIN - 4);
+            left = right - w - 4;
+        }
+        w = Math.round(Math.max(72, w)); left = Math.round(Math.max(0, left));
         const h = Math.round(Math.max(140, window.innerHeight - top - MINIMAP_MARGIN));
-        minimap.style.left = MINIMAP_MARGIN + 'px';
+        minimap.style.left = left + 'px';
         minimap.style.top = top + 'px';
         // canvas の width/height 代入は内容を消すので、変化したときだけ
         if (minimap.width !== w || minimap.height !== h) { minimap.width = w; minimap.height = h; }
@@ -4429,6 +4514,62 @@
         return { pCopper: 0.33 * d, pMoss: 0.33 * d };
     }
 
+    // ===== 地層（standard / hard のみ・要望 2026-09-21） =====
+    // oreProbAt だけだと深度200以降は「銅33・苔33・石34」の一色になり、どこまで掘っても景色が変わらない。
+    // そこで深度 STRATA_START 以降、ふつうの混ざった層のあいだに
+    // 「ほぼ石」「ほぼ銅鉱石」「ほぼ苔」の層を、ほどほどの厚さでランダムに挟む。
+    // 計画は掘り進んだぶんだけ先に延ばす（＝浅い所しか使わないランは乱数を1つも消費しない）。
+    const STRATA_START = 40;          // この深度より浅い所には挟まない
+    const STRATA_THICK = [6, 14];     // 1枚の厚さ（行）
+    const STRATA_GAP   = [10, 28];    // 地層と地層のあいだの「ふつうの層」の厚さ（行）
+    const STRATA_KINDS = ['stone', 'copper', 'moss'];
+    const STRATA_MINOR = 0.10;        // 主成分でない鉱石1種あたりの割合
+    let strata = [];                  // [{start, end, kind}]（深度・end は含まない・start 昇順）
+    let strataPlanned = STRATA_START; // ここまでの深度は計画済み
+    function strataReset() { strata = []; strataPlanned = STRATA_START; }
+    function strataRand(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+    function strataAt(depth) {
+        if (gameMode !== 'standard' && gameMode !== 'hard') return null;
+        if (depth < STRATA_START) return null;
+        while (strataPlanned <= depth) {
+            const start = strataPlanned + strataRand(STRATA_GAP[0], STRATA_GAP[1]);
+            const end = start + strataRand(STRATA_THICK[0], STRATA_THICK[1]);
+            const prev = strata.length ? strata[strata.length - 1].kind : null;
+            const pool = STRATA_KINDS.filter(k => k !== prev);   // 同じ種類を2枚続けない
+            strata.push({ start, end, kind: pool[Math.floor(Math.random() * pool.length)] });
+            strataPlanned = end;
+        }
+        // start 昇順なので二分探索（深い行を何度も引くテストでも軽く）
+        let lo = 0, hi = strata.length - 1;
+        while (lo <= hi) {
+            const mid = (lo + hi) >> 1, b = strata[mid];
+            if (depth < b.start) hi = mid - 1;
+            else if (depth >= b.end) lo = mid + 1;
+            else return b;
+        }
+        return null;
+    }
+    // 地層を反映した銅・苔の確率。地層の外は oreProbAt そのまま。
+    function layeredOreAt(y) {
+        const base = oreProbAt(y);
+        const depth = y - (SKY_LAYERS + 1);
+        const band = strataAt(depth);
+        if (!band) return base;
+        // 銅・苔の層は浅いほど控えめ（深度40で約50%→深度200以降75%）。浅い所で強い兵が湧きすぎないように
+        const main = 0.45 + 0.30 * Math.min(1, depth / 200);
+        let pCopper, pMoss;
+        if      (band.kind === 'copper') { pCopper = main;         pMoss = STRATA_MINOR; }
+        else if (band.kind === 'moss')   { pCopper = STRATA_MINOR; pMoss = main; }
+        else                             { pCopper = STRATA_MINOR * Math.min(1, depth / 200) + 0.02;
+                                           pMoss   = pCopper; }            // ほぼ石
+        // 地層の上端と下端の1行は周りと半々に混ぜ、境目をなじませる
+        if (depth === band.start || depth === band.end - 1) {
+            pCopper = (pCopper + base.pCopper) / 2;
+            pMoss   = (pMoss   + base.pMoss)   / 2;
+        }
+        return { pCopper, pMoss };
+    }
+
     // 深層鉱石の確率。
     // 闇水晶(7): レイス解禁時のみ。深度100から出現し、深度300で12%上限まで線形上昇。
     //   → 銅/石/苔と同様に「基本分布ロール」で発生（レバレッジ変調なし）。
@@ -4443,7 +4584,7 @@
     }
 
     function generateRow(y) {
-        const { pCopper, pMoss } = oreProbAt(y);
+        const { pCopper, pMoss } = layeredOreAt(y);
         let { pDark, pGem } = extraOreAt(y);
         // 宝石鉱脈：レバレッジ倍率 L を掛ける（standard=×1、hard=×L）。深度1000で 標準0.5%×L。
         pGem *= leverage.mult;
@@ -4547,6 +4688,7 @@
     }
 
     function generateMap() {
+        strataReset();
         COLS = BASE_COLS;
         canvas.width = COLS * TILE_SIZE;
         ROWS = INITIAL_ROWS;
@@ -5195,7 +5337,8 @@
         document.getElementById('gameScreen').style.setProperty(
             '--stage-w', (COLS * TILE_SIZE + 8) + 'px');
         // ボスUIリセット
-        document.getElementById('bossHpUI').style.display = 'none';
+        document.getElementById('bossHpUI').classList.remove('on');
+        document.getElementById('hudAlertRow').classList.toggle('single', isColosseum());
         bossUIVisible = false;
         document.getElementById('bossWarning').style.display = 'none';
         updateNextHeroUI(null);
@@ -6187,11 +6330,11 @@
         const boss = heroes.find(h => h.isEnraged && h.hp > 0);
         const ui = document.getElementById('bossHpUI');
         if (boss) {
-            if (!bossUIVisible) { ui.style.display = 'block'; bossUIVisible = true; }
+            if (!bossUIVisible) { ui.classList.add('on'); bossUIVisible = true; }
             document.getElementById('bossHpFill').style.width =
                 `${Math.max(0, boss.hp / boss.maxHp * 100)}%`;
         } else if (bossUIVisible) {
-            ui.style.display = 'none'; bossUIVisible = false;
+            ui.classList.remove('on'); bossUIVisible = false;
         }
     }
     // 撃破時の大量パーティクル

@@ -53,6 +53,8 @@ function oreProbAt(y) {
 ```
 Depth 0 = 0% ore, depth 200 (y=203) = 33% copper / 33% moss / 34% stone.
 
+**地層（standard / hard・2026-09-21）:** 深度200以降が一色になるのを避けるため、`generateRow` は `layeredOreAt(y)` を使う。深度40以降、ふつうの層（10〜28行）のあいだに「ほぼ石／ほぼ銅／ほぼ苔」の層（6〜14行・同種2連続なし）を挟む。銅・苔層の主成分は深度40で約51%→深度200以降75%、他は各10%。層の上下端1行は周囲と半々。計画 `strata[]` は掘った深さぶんだけ遅延生成（浅いランは乱数を消費しない＝sim ハッシュ不変）、`generateMap()` で `strataReset()`。闇水晶・宝石鉱脈の確率は層の影響を受けない。
+
 Map starts at `INITIAL_ROWS = 23` and grows dynamically via `expandMap()` as the player digs. Moss propagation runs both in `generateMap()` and per-row in `expandMap()`.
 
 ### Entity System
